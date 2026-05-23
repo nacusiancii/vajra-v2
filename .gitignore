@@ -1,1 +1,18 @@
+# Archived previous iteration — kept locally for reference, not tracked
+archive/
+
+# Cloned skills repo — vendored locally, not tracked
 matt-pocock-skills/
+
+# Node
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+out/
+build/
+
+# Editor / OS
+.DS_Store
+*.log
