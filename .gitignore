@@ -13,6 +13,9 @@ dist/
 out/
 build/
 
+# Claude Code local-only settings (per-machine approvals etc.)
+.claude/settings.local.json
+
 # Editor / OS
 .DS_Store
 *.log
