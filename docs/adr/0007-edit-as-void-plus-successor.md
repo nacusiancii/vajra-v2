@@ -1,0 +1,13 @@
+### Edits are voids with a successor — never in-place mutations
+
+The cashier-facing action for correcting a finished transaction is labelled **Edit**, and from their perspective behaves like editing: open the transaction, change a field, save, new slip prints, old slip torn up. Internally, no field on a finished transaction is ever mutated. The original row is marked **Voided** (its values frozen), a fresh transaction is created with the corrected values, and a **Successor** reference is stored on the voided row pointing to its replacement. Chains may grow arbitrarily long if the same logical entry is corrected multiple times in a day; only the live tip — the most recent un-voided member — contributes to the Inventory projection and to live totals. The full chain surfaces on the End of Day Report's Audit sheet for traceability.
+
+We chose this because immutability of finished transactions is the foundation under everything else — the projection model, the Excel-formula auditability, the iterative Rollover loop. In-place edits would force the projection to handle "as-of" versions, the EOD formulas to handle replaced values, and the printed slip in the customer's hand to silently diverge from Vajra's records. Voiding-plus-successor preserves both UX ("I can fix typos") and integrity ("nothing ever silently changes") at the cost of a slightly more elaborate audit sheet that the shopkeeper opens only when something looks off.
+
+#### Consequences
+
+- Already-voided transactions cannot themselves be voided or edited again. Only the live tip of a chain is mutable. Attempting to edit a voided row is blocked in the UI.
+- Voiding any transaction with downstream stock impact (Sale, Purchase, Stock Transfer) re-projects Inventory immediately. If the result is negative for any Product, Vajra surfaces it as a visible warning on the projection — it does not block the Void. The shopkeeper resolves the underlying real-world issue.
+- Voiding a Credit Sale requires explicit confirmation that the signed Credit Voucher has been recovered or marked void — because the voucher lives in the shopkeeper's drawer (not the customer's pocket), recovery is a physical paper action the cashier must affirm before Vajra proceeds.
+- The Audit sheet of the End of Day Report carries the full chain: original row, voided-at timestamp, Successor ID. Reconciliation-via-Excel can join voided rows to live rows by Successor ID when the shopkeeper needs to.
+- Receipts and Payments do not need special handling because they reference a Customer, not a Voucher; voiding and replacing them is a straightforward chain like any other transaction.
