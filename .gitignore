@@ -16,6 +16,10 @@ build/
 # Claude Code local-only settings (per-machine approvals etc.)
 .claude/settings.local.json
 
+# Test artifacts
+test-results/
+playwright-report/
+
 # Editor / OS
 .DS_Store
 *.log
