@@ -1,12 +1,25 @@
-import { contextBridge } from 'electron'
+import { contextBridge, ipcRenderer } from 'electron'
 import { electronAPI } from '@electron-toolkit/preload'
+import { IPC } from '../shared/api'
+import type { VajraApi } from '../shared/api'
 
-// Custom APIs for renderer
-const api = {}
+const api: VajraApi = {
+  listCustomers: () => ipcRenderer.invoke(IPC.listCustomers),
+  createCustomer: (input) => ipcRenderer.invoke(IPC.createCustomer, input),
+  updateCustomer: (id, input) => ipcRenderer.invoke(IPC.updateCustomer, id, input),
+  deleteCustomer: (id) => ipcRenderer.invoke(IPC.deleteCustomer, id),
+  canDeleteCustomer: (id) => ipcRenderer.invoke(IPC.canDeleteCustomer, id),
 
-// Use `contextBridge` APIs to expose Electron APIs to
-// renderer only if context isolation is enabled, otherwise
-// just add to the DOM global.
+  listProducts: () => ipcRenderer.invoke(IPC.listProducts),
+  createProduct: (input) => ipcRenderer.invoke(IPC.createProduct, input),
+  updateProduct: (id, input) => ipcRenderer.invoke(IPC.updateProduct, id, input),
+  deleteProduct: (id) => ipcRenderer.invoke(IPC.deleteProduct, id),
+  canDeleteProduct: (id) => ipcRenderer.invoke(IPC.canDeleteProduct, id),
+
+  listPlaces: () => ipcRenderer.invoke(IPC.listPlaces),
+  listProductGroups: () => ipcRenderer.invoke(IPC.listProductGroups)
+}
+
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)
