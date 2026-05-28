@@ -30,9 +30,9 @@ test.describe('Navigation', () => {
     await expect(page.getByTestId('placeholder-sale')).toBeVisible()
   })
 
-  test('management link navigates to placeholder', async ({ page }) => {
+  test('management link navigates to Product Master', async ({ page }) => {
     await page.getByTestId('management-links').getByText('Product Master').click()
-    await expect(page.getByTestId('placeholder-product-master')).toBeVisible()
+    await expect(page.getByTestId('product-master-page')).toBeVisible()
   })
 
   test('Vajra header link returns home', async ({ page }) => {
