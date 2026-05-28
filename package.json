@@ -2,6 +2,7 @@
   "name": "vajra",
   "version": "1.0.0",
   "description": "Desktop app shell for Vajra",
+  "homepage": "https://example.com",
   "main": "./out/main/index.js",
   "author": "",
   "scripts": {
