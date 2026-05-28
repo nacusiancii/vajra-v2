@@ -28,12 +28,12 @@ const router = createRouter({
     {
       path: '/product-master',
       name: 'product-master',
-      component: () => import('./views/ProductMasterPlaceholder.vue')
+      component: () => import('./views/ProductMaster.vue')
     },
     {
       path: '/customer-master',
       name: 'customer-master',
-      component: () => import('./views/CustomerMasterPlaceholder.vue')
+      component: () => import('./views/CustomerMaster.vue')
     },
     {
       path: '/inventory',
