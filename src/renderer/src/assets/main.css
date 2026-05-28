@@ -1,0 +1,11 @@
+#app {
+  min-height: 100vh;
+}
+
+.app-shell {
+  display: grid;
+  min-height: 100vh;
+  place-content: center;
+  padding: 48px;
+  text-align: center;
+}

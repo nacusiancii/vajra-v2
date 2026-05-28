@@ -1,7 +1,7 @@
-# Archived previous iteration — kept locally for reference, not tracked
+# Archived previous iteration - kept locally for reference, not tracked
 archive/
 
-# Cloned skills repo — vendored locally, not tracked
+# Cloned skills repo - vendored locally, not tracked
 matt-pocock-skills/
 
 # Node
@@ -19,3 +19,4 @@ build/
 # Editor / OS
 .DS_Store
 *.log
+.eslintcache
