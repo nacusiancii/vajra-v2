@@ -34,7 +34,7 @@ The catalog of things the shop can sell. Survives Rollover unchanged. Each entry
 **Customer Master**:
 The catalog of known counterparties. Survives Rollover unchanged. A single Customer entry serves both directions — the same record is referenced when the counterparty buys (Sale, Receipt) and when they supply (Purchase, Payment). No separate Supplier Master exists.
 
-Each Customer has: a unique **name** (English, required), a **place** (English, required, autocompletes from values already in the DB), an optional **phone**, and optional **Telugu translations** for name and place. Creating a new Customer with a name that already exists is blocked; creating one whose name is *similar to* an existing entry surfaces those matches and offers to reuse them, but the cashier can still proceed if they confirm.
+Each Customer has: a unique **name** (English, required), a **place** (English, required, autocompletes from values already in the DB), an optional **phone**, optional **Telugu translations** for name and place, and an optional **remarks** (single free-text field, overwritable — a sticky note for the shopkeeper, not a log). Creating a new Customer with a name that already exists is blocked; creating one whose name is *similar to* an existing entry surfaces those matches and offers to reuse them, but the cashier can still proceed if they confirm.
 
 UX-only flags about a Customer — e.g., "has ever supplied" used to bias Purchase-screen search — live outside the Customer Master so the master stays a pure identity record.
 _Avoid_: Supplier Master, Vendor, Party.
@@ -46,7 +46,7 @@ _Avoid_: Anonymous customer, guest customer.
 ### Products
 
 **Product**:
-A single SKU identified by its name. Belongs to exactly one Product Group. Is either Packaged or Bulk — never both.
+A single SKU identified by its name. Belongs to exactly one Product Group. Is either Packaged or Bulk — never both. Has an optional **remarks** field (single free-text, overwritable). Type and Default Bag Size are immutable after creation.
 _Avoid_: SKU (as a separate concept), item.
 
 **Product Group**:
