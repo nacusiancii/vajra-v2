@@ -3,12 +3,19 @@
   "include": [
     "electron.vite.config.*",
     "playwright.config.ts",
+    "vitest.config.ts",
     "src/main/**/*",
     "src/preload/**/*",
+    "src/domain/**/*",
+    "src/shared/**/*",
     "tests/**/*"
   ],
   "compilerOptions": {
     "composite": true,
-    "types": ["electron-vite/node"]
+    "types": ["electron-vite/node"],
+    "paths": {
+      "@domain/*": ["./src/domain/*"],
+      "@shared/*": ["./src/shared/*"]
+    }
   }
 }

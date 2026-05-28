@@ -4,6 +4,8 @@
     "src/renderer/src/env.d.ts",
     "src/renderer/src/**/*",
     "src/renderer/src/**/*.vue",
+    "src/domain/**/*",
+    "src/shared/**/*",
     "src/preload/*.d.ts"
   ],
   "compilerOptions": {
@@ -14,6 +16,12 @@
       ],
       "@renderer/*": [
         "./src/renderer/src/*"
+      ],
+      "@domain/*": [
+        "./src/domain/*"
+      ],
+      "@shared/*": [
+        "./src/shared/*"
       ]
     }
   }
