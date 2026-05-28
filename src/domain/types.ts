@@ -1,0 +1,104 @@
+/**
+ * Domain types for Vajra master data.
+ *
+ * These types use the glossary from CONTEXT.md exactly.
+ * "Product type" = Packaged | Bulk.
+ * "Bag Type" = a standard pack weight (25, 30, 50 kg in v2).
+ * "Default Bag Size" = the Bag Type a Bulk Product's stock is measured against.
+ */
+
+export type ProductType = 'packaged' | 'bulk'
+
+export type BagSizeKg = 25 | 30 | 50
+export const BAG_SIZES: readonly BagSizeKg[] = [25, 30, 50] as const
+
+export interface Place {
+  id: number
+  name: string
+}
+
+export interface ProductGroup {
+  id: number
+  name: string
+}
+
+export interface Customer {
+  id: number
+  name: string
+  placeId: number
+  placeName: string
+  phone: string | null
+  nameTe: string | null
+  placeTe: string | null
+  remarks: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface Product {
+  id: number
+  name: string
+  productGroupId: number
+  productGroupName: string
+  type: ProductType
+  defaultBagSizeKg: BagSizeKg | null
+  nameTe: string | null
+  remarks: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export interface CreateCustomerInput {
+  name: string
+  placeName: string
+  phone: string | null
+  nameTe: string | null
+  placeTe: string | null
+  remarks: string | null
+}
+
+export interface UpdateCustomerInput {
+  name: string
+  placeName: string
+  phone: string | null
+  nameTe: string | null
+  placeTe: string | null
+  remarks: string | null
+}
+
+export interface CreateProductInput {
+  name: string
+  productGroupName: string
+  type: ProductType
+  defaultBagSizeKg: BagSizeKg | null
+  nameTe: string | null
+  remarks: string | null
+}
+
+export interface UpdateProductInput {
+  name: string
+  productGroupName: string
+  nameTe: string | null
+  remarks: string | null
+}
+
+export interface DeleteCheck {
+  canDelete: boolean
+  reason?: string
+}
+
+/**
+ * Interface for checking whether an entity has downstream references.
+ * For this slice all entries are deletable — the implementation returns
+ * { canDelete: true } unconditionally. Plug in real checks when Opening
+ * Stock / transactions land.
+ */
+export interface ReferenceChecker {
+  hasCustomerReferences(customerId: number): boolean
+  hasProductReferences(productId: number): boolean
+}
+
+export const nullReferenceChecker: ReferenceChecker = {
+  hasCustomerReferences: () => false,
+  hasProductReferences: () => false
+}
