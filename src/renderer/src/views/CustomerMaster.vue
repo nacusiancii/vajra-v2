@@ -25,12 +25,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import CustomerDialog from '@/components/customer/CustomerDialog.vue'
 import { useCustomerMasterStore } from '@/stores/customer-master'
 import {
@@ -105,7 +100,7 @@ function handleDelete(id: number) {
           {{ (customers ?? []).length }} customer{{ (customers ?? []).length === 1 ? '' : 's' }}
         </p>
       </div>
-      <Button @click="store.openCreateDialog()" data-testid="add-customer-btn">
+      <Button data-testid="add-customer-btn" @click="store.openCreateDialog()">
         <Plus class="mr-2 size-4" />
         Add Customer
       </Button>
@@ -191,11 +186,7 @@ function handleDelete(id: number) {
               {{ (customers ?? []).length === 0 ? 'No customers yet' : 'No matches' }}
             </TableCell>
           </TableRow>
-          <TableRow
-            v-for="customer in filtered"
-            :key="customer.id"
-            data-testid="customer-row"
-          >
+          <TableRow v-for="customer in filtered" :key="customer.id" data-testid="customer-row">
             <TableCell class="font-medium">{{ customer.name }}</TableCell>
             <TableCell>{{ customer.placeName }}</TableCell>
             <TableCell>{{ customer.phone || '—' }}</TableCell>
@@ -224,16 +215,16 @@ function handleDelete(id: number) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  @click="store.openEditDialog(customer)"
                   data-testid="edit-customer-btn"
+                  @click="store.openEditDialog(customer)"
                 >
                   <Pencil class="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  @click="handleDelete(customer.id)"
                   data-testid="delete-customer-btn"
+                  @click="handleDelete(customer.id)"
                 >
                   <Trash2 class="size-4 text-destructive" />
                 </Button>

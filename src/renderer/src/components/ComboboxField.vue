@@ -46,12 +46,12 @@ function onBlur() {
       <Input
         ref="inputRef"
         :model-value="model"
-        @update:model-value="onInput($event as string)"
-        @focus="onFocus"
-        @blur="onBlur"
         :placeholder="placeholder ?? 'Type or pick...'"
         :data-testid="testId"
         autocomplete="off"
+        @update:model-value="onInput($event as string)"
+        @focus="onFocus"
+        @blur="onBlur"
       />
     </PopoverAnchor>
     <PopoverContent

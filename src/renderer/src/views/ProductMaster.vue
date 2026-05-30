@@ -25,12 +25,7 @@ import {
   DropdownMenuContent,
   DropdownMenuTrigger
 } from '@/components/ui/dropdown-menu'
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from '@/components/ui/tooltip'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import ProductDialog from '@/components/product/ProductDialog.vue'
 import { useProductMasterStore } from '@/stores/product-master'
 import {
@@ -101,7 +96,7 @@ function handleDelete(id: number) {
           {{ (products ?? []).length }} product{{ (products ?? []).length === 1 ? '' : 's' }}
         </p>
       </div>
-      <Button @click="store.openCreateDialog()" data-testid="add-product-btn">
+      <Button data-testid="add-product-btn" @click="store.openCreateDialog()">
         <Plus class="mr-2 size-4" />
         Add Product
       </Button>
@@ -188,11 +183,7 @@ function handleDelete(id: number) {
               {{ (products ?? []).length === 0 ? 'No products yet' : 'No matches' }}
             </TableCell>
           </TableRow>
-          <TableRow
-            v-for="product in filtered"
-            :key="product.id"
-            data-testid="product-row"
-          >
+          <TableRow v-for="product in filtered" :key="product.id" data-testid="product-row">
             <TableCell class="font-medium">{{ product.name }}</TableCell>
             <TableCell>{{ product.productGroupName }}</TableCell>
             <TableCell>
@@ -220,16 +211,16 @@ function handleDelete(id: number) {
                 <Button
                   variant="ghost"
                   size="icon"
-                  @click="store.openEditDialog(product)"
                   data-testid="edit-product-btn"
+                  @click="store.openEditDialog(product)"
                 >
                   <Pencil class="size-4" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
-                  @click="handleDelete(product.id)"
                   data-testid="delete-product-btn"
+                  @click="handleDelete(product.id)"
                 >
                   <Trash2 class="size-4 text-destructive" />
                 </Button>

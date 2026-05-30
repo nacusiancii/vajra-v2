@@ -23,7 +23,13 @@ import {
 } from '@/components/ui/select'
 import ComboboxField from '@/components/ComboboxField.vue'
 import { isNameTaken } from '@domain/product'
-import { BAG_SIZES, type BagSizeKg, type CreateProductInput, type UpdateProductInput, type Product } from '@domain/types'
+import {
+  BAG_SIZES,
+  type BagSizeKg,
+  type CreateProductInput,
+  type UpdateProductInput,
+  type Product
+} from '@domain/types'
 import { useProductsQuery, useProductGroupsQuery } from '@/queries/products'
 
 const props = defineProps<{
@@ -130,9 +136,9 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="product-name"
             :model-value="values.name"
-            @update:model-value="setFieldValue('name', $event as string)"
             placeholder="English name"
             data-testid="product-name-input"
+            @update:model-value="setFieldValue('name', $event as string)"
           />
           <p v-if="errors.name" class="text-sm text-destructive">{{ errors.name }}</p>
           <p v-if="nameConflict" class="text-sm text-destructive">
@@ -145,10 +151,10 @@ const onSubmit = handleSubmit((formValues) => {
           <Label>Product Group *</Label>
           <ComboboxField
             :model-value="values.productGroupName ?? ''"
-            @update:model-value="setFieldValue('productGroupName', $event)"
             :options="groupNames"
             placeholder="Select or type a group..."
             test-id="product-group-combobox"
+            @update:model-value="setFieldValue('productGroupName', $event)"
           />
           <p v-if="errors.productGroupName" class="text-sm text-destructive">
             {{ errors.productGroupName }}
@@ -217,9 +223,9 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="product-name-te"
             :model-value="values.nameTe"
-            @update:model-value="setFieldValue('nameTe', $event as string)"
             placeholder="తెలుగు పేరు"
             data-testid="product-name-te-input"
+            @update:model-value="setFieldValue('nameTe', $event as string)"
           />
         </div>
 
@@ -229,8 +235,8 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="product-remarks"
             :model-value="values.remarks"
-            @update:model-value="setFieldValue('remarks', $event as string)"
             placeholder="Optional notes"
+            @update:model-value="setFieldValue('remarks', $event as string)"
           />
         </div>
 

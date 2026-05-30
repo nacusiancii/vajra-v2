@@ -115,9 +115,9 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="customer-name"
             :model-value="values.name"
-            @update:model-value="setFieldValue('name', $event as string)"
             placeholder="English name"
             data-testid="customer-name-input"
+            @update:model-value="setFieldValue('name', $event as string)"
           />
           <p v-if="errors.name" class="text-sm text-destructive">{{ errors.name }}</p>
           <p v-if="nameConflict" class="text-sm text-destructive">
@@ -130,10 +130,10 @@ const onSubmit = handleSubmit((formValues) => {
           <Label>Place *</Label>
           <ComboboxField
             :model-value="values.placeName ?? ''"
-            @update:model-value="setFieldValue('placeName', $event)"
             :options="placeNames"
             placeholder="Select or type a place..."
             test-id="customer-place-combobox"
+            @update:model-value="setFieldValue('placeName', $event)"
           />
           <p v-if="errors.placeName" class="text-sm text-destructive">{{ errors.placeName }}</p>
         </div>
@@ -144,9 +144,9 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="customer-phone"
             :model-value="values.phone"
-            @update:model-value="setFieldValue('phone', $event as string)"
             placeholder="Phone number"
             data-testid="customer-phone-input"
+            @update:model-value="setFieldValue('phone', $event as string)"
           />
         </div>
 
@@ -168,9 +168,9 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="customer-name-te"
             :model-value="values.nameTe"
-            @update:model-value="setFieldValue('nameTe', $event as string)"
             placeholder="తెలుగు పేరు"
             data-testid="customer-name-te-input"
+            @update:model-value="setFieldValue('nameTe', $event as string)"
           />
         </div>
 
@@ -183,9 +183,9 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="customer-place-te"
             :model-value="values.placeTe"
-            @update:model-value="setFieldValue('placeTe', $event as string)"
             placeholder="తెలుగు ప్రదేశం"
             data-testid="customer-place-te-input"
+            @update:model-value="setFieldValue('placeTe', $event as string)"
           />
         </div>
 
@@ -195,8 +195,8 @@ const onSubmit = handleSubmit((formValues) => {
           <Input
             id="customer-remarks"
             :model-value="values.remarks"
-            @update:model-value="setFieldValue('remarks', $event as string)"
             placeholder="Optional notes"
+            @update:model-value="setFieldValue('remarks', $event as string)"
           />
         </div>
 

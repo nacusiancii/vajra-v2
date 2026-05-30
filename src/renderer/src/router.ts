@@ -11,9 +11,21 @@ const router = createRouter({
       name: 'purchase',
       component: () => import('./views/PurchasePlaceholder.vue')
     },
-    { path: '/receipt', name: 'receipt', component: () => import('./views/ReceiptPlaceholder.vue') },
-    { path: '/payment', name: 'payment', component: () => import('./views/PaymentPlaceholder.vue') },
-    { path: '/expense', name: 'expense', component: () => import('./views/ExpensePlaceholder.vue') },
+    {
+      path: '/receipt',
+      name: 'receipt',
+      component: () => import('./views/ReceiptPlaceholder.vue')
+    },
+    {
+      path: '/payment',
+      name: 'payment',
+      component: () => import('./views/PaymentPlaceholder.vue')
+    },
+    {
+      path: '/expense',
+      name: 'expense',
+      component: () => import('./views/ExpensePlaceholder.vue')
+    },
     { path: '/income', name: 'income', component: () => import('./views/IncomePlaceholder.vue') },
     {
       path: '/stock-transfer',
