@@ -18,21 +18,21 @@ const filtered = computed(() => {
   return props.options.filter((o) => o.toLowerCase().includes(lower))
 })
 
-function onInput(value: string) {
+function onInput(value: string): void {
   model.value = value
   open.value = value.length > 0 && filtered.value.length > 0
 }
 
-function pick(value: string) {
+function pick(value: string): void {
   model.value = value
   open.value = false
 }
 
-function onFocus() {
+function onFocus(): void {
   if (filtered.value.length > 0) open.value = true
 }
 
-function onBlur() {
+function onBlur(): void {
   // Small delay so click on option registers before popover closes
   setTimeout(() => {
     open.value = false

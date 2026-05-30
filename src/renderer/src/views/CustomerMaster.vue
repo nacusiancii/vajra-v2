@@ -74,16 +74,21 @@ function isMissingTranslation(c: Customer): boolean {
   return !c.nameTe || !c.placeTe
 }
 
-function handleCreate(input: CreateCustomerInput) {
+function handleCreate(input: CreateCustomerInput): void {
   createMutation.mutate(input, { onSuccess: () => store.closeDialog() })
 }
 
-function handleUpdate(id: number, input: UpdateCustomerInput) {
+function handleUpdate(id: number, input: UpdateCustomerInput): void {
   updateMutation.mutate({ id, input }, { onSuccess: () => store.closeDialog() })
 }
 
-function handleDelete(id: number) {
+function handleDelete(id: number): void {
   deleteMutation.mutate(id)
+}
+
+function togglePlaceFilter(place: string, checked: boolean): void {
+  if (checked) store.placeFilter.push(place)
+  else store.placeFilter = store.placeFilter.filter((p) => p !== place)
 }
 </script>
 
@@ -127,12 +132,7 @@ function handleDelete(id: number) {
             v-for="place in placeNames"
             :key="place"
             :checked="store.placeFilter.includes(place)"
-            @update:checked="
-              (checked) => {
-                if (checked) store.placeFilter.push(place)
-                else store.placeFilter = store.placeFilter.filter((p) => p !== place)
-              }
-            "
+            @update:checked="(checked: boolean) => togglePlaceFilter(place, checked)"
           >
             {{ place }}
           </DropdownMenuCheckboxItem>

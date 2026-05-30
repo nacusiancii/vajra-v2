@@ -70,16 +70,21 @@ const filtered = computed(() => {
   return list
 })
 
-function handleCreate(input: CreateProductInput) {
+function handleCreate(input: CreateProductInput): void {
   createMutation.mutate(input, { onSuccess: () => store.closeDialog() })
 }
 
-function handleUpdate(id: number, input: UpdateProductInput) {
+function handleUpdate(id: number, input: UpdateProductInput): void {
   updateMutation.mutate({ id, input }, { onSuccess: () => store.closeDialog() })
 }
 
-function handleDelete(id: number) {
+function handleDelete(id: number): void {
   deleteMutation.mutate(id)
+}
+
+function toggleGroupFilter(group: string, checked: boolean): void {
+  if (checked) store.groupFilter.push(group)
+  else store.groupFilter = store.groupFilter.filter((g) => g !== group)
 }
 </script>
 
@@ -123,12 +128,7 @@ function handleDelete(id: number) {
             v-for="group in groupNames"
             :key="group"
             :checked="store.groupFilter.includes(group)"
-            @update:checked="
-              (checked) => {
-                if (checked) store.groupFilter.push(group)
-                else store.groupFilter = store.groupFilter.filter((g) => g !== group)
-              }
-            "
+            @update:checked="(checked: boolean) => toggleGroupFilter(group, checked)"
           >
             {{ group }}
           </DropdownMenuCheckboxItem>

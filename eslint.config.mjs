@@ -5,9 +5,18 @@ import eslintPluginVue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
 
 export default defineConfig(
-  { ignores: ['**/node_modules', '**/dist', '**/out'] },
+  { ignores: ['**/node_modules', '**/dist', '**/out', 'archive/**', 'eslint.config.mjs'] },
   tseslint.configs.recommended,
   eslintPluginVue.configs['flat/recommended'],
+  {
+    files: ['**/*.{ts,mts,tsx,vue}'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname
+      }
+    }
+  },
   {
     files: ['**/*.vue'],
     languageOptions: {
@@ -17,7 +26,9 @@ export default defineConfig(
           jsx: true
         },
         extraFileExtensions: ['.vue'],
-        parser: tseslint.parser
+        parser: tseslint.parser,
+        projectService: true,
+        tsconfigRootDir: import.meta.dirname
       }
     }
   },
@@ -33,7 +44,21 @@ export default defineConfig(
             lang: 'ts'
           }
         }
-      ]
+      ],
+      '@typescript-eslint/no-floating-promises': 'error',
+      '@typescript-eslint/no-misused-promises': 'error',
+      '@typescript-eslint/consistent-type-imports': [
+        'error',
+        { prefer: 'type-imports', fixStyle: 'inline-type-imports' }
+      ],
+      'no-console': ['warn', { allow: ['warn', 'error'] }],
+      eqeqeq: ['error', 'always', { null: 'ignore' }]
+    }
+  },
+  {
+    files: ['tests/**/*.{ts,mts}'],
+    rules: {
+      '@typescript-eslint/no-require-imports': 'off'
     }
   },
   eslintConfigPrettier

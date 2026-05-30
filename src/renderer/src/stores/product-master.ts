@@ -14,22 +14,22 @@ export const useProductMasterStore = defineStore('productMaster', () => {
   const dialogOpen = ref(false)
   const editingProduct = ref<Product | null>(null)
 
-  function openCreateDialog() {
+  function openCreateDialog(): void {
     editingProduct.value = null
     dialogOpen.value = true
   }
 
-  function openEditDialog(product: Product) {
+  function openEditDialog(product: Product): void {
     editingProduct.value = product
     dialogOpen.value = true
   }
 
-  function closeDialog() {
+  function closeDialog(): void {
     dialogOpen.value = false
     editingProduct.value = null
   }
 
-  function resetFilters() {
+  function resetFilters(): void {
     search.value = ''
     groupFilter.value = []
     translationFilter.value = 'all'
