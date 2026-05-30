@@ -29,6 +29,11 @@ export const useCustomerMasterStore = defineStore('customerMaster', () => {
     editingCustomer.value = null
   }
 
+  function togglePlaceFilter(place: string, checked: boolean): void {
+    if (checked) placeFilter.value.push(place)
+    else placeFilter.value = placeFilter.value.filter((p) => p !== place)
+  }
+
   function resetFilters(): void {
     search.value = ''
     placeFilter.value = []
@@ -45,6 +50,7 @@ export const useCustomerMasterStore = defineStore('customerMaster', () => {
     openCreateDialog,
     openEditDialog,
     closeDialog,
+    togglePlaceFilter,
     resetFilters
   }
 })

@@ -1,5 +1,7 @@
 import { z } from 'zod'
-import { BAG_SIZES, type BagSizeKg, type Product } from './types'
+import { BAG_SIZES, type BagSizeKg } from './types'
+
+export { isNameTaken } from './utils'
 
 export const CreateProductSchema = z
   .object({
@@ -45,39 +47,6 @@ export const UpdateProductSchema = z.object({
 })
 
 export type CreateProductParsed = z.infer<typeof CreateProductSchema>
-
-/**
- * Case-insensitive check: does `name` collide with any existing product?
- */
-export function isNameTaken(
-  name: string,
-  existing: Array<{ id: number; name: string }>,
-  excludeId?: number
-): boolean {
-  const lower = name.trim().toLowerCase()
-  return existing.some((p) => p.id !== excludeId && p.name.toLowerCase() === lower)
-}
-
-/**
- * Guard: type and defaultBagSizeKg are immutable after creation.
- * Returns a list of violated fields, or empty array if safe.
- */
-export function checkImmutableViolation(
-  existing: Product,
-  updates: { type?: string; defaultBagSizeKg?: number | null }
-): string[] {
-  const violations: string[] = []
-  if (updates.type !== undefined && updates.type !== existing.type) {
-    violations.push('type')
-  }
-  if (
-    updates.defaultBagSizeKg !== undefined &&
-    updates.defaultBagSizeKg !== existing.defaultBagSizeKg
-  ) {
-    violations.push('defaultBagSizeKg')
-  }
-  return violations
-}
 
 export function isValidBagSize(kg: number): kg is BagSizeKg {
   return (BAG_SIZES as readonly number[]).includes(kg)

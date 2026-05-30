@@ -81,11 +81,6 @@ function handleUpdate(id: number, input: UpdateProductInput): void {
 function handleDelete(id: number): void {
   deleteMutation.mutate(id)
 }
-
-function toggleGroupFilter(group: string, checked: boolean): void {
-  if (checked) store.groupFilter.push(group)
-  else store.groupFilter = store.groupFilter.filter((g) => g !== group)
-}
 </script>
 
 <template>
@@ -128,7 +123,7 @@ function toggleGroupFilter(group: string, checked: boolean): void {
             v-for="group in groupNames"
             :key="group"
             :checked="store.groupFilter.includes(group)"
-            @update:checked="(checked: boolean) => toggleGroupFilter(group, checked)"
+            @update:checked="(checked: boolean) => store.toggleGroupFilter(group, checked)"
           >
             {{ group }}
           </DropdownMenuCheckboxItem>

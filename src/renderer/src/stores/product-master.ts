@@ -29,6 +29,11 @@ export const useProductMasterStore = defineStore('productMaster', () => {
     editingProduct.value = null
   }
 
+  function toggleGroupFilter(group: string, checked: boolean): void {
+    if (checked) groupFilter.value.push(group)
+    else groupFilter.value = groupFilter.value.filter((g) => g !== group)
+  }
+
   function resetFilters(): void {
     search.value = ''
     groupFilter.value = []
@@ -45,6 +50,7 @@ export const useProductMasterStore = defineStore('productMaster', () => {
     openCreateDialog,
     openEditDialog,
     closeDialog,
+    toggleGroupFilter,
     resetFilters
   }
 })

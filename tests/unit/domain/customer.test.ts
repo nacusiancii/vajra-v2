@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CreateCustomerSchema, isNameTaken, checkDuplicateWarning } from '@domain/customer'
+import { CreateCustomerSchema, checkDuplicateWarning } from '@domain/customer'
 import type { Customer } from '@domain/types'
 
 function makeCustomer(overrides: Partial<Customer> = {}): Customer {
@@ -71,34 +71,6 @@ describe('CreateCustomerSchema', () => {
       expect(result.data.phone).toBeNull()
       expect(result.data.nameTe).toBeNull()
     }
-  })
-})
-
-describe('isNameTaken', () => {
-  const existing = [
-    { id: 1, name: 'Ravi Kumar' },
-    { id: 2, name: 'Suresh Babu' }
-  ]
-
-  it('returns true for exact match', () => {
-    expect(isNameTaken('Ravi Kumar', existing)).toBe(true)
-  })
-
-  it('is case-insensitive', () => {
-    expect(isNameTaken('ravi kumar', existing)).toBe(true)
-    expect(isNameTaken('RAVI KUMAR', existing)).toBe(true)
-  })
-
-  it('returns false for unique name', () => {
-    expect(isNameTaken('New Customer', existing)).toBe(false)
-  })
-
-  it('excludes the customer being edited', () => {
-    expect(isNameTaken('Ravi Kumar', existing, 1)).toBe(false)
-  })
-
-  it('still catches conflicts with other customers when editing', () => {
-    expect(isNameTaken('Suresh Babu', existing, 1)).toBe(true)
   })
 })
 

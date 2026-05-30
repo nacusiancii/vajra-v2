@@ -85,11 +85,6 @@ function handleUpdate(id: number, input: UpdateCustomerInput): void {
 function handleDelete(id: number): void {
   deleteMutation.mutate(id)
 }
-
-function togglePlaceFilter(place: string, checked: boolean): void {
-  if (checked) store.placeFilter.push(place)
-  else store.placeFilter = store.placeFilter.filter((p) => p !== place)
-}
 </script>
 
 <template>
@@ -132,7 +127,7 @@ function togglePlaceFilter(place: string, checked: boolean): void {
             v-for="place in placeNames"
             :key="place"
             :checked="store.placeFilter.includes(place)"
-            @update:checked="(checked: boolean) => togglePlaceFilter(place, checked)"
+            @update:checked="(checked: boolean) => store.togglePlaceFilter(place, checked)"
           >
             {{ place }}
           </DropdownMenuCheckboxItem>

@@ -10,9 +10,6 @@ function getDbPath(): string {
 }
 
 const SCHEMA = `
-  PRAGMA journal_mode = WAL;
-  PRAGMA foreign_keys = ON;
-
   CREATE TABLE IF NOT EXISTS place (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
     name        TEXT    NOT NULL UNIQUE COLLATE NOCASE,

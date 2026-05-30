@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import type { Customer } from './types'
 
+export { isNameTaken } from './utils'
+
 export const CreateCustomerSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),
   placeName: z.string().trim().min(1, 'Place is required'),
@@ -29,19 +31,6 @@ export const CreateCustomerSchema = z.object({
 export const UpdateCustomerSchema = CreateCustomerSchema
 
 export type CreateCustomerParsed = z.infer<typeof CreateCustomerSchema>
-
-/**
- * Case-insensitive check: does `name` collide with any existing customer?
- * Pass the id of the customer being edited to exclude it from the check.
- */
-export function isNameTaken(
-  name: string,
-  existing: Array<{ id: number; name: string }>,
-  excludeId?: number
-): boolean {
-  const lower = name.trim().toLowerCase()
-  return existing.some((c) => c.id !== excludeId && c.name.toLowerCase() === lower)
-}
 
 export interface DuplicateWarning {
   matchingCustomers: Array<{ id: number; name: string }>

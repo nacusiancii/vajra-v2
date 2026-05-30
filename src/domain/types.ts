@@ -57,14 +57,7 @@ export interface CreateCustomerInput {
   remarks: string | null
 }
 
-export interface UpdateCustomerInput {
-  name: string
-  placeName: string
-  phone: string | null
-  nameTe: string | null
-  placeTe: string | null
-  remarks: string | null
-}
+export type UpdateCustomerInput = CreateCustomerInput
 
 export interface CreateProductInput {
   name: string
