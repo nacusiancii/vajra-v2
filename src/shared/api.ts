@@ -58,6 +58,8 @@ export interface VajraApi {
   getTransaction(id: string): Promise<Txn | null>
   createSale(input: CreateSaleInput): Promise<Txn>
   editSale(id: string, input: CreateSaleInput): Promise<Txn>
+  /** Mint the next Credit Voucher number for the open day (one per voucher print). */
+  reserveVoucherSeq(): Promise<number>
   createPurchase(input: CreatePurchaseInput): Promise<Txn>
   editPurchase(id: string, input: CreatePurchaseInput): Promise<Txn>
   createStockTransfer(input: CreateStockTransferInput): Promise<Txn>
@@ -104,6 +106,7 @@ export const IPC = {
   getTransaction: 'txn:get',
   createSale: 'txn:createSale',
   editSale: 'txn:editSale',
+  reserveVoucherSeq: 'txn:reserveVoucherSeq',
   createPurchase: 'txn:createPurchase',
   editPurchase: 'txn:editPurchase',
   createStockTransfer: 'txn:createStockTransfer',

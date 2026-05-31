@@ -100,31 +100,10 @@ const counterparty = computed(() => {
               <span>UPI</span><span class="tabular-nums">{{ formatRupees(txn.upiIn) }}</span>
             </div>
           </template>
-        </div>
-
-        <!-- Credit Voucher -->
-        <div
-          v-if="isCredit"
-          class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4 text-sm dark:bg-amber-950"
-          data-testid="credit-voucher"
-        >
-          <div class="text-center">
-            <p class="font-semibold">క్రెడిట్ వోచర్</p>
-            <p class="text-xs uppercase tracking-widest text-muted-foreground">Credit Voucher</p>
+          <div v-else class="flex justify-between text-muted-foreground">
+            <span>Credit Voucher</span>
+            <span class="tabular-nums">#{{ txn.voucherSeq }}</span>
           </div>
-          <div class="mt-2 flex items-center justify-between">
-            <span class="text-muted-foreground">Voucher No.</span>
-            <span class="text-lg font-bold tabular-nums" data-testid="voucher-number">
-              {{ txn.voucherSeq }}
-            </span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted-foreground">Amount</span>
-            <span class="font-semibold tabular-nums">{{ formatRupees(txn.creditAmount) }}</span>
-          </div>
-          <p class="mt-3 border-t pt-3 text-xs text-muted-foreground">
-            Customer signature: ____________________
-          </p>
         </div>
       </div>
 

@@ -70,6 +70,7 @@ const slipOpen = ref(false)
 // Credit Voucher: the customer signs a voucher printed at the current price before
 // the Sale can finish. We track the total it was last printed at to catch price drift.
 const printedAtTotal = ref<number | null>(null)
+const printedVoucherSeq = ref<number | null>(null)
 const voucherOpen = ref(false)
 const printGateOpen = ref(false)
 
@@ -131,8 +132,12 @@ const priceChangedSincePrint = computed(
   () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) >= 0.01
 )
 
-/** "Print" the voucher at the current price so the customer can sign it. */
-function printVoucher(): void {
+/**
+ * "Print" the voucher at the current price so the customer can sign it. Each print mints
+ * a fresh Voucher Number — a reprint after a price change burns the previous one.
+ */
+async function printVoucher(): Promise<void> {
+  printedVoucherSeq.value = await window.api.reserveVoucherSeq()
   printedAtTotal.value = total.value
   printGateOpen.value = false
   voucherOpen.value = true
@@ -163,6 +168,7 @@ function buildInput(): CreateSaleInput {
     loadingCharges: loadingCharge.value,
     cashCollected: mode.value === 'cash' ? cashDue.value : 0,
     upiCollected: mode.value === 'cash' ? (upiCollected.value ?? 0) : 0,
+    voucherSeq: mode.value === 'credit' ? printedVoucherSeq.value : null,
     remarks: remarks.value.trim() || null
   }
 }
@@ -226,6 +232,9 @@ watch(
     additionalCharges.value = txn.additionalCharges || null
     applyLoading.value = txn.loadingCharges > 0
     upiCollected.value = txn.upiIn || null
+    // Keep the existing voucher valid at its recorded price; a price change forces a reprint.
+    printedVoucherSeq.value = txn.voucherSeq
+    printedAtTotal.value = txn.saleMode === 'credit' ? txn.total : null
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
@@ -396,8 +405,8 @@ watch(
         <DialogHeader>
           <DialogTitle>Credit Voucher</DialogTitle>
           <DialogDescription>
-            Hand this to the customer to sign. The Voucher Number is assigned when the Sale
-            finishes.
+            Hand this to the customer to sign. Reprinting after a price change issues a new Voucher
+            Number.
           </DialogDescription>
         </DialogHeader>
         <div
@@ -408,6 +417,12 @@ watch(
             <p class="text-xs uppercase tracking-widest text-muted-foreground">Credit Voucher</p>
           </div>
           <Separator class="my-2" />
+          <div class="flex items-center justify-between">
+            <span class="text-muted-foreground">Voucher No.</span>
+            <span class="text-lg font-bold tabular-nums" data-testid="voucher-number">
+              {{ printedVoucherSeq }}
+            </span>
+          </div>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Customer</span>
             <span>{{ selectedCustomerName }}</span>

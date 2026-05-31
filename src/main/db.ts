@@ -53,11 +53,14 @@ const SCHEMA = `
   );
 
   CREATE TABLE IF NOT EXISTS business_day (
-    id          INTEGER PRIMARY KEY AUTOINCREMENT,
-    start_date  TEXT    NOT NULL,
-    status      TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
-    opened_at   TEXT    NOT NULL DEFAULT (datetime('now')),
-    closed_at   TEXT
+    id              INTEGER PRIMARY KEY AUTOINCREMENT,
+    start_date      TEXT    NOT NULL,
+    status          TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
+    opened_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    closed_at       TEXT,
+    -- Monotonic Credit Voucher counter for the day. Each print reserves a fresh number,
+    -- so reprints (e.g. after a price change) burn the old one and leave gaps.
+    voucher_counter INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS opening_stock (
@@ -121,9 +124,20 @@ export function getDb(): Database.Database {
     db.pragma('journal_mode = WAL')
     db.pragma('foreign_keys = ON')
     db.exec(SCHEMA)
+    migrate(db)
     ensureOpenBusinessDay(db)
   }
   return db
+}
+
+/** Additive, idempotent migrations for databases created before a column existed. */
+function migrate(database: Database.Database): void {
+  const columns = database.prepare(`PRAGMA table_info(business_day)`).all() as Array<{
+    name: string
+  }>
+  if (!columns.some((c) => c.name === 'voucher_counter')) {
+    database.exec(`ALTER TABLE business_day ADD COLUMN voucher_counter INTEGER NOT NULL DEFAULT 0`)
+  }
 }
 
 /**

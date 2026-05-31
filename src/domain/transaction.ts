@@ -100,6 +100,8 @@ export interface CreateSaleInput {
   loadingCharges: number
   cashCollected: number
   upiCollected: number
+  /** Credit Voucher number minted at print time (null for Cash Sales). */
+  voucherSeq: number | null
   remarks: string | null
 }
 

@@ -140,9 +140,29 @@ export class TransactionRepo {
       total,
       creditAmount: input.mode === 'credit' ? total : 0,
       drawer,
-      voucherSeq: input.mode === 'credit' ? this.nextVoucherSeq() : null,
+      // The voucher number was minted at print time (reserveVoucherSeq); a Credit Sale
+      // records the last one printed at the final price.
+      voucherSeq: input.mode === 'credit' ? input.voucherSeq : null,
       remarks: input.remarks
     })
+  }
+
+  /**
+   * Mint the next Credit Voucher number for the open day. Called once per voucher print,
+   * so reprints burn the previous number (the day's voucher_counter only ever advances).
+   */
+  reserveVoucherSeq(): number {
+    const dayId = this.currentDayId()
+    const reserve = this.db.transaction(() => {
+      this.db
+        .prepare(`UPDATE business_day SET voucher_counter = voucher_counter + 1 WHERE id = ?`)
+        .run(dayId)
+      const row = this.db
+        .prepare(`SELECT voucher_counter AS n FROM business_day WHERE id = ?`)
+        .get(dayId) as { n: number }
+      return row.n
+    })
+    return reserve()
   }
 
   createPurchase(input: CreatePurchaseInput): Txn {
@@ -407,14 +427,6 @@ export class TransactionRepo {
     const row = this.db
       .prepare(`SELECT COALESCE(MAX(seq), 0) AS m FROM txn WHERE business_day_id = ? AND type = ?`)
       .get(dayId, type) as { m: number }
-    return row.m + 1
-  }
-
-  private nextVoucherSeq(): number {
-    const dayId = this.currentDayId()
-    const row = this.db
-      .prepare(`SELECT COALESCE(MAX(voucher_seq), 0) AS m FROM txn WHERE business_day_id = ?`)
-      .get(dayId) as { m: number }
     return row.m + 1
   }
 
