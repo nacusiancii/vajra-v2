@@ -1,0 +1,48 @@
+# Builds the Windows installer on a real Windows runner.
+#
+# Native modules (better-sqlite3, lightningcss) cannot be cross-compiled from
+# Linux — packaging `build:win` on Linux ships Linux ELF binaries inside the
+# .exe and the app dies on launch. Building here, `postinstall`'s
+# `electron-builder install-app-deps` rebuilds them against Electron's ABI for
+# win32, so the installer actually runs.
+name: build-win
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        # Rebuilds native modules for the Windows/Electron ABI via postinstall.
+        run: pnpm install --frozen-lockfile
+
+      - name: Build Windows installer
+        run: pnpm build:win
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: vajra-windows-installer
+          path: |
+            dist/*-setup.exe
+            dist/*-setup.exe.blockmap
+          if-no-files-found: error
