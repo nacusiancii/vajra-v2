@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/select'
 import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
 import SlipPreview from '@/components/transaction/SlipPreview.vue'
+import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useCustomersQuery } from '@/queries/customers'
 import { useSettingsQuery } from '@/queries/operations'
@@ -227,25 +228,13 @@ watch(
 
       <div v-if="counterpartyMode === 'customer'" class="grid gap-2">
         <Label>Select customer</Label>
-        <Select
-          :model-value="customerId == null ? '' : String(customerId)"
-          @update:model-value="customerId = $event ? Number($event) : null"
-        >
-          <SelectTrigger class="w-[240px]" data-testid="sale-customer">
-            <SelectValue placeholder="Choose a customer" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem v-for="c in customerList" :key="c.id" :value="String(c.id)">
-              {{ c.name }} — {{ c.placeName }}
-            </SelectItem>
-          </SelectContent>
-        </Select>
+        <CustomerSelect v-model="customerId" :auto-focus="true" test-id="sale-customer" />
       </div>
 
       <template v-else>
         <div class="grid gap-2">
           <Label>Name</Label>
-          <Input v-model="walkinName" placeholder="Name" data-testid="sale-walkin-name" />
+          <Input v-model="walkinName" placeholder="Name" autofocus data-testid="sale-walkin-name" />
         </div>
         <div class="grid gap-2">
           <Label>Place</Label>

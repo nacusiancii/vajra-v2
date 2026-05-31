@@ -18,6 +18,7 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
+import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
 import { formatRupees } from '@/lib/format'
 import { lineKg, lineTotal } from '@domain/transaction-rules'
 import type { Product } from '@domain/types'
@@ -39,6 +40,9 @@ const props = defineProps<{
 const lines = defineModel<CartLine[]>({ required: true })
 
 const productMap = computed(() => new Map(props.products.map((p) => [p.id, p])))
+const productOptions = computed<ComboboxOption[]>(() =>
+  props.products.map((p) => ({ value: p.id, label: p.name, hint: p.type }))
+)
 
 function productOf(line: CartLine): Product | undefined {
   return line.productId == null ? undefined : productMap.value.get(line.productId)
@@ -77,8 +81,8 @@ function removeLine(index: number): void {
   lines.value = lines.value.filter((_, i) => i !== index)
 }
 
-function onProductChange(line: CartLine, value: string): void {
-  line.productId = Number(value)
+function onProductChange(line: CartLine, value: number | null): void {
+  line.productId = value
   const p = productOf(line)
   // Default a Bulk line's bag size to the Product's Default Bag Size; clear for Packaged.
   line.bagSizeKg = p?.type === 'bulk' ? (p.defaultBagSizeKg ?? null) : null
@@ -106,19 +110,15 @@ function onProductChange(line: CartLine, value: string): void {
         </TableRow>
         <TableRow v-for="(line, index) in lines" :key="index" data-testid="cart-line">
           <TableCell>
-            <Select
-              :model-value="line.productId == null ? '' : String(line.productId)"
-              @update:model-value="onProductChange(line, $event as string)"
-            >
-              <SelectTrigger class="w-full" data-testid="cart-product">
-                <SelectValue placeholder="Select product" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="p in products" :key="p.id" :value="String(p.id)">
-                  {{ p.name }}
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <EntityCombobox
+              :model-value="line.productId"
+              :options="productOptions"
+              placeholder="Select product"
+              search-placeholder="Type a product name…"
+              empty-text="No product matches."
+              test-id="cart-product"
+              @update:model-value="onProductChange(line, $event)"
+            />
           </TableCell>
           <TableCell>
             <Select
