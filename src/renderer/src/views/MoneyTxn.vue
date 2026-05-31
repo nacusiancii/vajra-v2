@@ -5,18 +5,12 @@ import { Banknote, CircleDollarSign, HandCoins, Wallet } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
-import { useCustomersQuery } from '@/queries/customers'
+import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
 import { useTransactionExit } from '@/lib/transaction-exit'
 import { MoneyTxnSchema } from '@domain/transaction-rules'
-import type { MoneyMode } from '@domain/transaction'
+import { moneyNetAmount } from '@domain/transaction'
+import { formatRupees } from '@/lib/format'
 import type { MoneyTxnType } from '@shared/api'
 
 const route = useRoute()
@@ -29,6 +23,7 @@ const CONFIG: Record<
     route: string
     needsCustomer: boolean
     needsLabel: boolean
+    hasDiscount: boolean
     direction: 'in' | 'out'
     icon: typeof HandCoins
   }
@@ -38,6 +33,7 @@ const CONFIG: Record<
     route: 'receipt',
     needsCustomer: true,
     needsLabel: false,
+    hasDiscount: true,
     direction: 'in',
     icon: HandCoins
   },
@@ -46,6 +42,7 @@ const CONFIG: Record<
     route: 'payment',
     needsCustomer: true,
     needsLabel: false,
+    hasDiscount: true,
     direction: 'out',
     icon: Wallet
   },
@@ -54,6 +51,7 @@ const CONFIG: Record<
     route: 'expense',
     needsCustomer: false,
     needsLabel: true,
+    hasDiscount: false,
     direction: 'out',
     icon: CircleDollarSign
   },
@@ -62,6 +60,7 @@ const CONFIG: Record<
     route: 'income',
     needsCustomer: false,
     needsLabel: true,
+    hasDiscount: false,
     direction: 'in',
     icon: Banknote
   }
@@ -76,18 +75,21 @@ const type = computed<MoneyTxnType>(() => {
 const config = computed(() => CONFIG[type.value])
 const editId = computed(() => (typeof route.query.edit === 'string' ? route.query.edit : null))
 
-const { data: customers } = useCustomersQuery()
 const createMoney = useCreateMoneyTxn()
 const editMoney = useEditMoneyTxn()
 
 const customerId = ref<number | null>(null)
 const label = ref('')
 const amount = ref<number | null>(null)
-const mode = ref<MoneyMode>('cash')
+const discountPercent = ref<number | null>(null)
+const upiCollected = ref<number | null>(null)
 const remarks = ref('')
 const error = ref<string | null>(null)
 
-const customerList = computed(() => customers.value ?? [])
+const discount = computed(() => (config.value.hasDiscount ? (discountPercent.value ?? 0) : 0))
+const net = computed(() => moneyNetAmount(amount.value ?? 0, discount.value))
+// Cashier types UPI; cash is the remainder of the net.
+const cashDue = computed(() => Math.max(net.value - (upiCollected.value ?? 0), 0))
 
 function finish(): void {
   error.value = null
@@ -95,7 +97,9 @@ function finish(): void {
     customerId: customerId.value,
     label: label.value,
     amount: amount.value ?? 0,
-    mode: mode.value,
+    discountPercent: discount.value,
+    cashCollected: cashDue.value,
+    upiCollected: upiCollected.value ?? 0,
     remarks: remarks.value
   })
   if (!parsed.success) {
@@ -127,8 +131,10 @@ watch(
     if (!txn || txn.type !== type.value) return
     customerId.value = txn.customerId
     label.value = txn.label ?? ''
+    // Discount isn't persisted, so an edit starts from the net amount with 0% discount.
     amount.value = txn.total || null
-    mode.value = txn.cashIn || txn.cashOut ? 'cash' : 'upi'
+    discountPercent.value = null
+    upiCollected.value = txn.upiIn || txn.upiOut || null
     remarks.value = txn.remarks ?? ''
   },
   { immediate: true }
@@ -146,27 +152,20 @@ watch(
 
     <div v-if="config.needsCustomer" class="grid gap-2">
       <Label>Customer</Label>
-      <Select
-        :model-value="customerId == null ? '' : String(customerId)"
-        @update:model-value="customerId = $event ? Number($event) : null"
-      >
-        <SelectTrigger data-testid="money-customer">
-          <SelectValue placeholder="Choose a customer" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="c in customerList" :key="c.id" :value="String(c.id)">
-            {{ c.name }} — {{ c.placeName }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+      <CustomerSelect v-model="customerId" :auto-focus="true" test-id="money-customer" />
     </div>
 
     <div v-if="config.needsLabel" class="grid gap-2">
       <Label>Label</Label>
-      <Input v-model="label" placeholder="e.g. Rent, Electricity" data-testid="money-label" />
+      <Input
+        v-model="label"
+        placeholder="e.g. Rent, Electricity"
+        autofocus
+        data-testid="money-label"
+      />
     </div>
 
-    <div class="grid grid-cols-2 gap-4">
+    <div class="grid gap-4" :class="config.hasDiscount ? 'grid-cols-2' : 'grid-cols-1'">
       <div class="grid gap-2">
         <Label>Amount</Label>
         <Input
@@ -178,15 +177,39 @@ watch(
           @update:model-value="amount = $event === '' ? null : Number($event)"
         />
       </div>
+      <div v-if="config.hasDiscount" class="grid gap-2">
+        <Label>Discount %</Label>
+        <Input
+          type="number"
+          min="0"
+          max="100"
+          :model-value="discountPercent ?? ''"
+          placeholder="0"
+          data-testid="money-discount"
+          @update:model-value="discountPercent = $event === '' ? null : Number($event)"
+        />
+      </div>
+    </div>
+
+    <div v-if="config.hasDiscount && discount > 0" class="text-sm text-muted-foreground">
+      Final amount: <span class="font-medium tabular-nums">{{ formatRupees(net) }}</span>
+    </div>
+
+    <div class="grid grid-cols-2 gap-4">
       <div class="grid gap-2">
-        <Label>Mode</Label>
-        <Select v-model="mode">
-          <SelectTrigger data-testid="money-mode"><SelectValue /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="cash">Cash</SelectItem>
-            <SelectItem value="upi">UPI</SelectItem>
-          </SelectContent>
-        </Select>
+        <Label>UPI</Label>
+        <Input
+          type="number"
+          min="0"
+          :model-value="upiCollected ?? ''"
+          placeholder="0"
+          data-testid="money-upi"
+          @update:model-value="upiCollected = $event === '' ? null : Number($event)"
+        />
+      </div>
+      <div class="grid gap-2">
+        <Label>Cash (auto)</Label>
+        <Input :model-value="cashDue" type="number" disabled data-testid="money-cash" />
       </div>
     </div>
 

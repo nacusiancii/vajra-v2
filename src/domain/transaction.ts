@@ -22,8 +22,6 @@ export const TXN_TYPE_LABELS: Record<TxnType, string> = {
 }
 
 export type SaleMode = 'cash' | 'credit'
-/** The mode money is collected or paid in for non-sale money movements. */
-export type MoneyMode = 'cash' | 'upi'
 export type TxnLineSide = 'single' | 'source' | 'target'
 
 // ── Read models (returned by the repository) ─────────────────────────────────
@@ -124,13 +122,28 @@ export interface CreateStockTransferInput {
   remarks: string | null
 }
 
-/** Receipt, Payment (customer-bound) and Expense, Income (labelled) share a shape. */
+/**
+ * Receipt, Payment (customer-bound) and Expense, Income (labelled) share a shape.
+ * Money is split across cash and UPI (the cashier types UPI; cash is the remainder).
+ * Receipt/Payment may carry a settlement discount; Expense/Income never do.
+ */
 export interface CreateMoneyTxnInput {
   customerId: number | null
   label: string | null
+  /** Gross amount before any discount. */
   amount: number
-  mode: MoneyMode
+  /** Settlement discount as a percent of `amount` (0 for Expense/Income). */
+  discountPercent: number
+  /** Cash portion of the net (amount − discount). */
+  cashCollected: number
+  /** UPI portion of the net (amount − discount). */
+  upiCollected: number
   remarks: string | null
+}
+
+/** Net money actually moved for a money transaction: amount less its discount. */
+export function moneyNetAmount(amount: number, discountPercent: number): number {
+  return amount * (1 - discountPercent / 100)
 }
 
 // ── ID + date helpers (ADR-0009) ─────────────────────────────────────────────

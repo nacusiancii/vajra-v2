@@ -130,18 +130,26 @@ export function validateTransferLeg(
 
 // ── Money movement schema (Receipt / Payment / Expense / Income) ─────────────
 
-export const MoneyTxnSchema = z.object({
-  customerId: z.number().nullable(),
-  label: z
-    .string()
-    .trim()
-    .transform((v) => (v === '' ? null : v))
-    .nullable(),
-  amount: z.coerce.number().positive('Amount must be greater than zero'),
-  mode: z.enum(['cash', 'upi']),
-  remarks: z
-    .string()
-    .trim()
-    .transform((v) => (v === '' ? null : v))
-    .nullable()
-})
+export const MoneyTxnSchema = z
+  .object({
+    customerId: z.number().nullable(),
+    label: z
+      .string()
+      .trim()
+      .transform((v) => (v === '' ? null : v))
+      .nullable(),
+    amount: z.coerce.number().positive('Amount must be greater than zero'),
+    discountPercent: z.coerce.number().min(0).max(100).default(0),
+    cashCollected: z.coerce.number().min(0).default(0),
+    upiCollected: z.coerce.number().min(0).default(0),
+    remarks: z
+      .string()
+      .trim()
+      .transform((v) => (v === '' ? null : v))
+      .nullable()
+  })
+  .refine(
+    (v) =>
+      Math.abs(v.cashCollected + v.upiCollected - v.amount * (1 - v.discountPercent / 100)) < 0.01,
+    { message: 'Cash + UPI must equal the amount after discount', path: ['cashCollected'] }
+  )

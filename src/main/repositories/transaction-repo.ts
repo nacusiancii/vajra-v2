@@ -3,6 +3,7 @@ import type { ProductType } from '../../domain/types'
 import {
   formatTxnId,
   lineStockDelta,
+  moneyNetAmount,
   type CreateMoneyTxnInput,
   type CreatePurchaseInput,
   type CreateSaleInput,
@@ -180,16 +181,17 @@ export class TransactionRepo {
     input: CreateMoneyTxnInput
   ): Txn {
     const moneyIn = type === 'RE' || type === 'IN'
+    const net = moneyNetAmount(input.amount, input.discountPercent)
     const drawer: DrawerColumns = {
-      cashIn: moneyIn && input.mode === 'cash' ? input.amount : 0,
-      upiIn: moneyIn && input.mode === 'upi' ? input.amount : 0,
-      cashOut: !moneyIn && input.mode === 'cash' ? input.amount : 0,
-      upiOut: !moneyIn && input.mode === 'upi' ? input.amount : 0
+      cashIn: moneyIn ? input.cashCollected : 0,
+      upiIn: moneyIn ? input.upiCollected : 0,
+      cashOut: moneyIn ? 0 : input.cashCollected,
+      upiOut: moneyIn ? 0 : input.upiCollected
     }
     return this.insert(type, [], {
       customerId: input.customerId,
       label: input.label,
-      total: input.amount,
+      total: net,
       drawer,
       remarks: input.remarks
     })

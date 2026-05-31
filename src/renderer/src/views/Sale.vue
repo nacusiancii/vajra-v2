@@ -51,7 +51,6 @@ const mode = ref<SaleMode>('cash')
 const lines = ref<CartLine[]>([])
 const applyLoading = ref(false)
 const additionalCharges = ref<number | null>(null)
-const cashCollected = ref<number | null>(null)
 const upiCollected = ref<number | null>(null)
 const remarks = ref('')
 
@@ -106,6 +105,9 @@ const total = computed(() =>
   grandTotal(lineTotals.value, loadingCharge.value, additionalCharges.value ?? 0)
 )
 
+// Cash is whatever the total isn't covered by UPI — the cashier only types UPI.
+const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0), 0))
+
 function buildInput(): CreateSaleInput {
   return {
     mode: mode.value,
@@ -129,7 +131,7 @@ function buildInput(): CreateSaleInput {
       })),
     additionalCharges: additionalCharges.value ?? 0,
     loadingCharges: loadingCharge.value,
-    cashCollected: mode.value === 'cash' ? (cashCollected.value ?? 0) : 0,
+    cashCollected: mode.value === 'cash' ? cashDue.value : 0,
     upiCollected: mode.value === 'cash' ? (upiCollected.value ?? 0) : 0,
     remarks: remarks.value.trim() || null
   }
@@ -187,7 +189,6 @@ watch(
     walkinPhone.value = txn.walkinPhone ?? ''
     additionalCharges.value = txn.additionalCharges || null
     applyLoading.value = txn.loadingCharges > 0
-    cashCollected.value = txn.cashIn || null
     upiCollected.value = txn.upiIn || null
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
@@ -287,17 +288,6 @@ watch(
         </div>
         <div v-if="mode === 'cash'" class="grid grid-cols-2 gap-2">
           <div class="grid gap-2">
-            <Label>Cash</Label>
-            <Input
-              type="number"
-              min="0"
-              :model-value="cashCollected ?? ''"
-              placeholder="0"
-              data-testid="sale-cash"
-              @update:model-value="cashCollected = $event === '' ? null : Number($event)"
-            />
-          </div>
-          <div class="grid gap-2">
             <Label>UPI</Label>
             <Input
               type="number"
@@ -307,6 +297,10 @@ watch(
               data-testid="sale-upi"
               @update:model-value="upiCollected = $event === '' ? null : Number($event)"
             />
+          </div>
+          <div class="grid gap-2">
+            <Label>Cash (auto)</Label>
+            <Input :model-value="cashDue" type="number" disabled data-testid="sale-cash" />
           </div>
         </div>
         <p v-else class="text-sm text-muted-foreground">
