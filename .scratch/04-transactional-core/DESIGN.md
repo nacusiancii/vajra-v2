@@ -60,3 +60,20 @@ Drawer aggregation is a SUM over non-voided rows regardless of type — no per-t
 
 Export (repeatable) → Approve. Approve = freeze projection as next day's opening_stock,
 delete all txn + txn_line for the closing day, mark it closed, open the next Business Day.
+
+## Known gaps / follow-ups
+
+Faithful to the glossary and ADRs except where noted; these are the deliberate omissions
+in this feature-complete pass, worth filing before the next iteration:
+
+- **Credit-Sale void confirmation (ADR-0007).** Editing/voiding a Credit Sale should require
+  the cashier to affirm the signed Credit Voucher was recovered. The void+successor chain is
+  built, but the affirmation dialog is not yet enforced in the UI.
+- **Sale Invoice reprint window (ADR-0008).** "Reprintable until the next transaction starts"
+  is not implemented — the slip is a one-shot preview.
+- **Similar-name reuse on walk-in Sales (CONTEXT.md).** The Customer Master already warns on
+  duplicates; the Sale screen does not yet surface "similar customer — reuse?" for walk-ins.
+- **Payment ↔ Voucher ID link (CONTEXT.md).** Payment's optional Voucher ID reference is
+  modelled in the data but not surfaced in the Payment form.
+- **EOD report is HTML, not the ADR-0006 formula-driven XLSX**, and printing is preview-only —
+  both relaxed deliberately for this session.

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { computed } from 'vue'
 import { RouterLink } from 'vue-router'
 import {
   Banknote,
@@ -15,7 +16,18 @@ import {
   Wallet
 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { useTransactionsQuery } from '@/queries/transactions'
+import { formatRupees } from '@/lib/format'
+import { TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
+
+const { data: transactions } = useTransactionsQuery()
+const recent = computed(() => (transactions.value ?? []).slice(0, 5))
+
+function counterparty(t: Txn): string {
+  return t.customerName ?? t.walkinName ?? t.label ?? '—'
+}
 
 interface ManagementLink {
   label: string
@@ -133,21 +145,40 @@ const managementLinks: ManagementLink[] = [
       </Button>
     </section>
 
-    <!-- Recent Transactions affordance -->
+    <!-- Recent Transactions -->
     <Card data-testid="recent-transactions">
       <CardHeader>
         <CardTitle>Recent Transactions</CardTitle>
         <CardDescription>
-          Last few transactions will appear here once the transaction ledger is built. You will be
-          able to check status and edit them directly from this list.
+          The latest entries in the current Business Day.
+          <RouterLink to="/transactions" class="underline hover:text-foreground">
+            See all →
+          </RouterLink>
         </CardDescription>
       </CardHeader>
       <CardContent>
         <div
+          v-if="recent.length === 0"
           class="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground"
         >
-          No transactions yet — this section activates with the transaction ledger.
+          No transactions yet today.
         </div>
+        <ul v-else class="divide-y">
+          <li
+            v-for="t in recent"
+            :key="t.id"
+            class="flex items-center justify-between py-2 text-sm"
+            :class="t.voided ? 'text-muted-foreground line-through' : ''"
+          >
+            <span class="flex items-center gap-2">
+              <span class="tabular-nums text-muted-foreground">#{{ t.seq }}</span>
+              <span class="font-medium">{{ TXN_TYPE_LABELS[t.type] }}</span>
+              <Badge v-if="t.saleMode === 'credit'" variant="outline" class="text-xs">credit</Badge>
+              <span class="text-muted-foreground">{{ counterparty(t) }}</span>
+            </span>
+            <span class="tabular-nums">{{ formatRupees(t.total) }}</span>
+          </li>
+        </ul>
       </CardContent>
     </Card>
 

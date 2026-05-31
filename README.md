@@ -46,7 +46,8 @@ The single command that gates all work:
 pnpm verify
 ```
 
-This runs typecheck, unit tests (placeholder for now), and Playwright smoke tests.
+This runs lint, typecheck, unit tests (domain validation, pricing, and the Inventory
+projection), and Playwright smoke tests (master data + the full transactional core).
 
 ### Scripts
 
@@ -70,15 +71,25 @@ Components land in `src/renderer/src/components/ui/`.
 
 ```
 src/
+├── domain/        Pure types + logic (validation, pricing, Inventory projection) — no Electron
+├── shared/        Typed IPC contract (channels + VajraApi)
 ├── main/          Electron main process
-├── preload/       Context bridge (typed API surface)
+│   └── repositories/   SQLite-backed data access (customers, products, transactions, …)
+├── preload/       Context bridge (exposes VajraApi to the renderer)
 └── renderer/      Vue 3 app
     └── src/
         ├── assets/       Tailwind CSS
-        ├── components/   shadcn-vue UI primitives
-        ├── lib/          Utilities (cn, etc.)
+        ├── components/   shadcn-vue UI primitives + transaction widgets
+        ├── lib/          Utilities (cn, formatting, EOD report)
+        ├── queries/      Vue Query composables over the IPC API
+        ├── stores/       Pinia UI state
         ├── views/        Route-level pages
         └── router.ts     Vue Router config
 tests/
-└── smoke/         Playwright Electron smoke tests
+├── unit/          Vitest — pure domain logic (no Electron)
+└── smoke/         Playwright — the real Electron app end-to-end
 ```
+
+The day's stock, sales, slips, money movements, and end-of-day Rollover all run through
+the transactional core. See `.scratch/04-transactional-core/DESIGN.md` for the data model
+and the decisions taken in this build.
