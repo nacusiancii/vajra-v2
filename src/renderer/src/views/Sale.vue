@@ -1,11 +1,20 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { ShoppingCart } from '@lucide/vue'
+import { AlertTriangle, Printer, ShoppingCart } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from '@/components/ui/dialog'
+import { Separator } from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -58,6 +67,12 @@ const error = ref<string | null>(null)
 const finished = ref<Txn | null>(null)
 const slipOpen = ref(false)
 
+// Credit Voucher: the customer signs a voucher printed at the current price before
+// the Sale can finish. We track the total it was last printed at to catch price drift.
+const printedAtTotal = ref<number | null>(null)
+const voucherOpen = ref(false)
+const printGateOpen = ref(false)
+
 const productList = computed(() => products.value ?? [])
 const customerList = computed(() => customers.value ?? [])
 const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
@@ -108,6 +123,21 @@ const total = computed(() =>
 // Cash is whatever the total isn't covered by UPI — the cashier only types UPI.
 const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0), 0))
 
+const selectedCustomerName = computed(() => selectedCustomer.value?.name ?? 'Customer')
+const voucherPrinted = computed(
+  () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) < 0.01
+)
+const priceChangedSincePrint = computed(
+  () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) >= 0.01
+)
+
+/** "Print" the voucher at the current price so the customer can sign it. */
+function printVoucher(): void {
+  printedAtTotal.value = total.value
+  printGateOpen.value = false
+  voucherOpen.value = true
+}
+
 function buildInput(): CreateSaleInput {
   return {
     mode: mode.value,
@@ -155,6 +185,12 @@ function finish(): void {
   }
   if (reason) {
     error.value = reason
+    return
+  }
+
+  // A Credit Sale can't finish until a voucher is printed at the current price for signing.
+  if (mode.value === 'credit' && !voucherPrinted.value) {
+    printGateOpen.value = true
     return
   }
 
@@ -303,9 +339,30 @@ watch(
             <Input :model-value="cashDue" type="number" disabled data-testid="sale-cash" />
           </div>
         </div>
-        <p v-else class="text-sm text-muted-foreground">
-          Credit Sale — a signed Credit Voucher is collected in lieu of cash.
-        </p>
+        <div v-else class="space-y-2" data-testid="credit-voucher-controls">
+          <p class="text-sm text-muted-foreground">
+            Credit Sale — the customer signs a Credit Voucher in lieu of cash.
+          </p>
+          <Button variant="outline" type="button" data-testid="print-voucher" @click="printVoucher">
+            <Printer class="mr-2 size-4" />
+            Print Voucher
+          </Button>
+          <p
+            v-if="priceChangedSincePrint"
+            class="flex items-center gap-1.5 text-sm text-amber-600"
+            data-testid="voucher-price-changed"
+          >
+            <AlertTriangle class="size-4" />
+            Price changed since the voucher was printed — reprint before finishing.
+          </p>
+          <p
+            v-else-if="voucherPrinted"
+            class="text-sm text-emerald-600"
+            data-testid="voucher-printed"
+          >
+            Voucher printed at {{ formatRupees(printedAtTotal ?? 0) }} — ready to sign.
+          </p>
+        </div>
       </div>
     </div>
 
@@ -332,5 +389,64 @@ watch(
       @update:open="(v) => (slipOpen = v)"
       @done="onSlipDone"
     />
+
+    <!-- Voucher preview, printed at the current price for the customer to sign -->
+    <Dialog :open="voucherOpen" @update:open="(v) => (voucherOpen = v)">
+      <DialogContent class="sm:max-w-md" data-testid="voucher-preview">
+        <DialogHeader>
+          <DialogTitle>Credit Voucher</DialogTitle>
+          <DialogDescription>
+            Hand this to the customer to sign. The Voucher Number is assigned when the Sale
+            finishes.
+          </DialogDescription>
+        </DialogHeader>
+        <div
+          class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4 text-sm dark:bg-amber-950"
+        >
+          <div class="text-center">
+            <p class="font-semibold">క్రెడిట్ వోచర్</p>
+            <p class="text-xs uppercase tracking-widest text-muted-foreground">Credit Voucher</p>
+          </div>
+          <Separator class="my-2" />
+          <div class="flex items-center justify-between">
+            <span class="text-muted-foreground">Customer</span>
+            <span>{{ selectedCustomerName }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted-foreground">Amount</span>
+            <span class="font-semibold tabular-nums">{{ formatRupees(printedAtTotal ?? 0) }}</span>
+          </div>
+          <p class="mt-3 border-t pt-3 text-xs text-muted-foreground">
+            Customer signature: ____________________
+          </p>
+        </div>
+        <DialogFooter>
+          <Button data-testid="voucher-preview-done" @click="voucherOpen = false">Done</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+
+    <!-- Finish blocked until a voucher is printed at the current price -->
+    <Dialog :open="printGateOpen" @update:open="(v) => (printGateOpen = v)">
+      <DialogContent class="sm:max-w-md" data-testid="voucher-gate">
+        <DialogHeader>
+          <DialogTitle>Print the Credit Voucher first</DialogTitle>
+          <DialogDescription>
+            {{
+              priceChangedSincePrint
+                ? 'The price changed since the last print. Reprint the voucher at the current price so the customer signs the right amount.'
+                : 'A Credit Sale needs a signed voucher. Print it at the current price before finishing.'
+            }}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" type="button" @click="printGateOpen = false">Cancel</Button>
+          <Button type="button" data-testid="voucher-gate-print" @click="printVoucher">
+            <Printer class="mr-2 size-4" />
+            Print Voucher
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   </div>
 </template>
