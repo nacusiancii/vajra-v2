@@ -104,12 +104,16 @@ export class BusinessDayRepo {
     const day = this.current()
 
     const tx = this.db.transaction(() => {
-      this.db.prepare(`DELETE FROM txn_line WHERE txn_id IN (SELECT id FROM txn WHERE business_day_id = ?)`).run(
-        day.id
-      )
+      this.db
+        .prepare(
+          `DELETE FROM txn_line WHERE txn_id IN (SELECT id FROM txn WHERE business_day_id = ?)`
+        )
+        .run(day.id)
       this.db.prepare(`DELETE FROM txn WHERE business_day_id = ?`).run(day.id)
       this.db
-        .prepare(`UPDATE business_day SET status = 'closed', closed_at = datetime('now') WHERE id = ?`)
+        .prepare(
+          `UPDATE business_day SET status = 'closed', closed_at = datetime('now') WHERE id = ?`
+        )
         .run(day.id)
 
       const next = this.db

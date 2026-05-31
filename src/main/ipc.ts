@@ -52,9 +52,13 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.createPurchase, (_e, input) => transactions.createPurchase(input))
   ipcMain.handle(IPC.editPurchase, (_e, id, input) => transactions.editPurchase(id, input))
   ipcMain.handle(IPC.createStockTransfer, (_e, input) => transactions.createStockTransfer(input))
-  ipcMain.handle(IPC.editStockTransfer, (_e, id, input) => transactions.editStockTransfer(id, input))
+  ipcMain.handle(IPC.editStockTransfer, (_e, id, input) =>
+    transactions.editStockTransfer(id, input)
+  )
   ipcMain.handle(IPC.createMoneyTxn, (_e, type, input) => transactions.createMoneyTxn(type, input))
-  ipcMain.handle(IPC.editMoneyTxn, (_e, id, type, input) => transactions.editMoneyTxn(id, type, input))
+  ipcMain.handle(IPC.editMoneyTxn, (_e, id, type, input) =>
+    transactions.editMoneyTxn(id, type, input)
+  )
 
   // ── Settings ───────────────────────────────────────────────
   ipcMain.handle(IPC.getSettings, () => settings.get())
@@ -63,9 +67,7 @@ export function registerIpcHandlers(): void {
 
 /** A Customer is referenced once any non-voided transaction points at it. */
 function customerHasReferences(db: ReturnType<typeof getDb>, id: number): boolean {
-  const row = db
-    .prepare(`SELECT 1 FROM txn WHERE customer_id = ? AND voided = 0 LIMIT 1`)
-    .get(id)
+  const row = db.prepare(`SELECT 1 FROM txn WHERE customer_id = ? AND voided = 0 LIMIT 1`).get(id)
   return row !== undefined
 }
 

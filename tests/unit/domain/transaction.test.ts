@@ -24,20 +24,38 @@ describe('formatTxnId', () => {
 describe('lineStockDelta', () => {
   it('packaged moves whole units', () => {
     expect(
-      lineStockDelta({ productType: 'packaged', qty: 3, bagSizeKg: null, defaultBagSizeKg: null, direction: -1 })
+      lineStockDelta({
+        productType: 'packaged',
+        qty: 3,
+        bagSizeKg: null,
+        defaultBagSizeKg: null,
+        direction: -1
+      })
     ).toBe(-3)
   })
 
   it('bulk default bag is one unit per bag', () => {
     expect(
-      lineStockDelta({ productType: 'bulk', qty: 2, bagSizeKg: 50, defaultBagSizeKg: 50, direction: 1 })
+      lineStockDelta({
+        productType: 'bulk',
+        qty: 2,
+        bagSizeKg: 50,
+        defaultBagSizeKg: 50,
+        direction: 1
+      })
     ).toBe(2)
   })
 
   it('bulk non-default bag moves fractional stock', () => {
     // a 25kg bag against a 50kg default is half a unit
     expect(
-      lineStockDelta({ productType: 'bulk', qty: 1, bagSizeKg: 25, defaultBagSizeKg: 50, direction: -1 })
+      lineStockDelta({
+        productType: 'bulk',
+        qty: 1,
+        bagSizeKg: 25,
+        defaultBagSizeKg: 50,
+        direction: -1
+      })
     ).toBe(-0.5)
   })
 })

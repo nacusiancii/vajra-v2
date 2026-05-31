@@ -27,7 +27,13 @@ describe('lineTotal', () => {
   })
   it('packaged priced per unit', () => {
     expect(
-      lineTotal({ productType: 'packaged', qty: 4, bagSizeKg: null, quintalRate: null, unitRate: 45 })
+      lineTotal({
+        productType: 'packaged',
+        qty: 4,
+        bagSizeKg: null,
+        quintalRate: null,
+        unitRate: 45
+      })
     ).toBe(180)
   })
 })
@@ -57,36 +63,67 @@ describe('validateSale', () => {
     [1, { type: 'bulk', defaultBagSizeKg: 50 }],
     [2, { type: 'packaged', defaultBagSizeKg: null }]
   ])
-  const bulkLine: SaleLineInput = { productId: 1, bagSizeKg: 50, quintalRate: 6000, unitRate: null, qty: 1 }
+  const bulkLine: SaleLineInput = {
+    productId: 1,
+    bagSizeKg: 50,
+    quintalRate: 6000,
+    unitRate: null,
+    qty: 1
+  }
 
   it('rejects an empty cart', () => {
-    expect(validateSale([], products, { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true })).toMatch(
-      /at least one line/
-    )
+    expect(
+      validateSale([], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toMatch(/at least one line/)
   })
 
   it('rejects a bulk line without a quintal rate', () => {
     const bad: SaleLineInput = { ...bulkLine, quintalRate: null }
-    expect(validateSale([bad], products, { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true })).toMatch(
-      /Quintal Rate/
-    )
+    expect(
+      validateSale([bad], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toMatch(/Quintal Rate/)
   })
 
   it('rejects a credit sale to a walk-in', () => {
     expect(
-      validateSale([bulkLine], products, { mode: 'credit', hasCustomer: false, customerHasPhone: false, isWalkin: true })
+      validateSale([bulkLine], products, {
+        mode: 'credit',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
     ).toMatch(/Customer Master/)
   })
 
   it('rejects a credit sale to a customer with no phone', () => {
     expect(
-      validateSale([bulkLine], products, { mode: 'credit', hasCustomer: true, customerHasPhone: false, isWalkin: false })
+      validateSale([bulkLine], products, {
+        mode: 'credit',
+        hasCustomer: true,
+        customerHasPhone: false,
+        isWalkin: false
+      })
     ).toMatch(/phone/)
   })
 
   it('accepts a valid cash sale', () => {
     expect(
-      validateSale([bulkLine], products, { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true })
+      validateSale([bulkLine], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
     ).toBeNull()
   })
 })

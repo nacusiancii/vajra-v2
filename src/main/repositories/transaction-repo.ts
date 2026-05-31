@@ -175,7 +175,10 @@ export class TransactionRepo {
     })
   }
 
-  createMoneyTxn(type: Extract<TxnType, 'RE' | 'PA' | 'EX' | 'IN'>, input: CreateMoneyTxnInput): Txn {
+  createMoneyTxn(
+    type: Extract<TxnType, 'RE' | 'PA' | 'EX' | 'IN'>,
+    input: CreateMoneyTxnInput
+  ): Txn {
     const moneyIn = type === 'RE' || type === 'IN'
     const drawer: DrawerColumns = {
       cashIn: moneyIn && input.mode === 'cash' ? input.amount : 0,
@@ -224,7 +227,9 @@ export class TransactionRepo {
 
     const tx = this.db.transaction(() => {
       const successor = create()
-      this.db.prepare(`UPDATE txn SET voided = 1, successor_id = ? WHERE id = ?`).run(successor.id, id)
+      this.db
+        .prepare(`UPDATE txn SET voided = 1, successor_id = ? WHERE id = ?`)
+        .run(successor.id, id)
       return successor
     })
     return tx()
@@ -376,7 +381,9 @@ export class TransactionRepo {
 
   private currentDay(): { id: number; startDate: string } {
     const row = this.db
-      .prepare(`SELECT id, start_date FROM business_day WHERE status = 'open' ORDER BY id DESC LIMIT 1`)
+      .prepare(
+        `SELECT id, start_date FROM business_day WHERE status = 'open' ORDER BY id DESC LIMIT 1`
+      )
       .get() as { id: number; start_date: string } | undefined
     if (!row) throw new Error('No open Business Day')
     return { id: row.id, startDate: row.start_date }
