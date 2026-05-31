@@ -153,12 +153,19 @@ export class TransactionRepo {
       0,
       input.additionalCharges
     )
-    // Purchases bump stock and record cost; they do not touch the drawer (see DESIGN.md).
+    // Cash Purchases pay the supplier (money out); Credit Purchases record goods owed.
+    const drawer: DrawerColumns =
+      input.mode === 'cash'
+        ? { cashIn: 0, upiIn: 0, cashOut: input.cashCollected, upiOut: input.upiCollected }
+        : ZERO_DRAWER
     return this.insert('PU', resolved, {
+      saleMode: input.mode,
       customerId: input.customerId,
+      walkin: input.walkin,
       additionalCharges: input.additionalCharges,
       total,
-      drawer: ZERO_DRAWER,
+      creditAmount: input.mode === 'credit' ? total : 0,
+      drawer,
       remarks: input.remarks
     })
   }

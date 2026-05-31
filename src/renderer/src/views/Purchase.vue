@@ -13,14 +13,14 @@ import {
   SelectValue
 } from '@/components/ui/select'
 import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
+import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useProductsQuery } from '@/queries/products'
-import { useCustomersQuery } from '@/queries/customers'
 import { useSettingsQuery } from '@/queries/operations'
 import { useCreatePurchase, useEditPurchase } from '@/queries/transactions'
 import { useTransactionExit } from '@/lib/transaction-exit'
 import { grandTotal, lineTotal, validatePurchase } from '@domain/transaction-rules'
 import { formatRupees } from '@/lib/format'
-import type { CreatePurchaseInput } from '@domain/transaction'
+import type { CreatePurchaseInput, SaleMode } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
 
 const route = useRoute()
@@ -28,19 +28,24 @@ const exit = useTransactionExit()
 const editId = computed(() => (typeof route.query.edit === 'string' ? route.query.edit : null))
 
 const { data: products } = useProductsQuery()
-const { data: customers } = useCustomersQuery()
 const { data: settings } = useSettingsQuery()
 const createPurchase = useCreatePurchase()
 const editPurchase = useEditPurchase()
 
+const counterpartyMode = ref<'customer' | 'walkin'>('customer')
 const customerId = ref<number | null>(null)
+const walkinName = ref('')
+const walkinPlace = ref('')
+const walkinPhone = ref('')
+
+const mode = ref<SaleMode>('cash')
 const lines = ref<CartLine[]>([])
 const additionalCharges = ref<number | null>(null)
+const upiCollected = ref<number | null>(null)
 const remarks = ref('')
 const error = ref<string | null>(null)
 
 const productList = computed(() => products.value ?? [])
-const customerList = computed(() => customers.value ?? [])
 const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
 
 const productLookup = computed(() => {
@@ -65,9 +70,21 @@ const total = computed(() => {
   return grandTotal(totals, 0, additionalCharges.value ?? 0)
 })
 
+// Cashier types UPI paid; cash paid is the remainder of the total.
+const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0), 0))
+
 function buildInput(): CreatePurchaseInput {
   return {
-    customerId: customerId.value,
+    mode: mode.value,
+    customerId: counterpartyMode.value === 'customer' ? customerId.value : null,
+    walkin:
+      counterpartyMode.value === 'walkin'
+        ? {
+            name: walkinName.value.trim(),
+            place: walkinPlace.value.trim(),
+            phone: walkinPhone.value.trim() || null
+          }
+        : null,
     lines: lines.value
       .filter((l) => l.productId != null)
       .map((l) => ({
@@ -78,6 +95,8 @@ function buildInput(): CreatePurchaseInput {
         qty: l.qty ?? 0
       })),
     additionalCharges: additionalCharges.value ?? 0,
+    cashCollected: mode.value === 'cash' ? cashDue.value : 0,
+    upiCollected: mode.value === 'cash' ? (upiCollected.value ?? 0) : 0,
     remarks: remarks.value.trim() || null
   }
 }
@@ -85,6 +104,10 @@ function buildInput(): CreatePurchaseInput {
 function finish(): void {
   error.value = null
   const input = buildInput()
+  if (counterpartyMode.value === 'walkin' && !walkinName.value.trim()) {
+    error.value = 'Walk-in Purchases need a supplier name'
+    return
+  }
   const reason = validatePurchase(input.lines, productLookup.value)
   if (reason) {
     error.value = reason
@@ -101,8 +124,15 @@ watch(
     if (!editId.value || lines.value.length > 0) return
     const txn = await window.api.getTransaction(editId.value)
     if (!txn || txn.type !== 'PU') return
+    mode.value = txn.saleMode ?? 'cash'
+    counterpartyMode.value =
+      txn.customerId != null ? 'customer' : txn.walkinName ? 'walkin' : 'customer'
     customerId.value = txn.customerId
+    walkinName.value = txn.walkinName ?? ''
+    walkinPlace.value = txn.walkinPlace ?? ''
+    walkinPhone.value = txn.walkinPhone ?? ''
     additionalCharges.value = txn.additionalCharges || null
+    upiCollected.value = txn.upiOut || null
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
@@ -125,35 +155,97 @@ watch(
       </h1>
     </div>
 
-    <div class="grid gap-2">
-      <Label>Supplier (Customer Master)</Label>
-      <Select
-        :model-value="customerId == null ? '' : String(customerId)"
-        @update:model-value="customerId = $event ? Number($event) : null"
-      >
-        <SelectTrigger class="w-[280px]" data-testid="purchase-customer">
-          <SelectValue placeholder="Optional — choose a counterparty" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem v-for="c in customerList" :key="c.id" :value="String(c.id)">
-            {{ c.name }} — {{ c.placeName }}
-          </SelectItem>
-        </SelectContent>
-      </Select>
+    <!-- Counterparty -->
+    <div class="flex flex-wrap items-end gap-4">
+      <div class="grid gap-2">
+        <Label>Supplier</Label>
+        <Select v-model="counterpartyMode">
+          <SelectTrigger class="w-[180px]" data-testid="purchase-counterparty-mode">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="customer">Customer Master</SelectItem>
+            <SelectItem value="walkin">Walk-in</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+
+      <div v-if="counterpartyMode === 'customer'" class="grid flex-1 gap-2">
+        <Label>Select supplier</Label>
+        <CustomerSelect v-model="customerId" :auto-focus="true" test-id="purchase-customer" />
+      </div>
+
+      <template v-else>
+        <div class="grid gap-2">
+          <Label>Name</Label>
+          <Input
+            v-model="walkinName"
+            placeholder="Supplier name"
+            autofocus
+            data-testid="purchase-walkin-name"
+          />
+        </div>
+        <div class="grid gap-2">
+          <Label>Place</Label>
+          <Input v-model="walkinPlace" placeholder="Optional" />
+        </div>
+        <div class="grid gap-2">
+          <Label>Phone</Label>
+          <Input v-model="walkinPhone" placeholder="Optional" />
+        </div>
+      </template>
     </div>
 
     <GoodsCart v-model="lines" :products="productList" :bag-types="bagTypes" />
 
-    <div class="grid max-w-xs gap-2">
-      <Label>Additional Charges</Label>
-      <Input
-        type="number"
-        min="0"
-        :model-value="additionalCharges ?? ''"
-        placeholder="0"
-        data-testid="purchase-additional"
-        @update:model-value="additionalCharges = $event === '' ? null : Number($event)"
-      />
+    <!-- Charges + payment -->
+    <div class="grid gap-4 sm:grid-cols-2">
+      <div class="grid max-w-xs gap-2">
+        <Label>Additional Charges</Label>
+        <Input
+          type="number"
+          min="0"
+          :model-value="additionalCharges ?? ''"
+          placeholder="0"
+          data-testid="purchase-additional"
+          @update:model-value="additionalCharges = $event === '' ? null : Number($event)"
+        />
+      </div>
+
+      <div class="space-y-3">
+        <div class="grid gap-2">
+          <Label>Payment Mode</Label>
+          <Select v-model="mode">
+            <SelectTrigger class="w-[160px]" data-testid="purchase-mode">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="cash">Cash paid</SelectItem>
+              <SelectItem value="credit">Credit received</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div v-if="mode === 'cash'" class="grid grid-cols-2 gap-2">
+          <div class="grid gap-2">
+            <Label>UPI</Label>
+            <Input
+              type="number"
+              min="0"
+              :model-value="upiCollected ?? ''"
+              placeholder="0"
+              data-testid="purchase-upi"
+              @update:model-value="upiCollected = $event === '' ? null : Number($event)"
+            />
+          </div>
+          <div class="grid gap-2">
+            <Label>Cash (auto)</Label>
+            <Input :model-value="cashDue" type="number" disabled data-testid="purchase-cash" />
+          </div>
+        </div>
+        <p v-else class="text-sm text-muted-foreground">
+          Credit Purchase — recorded as owed to the supplier; settle later via a Payment.
+        </p>
+      </div>
     </div>
 
     <div class="flex items-center justify-between border-t pt-4">
@@ -167,7 +259,9 @@ watch(
         <p v-if="error" class="text-sm text-destructive" data-testid="purchase-error">
           {{ error }}
         </p>
-        <Button size="lg" data-testid="purchase-finish" @click="finish">Record Purchase</Button>
+        <Button size="lg" data-testid="purchase-finish" @click="finish">
+          {{ mode === 'credit' ? 'Record — Credit' : 'Record Purchase' }}
+        </Button>
       </div>
     </div>
   </div>

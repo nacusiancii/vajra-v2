@@ -104,9 +104,14 @@ export interface CreateSaleInput {
 }
 
 export interface CreatePurchaseInput {
+  /** Cash pays the supplier now (cash/UPI split); credit records goods received on credit. */
+  mode: SaleMode
   customerId: number | null
+  walkin: WalkinInput | null
   lines: SaleLineInput[]
   additionalCharges: number
+  cashCollected: number
+  upiCollected: number
   remarks: string | null
 }
 
@@ -291,7 +296,8 @@ export function summariseDrawer(txns: Txn[]): DrawerSummary {
     s.upiIn += t.upiIn
     s.cashOut += t.cashOut
     s.upiOut += t.upiOut
-    s.creditIssued += t.creditAmount
+    // creditIssued tracks Credit Vouchers we hand out — Sales only, not Credit Purchases.
+    if (t.type === 'SA') s.creditIssued += t.creditAmount
     if (t.type === 'RE') s.creditReceived += t.cashIn + t.upiIn
   }
   s.cashNet = s.cashIn - s.cashOut
