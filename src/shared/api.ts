@@ -68,6 +68,12 @@ export interface VajraApi {
   // ── Settings ───────────────────────────────────────────────
   getSettings(): Promise<AppSettings>
   updateSettings(settings: AppSettings): Promise<AppSettings>
+
+  // ── Windows ────────────────────────────────────────────────
+  /** Open a transaction screen (e.g. '/sale') in its own OS window. */
+  openTransactionWindow(path: string): Promise<void>
+  /** Close the window this call originates from (used after a transaction confirms). */
+  closeCurrentWindow(): Promise<void>
 }
 
 /**
@@ -106,5 +112,8 @@ export const IPC = {
   editMoneyTxn: 'txn:editMoney',
 
   getSettings: 'settings:get',
-  updateSettings: 'settings:update'
+  updateSettings: 'settings:update',
+
+  openTransactionWindow: 'window:openTransaction',
+  closeCurrentWindow: 'window:close'
 } as const

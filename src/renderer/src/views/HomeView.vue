@@ -25,6 +25,11 @@ import { TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
 const { data: transactions } = useTransactionsQuery()
 const recent = computed(() => (transactions.value ?? []).slice(0, 5))
 
+/** Transaction screens open in their own OS window so they never block one another. */
+function openTxn(path: string): void {
+  void window.api.openTransactionWindow(path)
+}
+
 function counterparty(t: Txn): string {
   return t.customerName ?? t.walkinName ?? t.label ?? '—'
 }
@@ -96,52 +101,43 @@ const managementLinks: ManagementLink[] = [
       </div>
 
       <div class="flex flex-wrap gap-3" data-testid="primary-actions">
-        <Button as-child size="lg">
-          <RouterLink to="/sale">
-            <ShoppingCart class="size-4" />
-            New Sale
-          </RouterLink>
+        <Button size="lg" data-testid="open-sale" @click="openTxn('/sale')">
+          <ShoppingCart class="size-4" />
+          New Sale
         </Button>
-        <Button as-child variant="secondary" size="lg">
-          <RouterLink to="/purchase">
-            <Truck class="size-4" />
-            New Purchase
-          </RouterLink>
+        <Button
+          variant="secondary"
+          size="lg"
+          data-testid="open-purchase"
+          @click="openTxn('/purchase')"
+        >
+          <Truck class="size-4" />
+          New Purchase
         </Button>
       </div>
     </section>
 
     <!-- Secondary money/stock actions -->
     <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="secondary-actions">
-      <Button as-child variant="outline" class="justify-start gap-2">
-        <RouterLink to="/receipt">
-          <HandCoins class="size-4" />
-          Receipt
-        </RouterLink>
+      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/receipt')">
+        <HandCoins class="size-4" />
+        Receipt
       </Button>
-      <Button as-child variant="outline" class="justify-start gap-2">
-        <RouterLink to="/payment">
-          <Wallet class="size-4" />
-          Payment
-        </RouterLink>
+      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/payment')">
+        <Wallet class="size-4" />
+        Payment
       </Button>
-      <Button as-child variant="outline" class="justify-start gap-2">
-        <RouterLink to="/expense">
-          <CircleDollarSign class="size-4" />
-          Expense
-        </RouterLink>
+      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/expense')">
+        <CircleDollarSign class="size-4" />
+        Expense
       </Button>
-      <Button as-child variant="outline" class="justify-start gap-2">
-        <RouterLink to="/income">
-          <Banknote class="size-4" />
-          Income
-        </RouterLink>
+      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/income')">
+        <Banknote class="size-4" />
+        Income
       </Button>
-      <Button as-child variant="outline" class="justify-start gap-2">
-        <RouterLink to="/stock-transfer">
-          <RefreshCcw class="size-4" />
-          Stock Transfer
-        </RouterLink>
+      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/stock-transfer')">
+        <RefreshCcw class="size-4" />
+        Stock Transfer
       </Button>
     </section>
 

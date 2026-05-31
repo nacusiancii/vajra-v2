@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { Banknote, CircleDollarSign, HandCoins, Wallet } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,12 +14,13 @@ import {
 } from '@/components/ui/select'
 import { useCustomersQuery } from '@/queries/customers'
 import { useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
+import { useTransactionExit } from '@/lib/transaction-exit'
 import { MoneyTxnSchema } from '@domain/transaction-rules'
 import type { MoneyMode } from '@domain/transaction'
 import type { MoneyTxnType } from '@shared/api'
 
 const route = useRoute()
-const router = useRouter()
+const exit = useTransactionExit()
 
 const CONFIG: Record<
   MoneyTxnType,
@@ -110,7 +111,7 @@ function finish(): void {
     return
   }
   const input = parsed.data
-  const onSuccess = (): void => void router.push('/transactions')
+  const onSuccess = (): void => exit()
   if (editId.value) {
     editMoney.mutate({ id: editId.value, type: type.value, input }, { onSuccess })
   } else {

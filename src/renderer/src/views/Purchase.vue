@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { Truck } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -17,13 +17,14 @@ import { useProductsQuery } from '@/queries/products'
 import { useCustomersQuery } from '@/queries/customers'
 import { useSettingsQuery } from '@/queries/operations'
 import { useCreatePurchase, useEditPurchase } from '@/queries/transactions'
+import { useTransactionExit } from '@/lib/transaction-exit'
 import { grandTotal, lineTotal, validatePurchase } from '@domain/transaction-rules'
 import { formatRupees } from '@/lib/format'
 import type { CreatePurchaseInput } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
 
 const route = useRoute()
-const router = useRouter()
+const exit = useTransactionExit()
 const editId = computed(() => (typeof route.query.edit === 'string' ? route.query.edit : null))
 
 const { data: products } = useProductsQuery()
@@ -89,7 +90,7 @@ function finish(): void {
     error.value = reason
     return
   }
-  const onSuccess = (): void => void router.push('/transactions')
+  const onSuccess = (): void => exit()
   if (editId.value) editPurchase.mutate({ id: editId.value, input }, { onSuccess })
   else createPurchase.mutate(input, { onSuccess })
 }

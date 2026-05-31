@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { ArrowRight, Plus, RefreshCcw, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -14,6 +14,7 @@ import {
 import { useProductsQuery } from '@/queries/products'
 import { useSettingsQuery } from '@/queries/operations'
 import { useCreateStockTransfer, useEditStockTransfer } from '@/queries/transactions'
+import { useTransactionExit } from '@/lib/transaction-exit'
 import { lineKg, validateTransferLeg } from '@domain/transaction-rules'
 import { formatQty } from '@/lib/format'
 import type { CreateStockTransferInput } from '@domain/transaction'
@@ -26,7 +27,7 @@ interface LegRow {
 }
 
 const route = useRoute()
-const router = useRouter()
+const exit = useTransactionExit()
 const editId = computed(() => (typeof route.query.edit === 'string' ? route.query.edit : null))
 
 const { data: products } = useProductsQuery()
@@ -108,7 +109,7 @@ function finish(): void {
       return
     }
   }
-  const onSuccess = (): void => void router.push('/transactions')
+  const onSuccess = (): void => exit()
   if (editId.value) editTransfer.mutate({ id: editId.value, input }, { onSuccess })
   else createTransfer.mutate(input, { onSuccess })
 }
