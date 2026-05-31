@@ -4,15 +4,8 @@ import { useRoute } from 'vue-router'
 import { ArrowRight, Plus, RefreshCcw, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from '@/components/ui/select'
+import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
 import { useProductsQuery } from '@/queries/products'
-import { useSettingsQuery } from '@/queries/operations'
 import { useCreateStockTransfer, useEditStockTransfer } from '@/queries/transactions'
 import { useTransactionExit } from '@/lib/transaction-exit'
 import { lineKg, validateTransferLeg } from '@domain/transaction-rules'
@@ -31,7 +24,6 @@ const exit = useTransactionExit()
 const editId = computed(() => (typeof route.query.edit === 'string' ? route.query.edit : null))
 
 const { data: products } = useProductsQuery()
-const { data: settings } = useSettingsQuery()
 const createTransfer = useCreateStockTransfer()
 const editTransfer = useEditStockTransfer()
 
@@ -41,8 +33,10 @@ const remarks = ref('')
 const error = ref<string | null>(null)
 
 const productList = computed(() => products.value ?? [])
-const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
 const productMap = computed(() => new Map(productList.value.map((p) => [p.id, p])))
+const productOptions = computed<ComboboxOption[]>(() =>
+  productList.value.map((p) => ({ value: p.id, label: p.name, hint: p.type }))
+)
 
 const productLookup = computed(() => {
   const map = new Map<number, LineProductLookup>()
@@ -77,10 +71,17 @@ function remove(side: 'source' | 'target', index: number): void {
   const legs = legsFor(side)
   legs.value = legs.value.filter((_, i) => i !== index)
 }
-function onProduct(leg: LegRow, value: string): void {
-  leg.productId = Number(value)
-  const p = productMap.value.get(leg.productId)
+function onProduct(leg: LegRow, value: number | null): void {
+  leg.productId = value
+  const p = value == null ? undefined : productMap.value.get(value)
+  // Stock Transfers always move whole Default-Bag-Size bags — no per-leg bag choice.
   leg.bagSizeKg = p?.type === 'bulk' ? (p.defaultBagSizeKg ?? null) : null
+}
+
+function rowKg(leg: LegRow): number {
+  const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
+  if (!p || !leg.qty) return 0
+  return lineKg(p.type, leg.qty, leg.bagSizeKg)
 }
 
 function buildInput(): CreateStockTransferInput {
@@ -164,41 +165,37 @@ watch(
           class="flex items-center gap-2"
           data-testid="transfer-leg"
         >
-          <Select
-            :model-value="row.productId == null ? '' : String(row.productId)"
-            @update:model-value="onProduct(row, $event as string)"
-          >
-            <SelectTrigger class="flex-1" data-testid="transfer-product">
-              <SelectValue placeholder="Product" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="p in productList" :key="p.id" :value="String(p.id)">{{
-                p.name
-              }}</SelectItem>
-            </SelectContent>
-          </Select>
-          <Select
+          <div class="flex-1">
+            <EntityCombobox
+              :model-value="row.productId"
+              :options="productOptions"
+              placeholder="Product"
+              search-placeholder="Type a product name…"
+              empty-text="No product matches."
+              test-id="transfer-product"
+              @update:model-value="onProduct(row, $event)"
+            />
+          </div>
+          <span
             v-if="isBulk(row)"
-            :model-value="row.bagSizeKg == null ? '' : String(row.bagSizeKg)"
-            @update:model-value="row.bagSizeKg = Number($event)"
+            class="w-[64px] shrink-0 text-center text-sm text-muted-foreground"
+            data-testid="transfer-bag"
           >
-            <SelectTrigger class="w-[90px]" data-testid="transfer-bag"
-              ><SelectValue placeholder="Bag"
-            /></SelectTrigger>
-            <SelectContent>
-              <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)">{{ b }}kg</SelectItem>
-            </SelectContent>
-          </Select>
+            {{ row.bagSizeKg }}kg
+          </span>
           <Input
             type="number"
             min="0"
             step="0.5"
-            class="w-[80px]"
+            class="w-[72px]"
             :model-value="row.qty ?? ''"
             placeholder="Qty"
             data-testid="transfer-qty"
             @update:model-value="row.qty = $event === '' ? null : Number($event)"
           />
+          <span class="w-[72px] shrink-0 text-right text-xs text-muted-foreground tabular-nums">
+            {{ rowKg(row) > 0 ? `${formatQty(rowKg(row))} kg` : '' }}
+          </span>
           <Button variant="ghost" size="icon" @click="remove(leg.key, index)">
             <Trash2 class="size-4 text-destructive" />
           </Button>
