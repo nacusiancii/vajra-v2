@@ -12,6 +12,11 @@ on:
   push:
     tags:
       - 'v*'
+    # TEMPORARY: smoke-test the workflow from this branch before it reaches
+    # main (workflow_dispatch only works once a workflow is on the default
+    # branch). Remove before merge.
+    branches:
+      - ci/windows-build
 
 jobs:
   build:
