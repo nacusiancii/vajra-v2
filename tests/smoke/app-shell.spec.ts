@@ -25,9 +25,9 @@ test.describe('Home page', () => {
 })
 
 test.describe('Navigation', () => {
-  test('Sale link navigates to placeholder', async ({ page }) => {
+  test('Sale link navigates to the Sale page', async ({ page }) => {
     await page.getByRole('link', { name: /New Sale/i }).click()
-    await expect(page.getByTestId('placeholder-sale')).toBeVisible()
+    await expect(page.getByTestId('sale-page')).toBeVisible()
   })
 
   test('management link navigates to Product Master', async ({ page }) => {
@@ -37,7 +37,7 @@ test.describe('Navigation', () => {
 
   test('Vajra header link returns home', async ({ page }) => {
     await page.getByRole('link', { name: /New Sale/i }).click()
-    await expect(page.getByTestId('placeholder-sale')).toBeVisible()
+    await expect(page.getByTestId('sale-page')).toBeVisible()
 
     await page.getByRole('link', { name: /Vajra/i }).click()
     await expect(page.getByTestId('home-page')).toBeVisible()
