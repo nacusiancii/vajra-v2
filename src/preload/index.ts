@@ -17,7 +17,25 @@ const api: VajraApi = {
   canDeleteProduct: (id) => ipcRenderer.invoke(IPC.canDeleteProduct, id),
 
   listPlaces: () => ipcRenderer.invoke(IPC.listPlaces),
-  listProductGroups: () => ipcRenderer.invoke(IPC.listProductGroups)
+  listProductGroups: () => ipcRenderer.invoke(IPC.listProductGroups),
+
+  currentBusinessDay: () => ipcRenderer.invoke(IPC.currentBusinessDay),
+  inventory: () => ipcRenderer.invoke(IPC.inventory),
+  approveRollover: () => ipcRenderer.invoke(IPC.approveRollover),
+
+  listTransactions: () => ipcRenderer.invoke(IPC.listTransactions),
+  getTransaction: (id) => ipcRenderer.invoke(IPC.getTransaction, id),
+  createSale: (input) => ipcRenderer.invoke(IPC.createSale, input),
+  editSale: (id, input) => ipcRenderer.invoke(IPC.editSale, id, input),
+  createPurchase: (input) => ipcRenderer.invoke(IPC.createPurchase, input),
+  editPurchase: (id, input) => ipcRenderer.invoke(IPC.editPurchase, id, input),
+  createStockTransfer: (input) => ipcRenderer.invoke(IPC.createStockTransfer, input),
+  editStockTransfer: (id, input) => ipcRenderer.invoke(IPC.editStockTransfer, id, input),
+  createMoneyTxn: (type, input) => ipcRenderer.invoke(IPC.createMoneyTxn, type, input),
+  editMoneyTxn: (id, type, input) => ipcRenderer.invoke(IPC.editMoneyTxn, id, type, input),
+
+  getSettings: () => ipcRenderer.invoke(IPC.getSettings),
+  updateSettings: (settings) => ipcRenderer.invoke(IPC.updateSettings, settings)
 }
 
 if (process.contextIsolated) {

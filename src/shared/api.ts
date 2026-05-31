@@ -16,6 +16,18 @@ import type {
   ProductGroup,
   DeleteCheck
 } from '../domain/types'
+import type {
+  BusinessDay,
+  CreateMoneyTxnInput,
+  CreatePurchaseInput,
+  CreateSaleInput,
+  CreateStockTransferInput,
+  InventoryRow,
+  Txn
+} from '../domain/transaction'
+import type { AppSettings } from '../domain/settings'
+
+export type MoneyTxnType = 'RE' | 'PA' | 'EX' | 'IN'
 
 export interface VajraApi {
   // ── Customers ──────────────────────────────────────────────
@@ -35,6 +47,27 @@ export interface VajraApi {
   // ── Lookup values (for combobox autocomplete) ──────────────
   listPlaces(): Promise<Place[]>
   listProductGroups(): Promise<ProductGroup[]>
+
+  // ── Business Day, Inventory, Rollover ──────────────────────
+  currentBusinessDay(): Promise<BusinessDay>
+  inventory(): Promise<InventoryRow[]>
+  approveRollover(): Promise<BusinessDay>
+
+  // ── Transactions ───────────────────────────────────────────
+  listTransactions(): Promise<Txn[]>
+  getTransaction(id: string): Promise<Txn | null>
+  createSale(input: CreateSaleInput): Promise<Txn>
+  editSale(id: string, input: CreateSaleInput): Promise<Txn>
+  createPurchase(input: CreatePurchaseInput): Promise<Txn>
+  editPurchase(id: string, input: CreatePurchaseInput): Promise<Txn>
+  createStockTransfer(input: CreateStockTransferInput): Promise<Txn>
+  editStockTransfer(id: string, input: CreateStockTransferInput): Promise<Txn>
+  createMoneyTxn(type: MoneyTxnType, input: CreateMoneyTxnInput): Promise<Txn>
+  editMoneyTxn(id: string, type: MoneyTxnType, input: CreateMoneyTxnInput): Promise<Txn>
+
+  // ── Settings ───────────────────────────────────────────────
+  getSettings(): Promise<AppSettings>
+  updateSettings(settings: AppSettings): Promise<AppSettings>
 }
 
 /**
@@ -55,5 +88,23 @@ export const IPC = {
   canDeleteProduct: 'product:canDelete',
 
   listPlaces: 'place:list',
-  listProductGroups: 'productGroup:list'
+  listProductGroups: 'productGroup:list',
+
+  currentBusinessDay: 'businessDay:current',
+  inventory: 'inventory:get',
+  approveRollover: 'rollover:approve',
+
+  listTransactions: 'txn:list',
+  getTransaction: 'txn:get',
+  createSale: 'txn:createSale',
+  editSale: 'txn:editSale',
+  createPurchase: 'txn:createPurchase',
+  editPurchase: 'txn:editPurchase',
+  createStockTransfer: 'txn:createStockTransfer',
+  editStockTransfer: 'txn:editStockTransfer',
+  createMoneyTxn: 'txn:createMoney',
+  editMoneyTxn: 'txn:editMoney',
+
+  getSettings: 'settings:get',
+  updateSettings: 'settings:update'
 } as const

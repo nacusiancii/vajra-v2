@@ -48,13 +48,15 @@ pnpm verify
 
 This runs typecheck, unit tests (placeholder for now), and Playwright smoke tests.
 
-### Individual commands
+### Scripts
 
 ```bash
-pnpm typecheck       # TypeScript across main + renderer
-pnpm test            # Unit tests (vitest, coming later)
-pnpm test:smoke      # Build + Playwright Electron smoke tests
+- `pnpm test` — run unit tests (pure domain logic, no Electron, fast)
+- `pnpm test:smoke` — build then run Playwright smoke tests against the real Electron app
+- `pnpm verify` — full check: lint:fix → typecheck → unit tests → smoke tests
 ```
+
+Refer to @package.json for the complete list of scripts, use pnpm, avoid npm and npx.
 
 ## Adding shadcn-vue components
 
