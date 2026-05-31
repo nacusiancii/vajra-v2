@@ -4,8 +4,8 @@ test.describe('Home page', () => {
   test('shows primary counter actions', async ({ page }) => {
     await expect(page.getByTestId('home-page')).toBeVisible()
     await expect(page.getByTestId('primary-actions')).toBeVisible()
-    await expect(page.getByRole('link', { name: /New Sale/i })).toBeVisible()
-    await expect(page.getByRole('link', { name: /New Purchase/i })).toBeVisible()
+    await expect(page.getByTestId('open-sale')).toBeVisible()
+    await expect(page.getByTestId('open-purchase')).toBeVisible()
   })
 
   test('shows recent transactions affordance', async ({ page }) => {
@@ -25,21 +25,27 @@ test.describe('Home page', () => {
 })
 
 test.describe('Navigation', () => {
-  test('Sale link navigates to the Sale page', async ({ page }) => {
-    await page.getByRole('link', { name: /New Sale/i }).click()
-    await expect(page.getByTestId('sale-page')).toBeVisible()
+  test('New Sale opens a standalone Sale window', async ({ electronApp, page }) => {
+    const [sale] = await Promise.all([
+      electronApp.waitForEvent('window'),
+      page.getByTestId('open-sale').click()
+    ])
+    await sale.waitForLoadState('domcontentloaded')
+    await expect(sale.getByTestId('sale-page')).toBeVisible()
+    // A transaction window carries a Cancel (close) control, not the hub chrome.
+    await expect(sale.getByTestId('cancel-window')).toBeVisible()
   })
 
-  test('management link navigates to Product Master', async ({ page }) => {
+  test('management link navigates to Product Master in the hub', async ({ page }) => {
     await page.getByTestId('management-links').getByText('Product Master').click()
     await expect(page.getByTestId('product-master-page')).toBeVisible()
   })
 
-  test('Vajra header link returns home', async ({ page }) => {
-    await page.getByRole('link', { name: /New Sale/i }).click()
-    await expect(page.getByTestId('sale-page')).toBeVisible()
+  test('Back button returns to the hub from a sub-page', async ({ page }) => {
+    await page.getByTestId('management-links').getByText('Product Master').click()
+    await expect(page.getByTestId('product-master-page')).toBeVisible()
 
-    await page.getByRole('link', { name: /Vajra/i }).click()
+    await page.getByTestId('back-button').click()
     await expect(page.getByTestId('home-page')).toBeVisible()
   })
 })
