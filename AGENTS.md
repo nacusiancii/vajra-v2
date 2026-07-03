@@ -20,6 +20,8 @@ v1 became prototype-as-architecture. v2 rebuilds the foundation:
 
 And most importantly, if you do end up touching code, leave it in a better state than what you started with 😄.
 
+Before considering a change done, run `pnpm fix` — it fixes lint issues, formats, then runs the full verification suite (`pnpm verify`).
+
 ## Agent skills
 
 ### Issue tracker
