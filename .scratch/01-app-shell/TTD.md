@@ -347,22 +347,22 @@ Add dedicated tooling config:
 
 ```ts
 // vite.config.ts
-import { resolve } from "node:path";
-import { defineConfig } from "vite";
-import vue from "@vitejs/plugin-vue";
-import tailwindcss from "@tailwindcss/vite";
+import { resolve } from 'node:path'
+import { defineConfig } from 'vite'
+import vue from '@vitejs/plugin-vue'
+import tailwindcss from '@tailwindcss/vite'
 
 export default defineConfig({
-  root: "src/renderer",
+  root: 'src/renderer',
   plugins: [vue(), tailwindcss()],
   resolve: {
     alias: {
-      "@renderer": resolve("src/renderer/src"),
-      "@shared": resolve("src/shared"),
-      "@domain": resolve("src/domain"),
-    },
-  },
-});
+      '@renderer': resolve('src/renderer/src'),
+      '@shared': resolve('src/shared'),
+      '@domain': resolve('src/domain')
+    }
+  }
+})
 ```
 
 Add `components.json`:
@@ -456,14 +456,14 @@ Use tiny typed API:
 
 ```ts
 type ShellStatus = {
-  appName: "Vajra";
-  ready: true;
-  version: string;
-};
+  appName: 'Vajra'
+  ready: true
+  version: string
+}
 
 type ShellApi = {
-  getStatus: () => Promise<ShellStatus>;
-};
+  getStatus: () => Promise<ShellStatus>
+}
 ```
 
 Purpose:
@@ -476,7 +476,7 @@ Purpose:
 ### Vue Query Keys
 
 ```ts
-["shell", "status"];
+;['shell', 'status']
 ```
 
 No domain-change events needed yet. Add event bridge in Product Master slice when first write exists.

@@ -50,6 +50,7 @@ The fixture provides `electronApp` and `page`. You write assertions against `pag
 ## Locator strategy
 
 Prefer (in order):
+
 - `getByRole()` — accessible and resilient
 - `getByTestId()` — explicit contract between test and template
 - `getByText()` — only when unambiguous within scope

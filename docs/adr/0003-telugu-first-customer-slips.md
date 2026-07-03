@@ -8,5 +8,5 @@ We chose this split because the slip serves the customer, not the operator. Cust
 
 - Every new Customer and Product entry has two name fields (English required, Telugu optional). A simple transliteration helper button is desirable for v2 but not a blocker; OS-level IME is acceptable interim.
 - Slip rendering must be tested early on the target thermal printer — Telugu conjuncts and matras are non-trivial for cheap bitmap-font printers. Printer purchase is driven by Telugu rendering quality, not the other way around. If the chosen printer fails Telugu, this ADR must be revisited before the slip layer is finalised.
-- The "blank space for handwriting" rule means slip layouts must reserve consistent horizontal room for fields that *could* be Telugu, even when Telugu is absent — the slip is designed for the bilingual case and tolerates the monolingual one, not the other way around.
+- The "blank space for handwriting" rule means slip layouts must reserve consistent horizontal room for fields that _could_ be Telugu, even when Telugu is absent — the slip is designed for the bilingual case and tolerates the monolingual one, not the other way around.
 - No Telugu UI mode in v2. If the shopkeeper later wants their own Telugu view of the app, that is a new ADR and a substantial UI investment.

@@ -7,6 +7,6 @@ We chose this because Vajra is a counter-side operations tool, not a ledger or a
 #### Consequences
 
 - No "yesterday view," no historical analytics, no audit trail inside Vajra. Anything resembling history is delivered as exported files only.
-- The End of Day Report is the *only* bridge between days. If it isn't exported and stored by the shopkeeper, that day's detail is gone forever — by design.
+- The End of Day Report is the _only_ bridge between days. If it isn't exported and stored by the shopkeeper, that day's detail is gone forever — by design.
 - At the start of Rollover, if old End of Day Report files are still in the reports folder, Vajra warns the shopkeeper so they can move/back-up/delete them first. Vajra does not manage that folder; it only checks it.
 - Reopening a closed day is not a feature and never will be.

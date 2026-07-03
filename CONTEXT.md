@@ -23,7 +23,7 @@ The stock-on-hand for each Product at the moment a Business Day begins. Set duri
 _Avoid_: Starting inventory, initial stock.
 
 **Inventory**:
-A *derived view*, not a stored value. The current stock of any Product is computed at read time by replaying the Business Day's transactions (Sales, Purchases, Stock Transfers, with Void successors taken into account) against the day's Opening Stock. Vajra never persists "current stock" as a separate field anywhere — there is no source of truth for inventory other than the transactional ledger. The cashier UI shows a live computed view; the End of Day Report shows the same numbers, produced by the same formulas.
+A _derived view_, not a stored value. The current stock of any Product is computed at read time by replaying the Business Day's transactions (Sales, Purchases, Stock Transfers, with Void successors taken into account) against the day's Opening Stock. Vajra never persists "current stock" as a separate field anywhere — there is no source of truth for inventory other than the transactional ledger. The cashier UI shows a live computed view; the End of Day Report shows the same numbers, produced by the same formulas.
 _Avoid_: Stock-on-hand (as a stored value), inventory table, balance.
 
 ### Master data (survives Rollover)
@@ -34,7 +34,7 @@ The catalog of things the shop can sell. Survives Rollover unchanged. Each entry
 **Customer Master**:
 The catalog of known counterparties. Survives Rollover unchanged. A single Customer entry serves both directions — the same record is referenced when the counterparty buys (Sale, Receipt) and when they supply (Purchase, Payment). No separate Supplier Master exists.
 
-Each Customer has: a unique **name** (English, required), a **place** (English, required, autocompletes from values already in the DB), an optional **phone**, optional **Telugu translations** for name and place, and an optional **remarks** (single free-text field, overwritable — a sticky note for the shopkeeper, not a log). Creating a new Customer with a name that already exists is blocked; creating one whose name is *similar to* an existing entry surfaces those matches and offers to reuse them, but the cashier can still proceed if they confirm.
+Each Customer has: a unique **name** (English, required), a **place** (English, required, autocompletes from values already in the DB), an optional **phone**, optional **Telugu translations** for name and place, and an optional **remarks** (single free-text field, overwritable — a sticky note for the shopkeeper, not a log). Creating a new Customer with a name that already exists is blocked; creating one whose name is _similar to_ an existing entry surfaces those matches and offers to reuse them, but the cashier can still proceed if they confirm.
 
 UX-only flags about a Customer — e.g., "has ever supplied" used to bias Purchase-screen search — live outside the Customer Master so the master stays a pure identity record.
 _Avoid_: Supplier Master, Vendor, Party.
@@ -97,15 +97,15 @@ The paper artifact produced when a Sale finishes — one business copy always, o
 _Avoid_: Bill, slip, receipt (collides with the Receipt entity).
 
 **Credit Voucher**:
-The paper artifact a Credit Sale produces *in addition to* the Sale Invoice, in lieu of cash. Carries a Vajra-generated **Voucher Number** (user-visible, resets each Business Day) printed on the voucher and recorded against the Sale for traceability. The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Finishing a Credit Sale requires explicit confirmation that the voucher has been signed. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
+The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in lieu of cash. Carries a Vajra-generated **Voucher Number** (user-visible, resets each Business Day) printed on the voucher and recorded against the Sale for traceability. The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Finishing a Credit Sale requires explicit confirmation that the voucher has been signed. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
 _Avoid_: IOU, credit note, due slip.
 
 **Receipt**:
-A payment a customer brings in *after* a Credit Sale was finished — possibly that same day, possibly weeks later. Records amount, mode (cash or UPI), and Customer. Receipts do *not* reference a specific Voucher ID because they may be paying against a voucher issued in a past Business Day, which Vajra no longer holds; matching is the shopkeeper's paper-side job. Receipts can be partial or full. Like all other transactional entries, Receipts are wiped at Rollover.
+A payment a customer brings in _after_ a Credit Sale was finished — possibly that same day, possibly weeks later. Records amount, mode (cash or UPI), and Customer. Receipts do _not_ reference a specific Voucher ID because they may be paying against a voucher issued in a past Business Day, which Vajra no longer holds; matching is the shopkeeper's paper-side job. Receipts can be partial or full. Like all other transactional entries, Receipts are wiped at Rollover.
 _Avoid_: Repayment, settlement, credit-in.
 
 **Payment**:
-Cash or UPI paid *out* to a Customer — the shop settling a past Credit Purchase, or any other counterparty-bound outflow. The mirror of Receipt. References a Customer and optionally a Voucher ID. Payments are not validated against any past Credit Purchase inside Vajra; reconciliation is on paper.
+Cash or UPI paid _out_ to a Customer — the shop settling a past Credit Purchase, or any other counterparty-bound outflow. The mirror of Receipt. References a Customer and optionally a Voucher ID. Payments are not validated against any past Credit Purchase inside Vajra; reconciliation is on paper.
 _Avoid_: Payout, supplier payment, settlement, refund.
 
 ### Other money movements
@@ -134,7 +134,7 @@ The non-voided transaction that supersedes a voided one. A chain may grow arbitr
 ### Printing
 
 **Printerless Mode**:
-A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Sale Invoice / Credit Voucher details on screen — including the Sale Number and Voucher Number — so the cashier can write a manual copy by hand. Distinct from the per-transaction *"printer not responding — continue without slip?"* prompt that handles a single transient print failure without changing the mode.
+A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Sale Invoice / Credit Voucher details on screen — including the Sale Number and Voucher Number — so the cashier can write a manual copy by hand. Distinct from the per-transaction _"printer not responding — continue without slip?"_ prompt that handles a single transient print failure without changing the mode.
 
 ### Stock-only movements
 
@@ -144,7 +144,7 @@ _Avoid_: Rebranding, repack, conversion.
 
 ## Flagged ambiguities
 
-**"Payment"**: The entity (cash/UPI out to a Customer) collides with the everyday meaning of "payment captured at the finish of a Cash Sale." When unambiguous in context, use Payment for the entity; for the cash/UPI a customer hands over during Sale finish, say *cash collected* and *UPI collected*, not "payment."
+**"Payment"**: The entity (cash/UPI out to a Customer) collides with the everyday meaning of "payment captured at the finish of a Cash Sale." When unambiguous in context, use Payment for the entity; for the cash/UPI a customer hands over during Sale finish, say _cash collected_ and _UPI collected_, not "payment."
 
 ## Example dialogue
 

@@ -10,12 +10,12 @@ We chose this because the EOD report is the shopkeeper's reconciliation tool, no
 2. **Inventory View** — Per Product, grouped by Product Group with subtotals: `Opening | +Purchased | −Sold | =Closing | −Physical Stock | =Diff`. Closing and Diff are formulas. Physical Stock is the empty column the shopkeeper fills in during reconciliation. Stock Transfers are decomposed at report time into a synthetic Sale (source) + Purchase (target) pair, so this sheet sees only Purchases and Sales.
 3. **Transaction Summary** — All transaction lines, compact column set, for scanning.
 4. **Transactions** — All transaction lines, full column set, for detail.
-5–8. **Per-entity ledgers** — Sales, Purchases, Receipts+Payments (merged), Expenses+Income (merged). Merging Sales and Purchases into a single "stock movements" sheet is an open consideration.
-9. **Audit** — Voided transactions with Successor references.
+   5–8. **Per-entity ledgers** — Sales, Purchases, Receipts+Payments (merged), Expenses+Income (merged). Merging Sales and Purchases into a single "stock movements" sheet is an open consideration.
+5. **Audit** — Voided transactions with Successor references.
 
 #### Consequences
 
 - Sheet names and column letters are load-bearing: renaming a sheet or moving a column breaks every cross-sheet formula. The export code must treat these as a fixed schema, with tests pinning each formula's references.
 - The same formula library drives the live UI view and the XLSX export. Adding or changing a computation means updating one place that knows how to render to both surfaces.
 - Approving Rollover overwrites any intermediate exports — only the final post-approval file is canonical. The reports folder should therefore hold one `.xlsx` per past Business Day, named with the day's date (e.g., `vajra-eod-2026-05-23.xlsx`).
-- Telugu rendering applies to *slips*, not to this report — the report is shopkeeper-facing and stays English (ASCII-safe in Excel).
+- Telugu rendering applies to _slips_, not to this report — the report is shopkeeper-facing and stays English (ASCII-safe in Excel).

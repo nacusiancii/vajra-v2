@@ -11,6 +11,6 @@ We chose this split because the cashier's mental model is short, day-local, and 
 
 - The user-visible Sale Number resets at Rollover, matching the per-day reset of all transactional data. The shopkeeper's paper credit book keys its rows by Voucher Number + date — Vajra's choice mirrors that habit.
 - Per-day numbering means there is no global notion of "we've done N sales since launch." That is deliberate; zero-retention (ADR-0001) already rules out aggregating across days.
-- The internal ID's date suffix is the Business Day's *start date*, not the wall-clock date — so a Business Day that runs past midnight still produces IDs anchored to the day it began.
+- The internal ID's date suffix is the Business Day's _start date_, not the wall-clock date — so a Business Day that runs past midnight still produces IDs anchored to the day it began.
 - Two-letter type codes are a closed set, listed above. Adding a new transactional entity (the rare case) means picking a new two-letter code and updating this ADR — collisions are impossible by enumeration.
 - The Successor pointer on a Voided transaction stores the full internal ID of the replacement, so the audit sheet can render the chain unambiguously and Excel-side joins are straightforward.
