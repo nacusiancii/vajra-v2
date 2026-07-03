@@ -25,15 +25,12 @@ test.describe('Home page', () => {
 })
 
 test.describe('Navigation', () => {
-  test('New Sale opens a standalone Sale window', async ({ electronApp, page }) => {
-    const [sale] = await Promise.all([
-      electronApp.waitForEvent('window'),
-      page.getByTestId('open-sale').click()
-    ])
-    await sale.waitForLoadState('domcontentloaded')
-    await expect(sale.getByTestId('sale-page')).toBeVisible()
-    // A transaction window carries a Cancel (close) control, not the hub chrome.
-    await expect(sale.getByTestId('cancel-window')).toBeVisible()
+  test('New Sale navigates to the Sale screen', async ({ page }) => {
+    await page.getByTestId('open-sale').click()
+    await expect(page.getByTestId('sale-page')).toBeVisible()
+    // Transaction screens share the hub chrome — Back returns to the hub.
+    await page.getByTestId('back-button').click()
+    await expect(page.getByTestId('home-page')).toBeVisible()
   })
 
   test('management link navigates to Product Master in the hub', async ({ page }) => {

@@ -36,10 +36,7 @@ const api: VajraApi = {
   editMoneyTxn: (id, type, input) => ipcRenderer.invoke(IPC.editMoneyTxn, id, type, input),
 
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
-  updateSettings: (settings) => ipcRenderer.invoke(IPC.updateSettings, settings),
-
-  openTransactionWindow: (path) => ipcRenderer.invoke(IPC.openTransactionWindow, path),
-  closeCurrentWindow: () => ipcRenderer.invoke(IPC.closeCurrentWindow)
+  updateSettings: (settings) => ipcRenderer.invoke(IPC.updateSettings, settings)
 }
 
 if (process.contextIsolated) {

@@ -1,8 +1,7 @@
-import { app, ipcMain, shell, BrowserWindow } from 'electron'
+import { app, shell, BrowserWindow } from 'electron'
 import { join } from 'path'
 import { electronApp, optimizer, is } from '@electron-toolkit/utils'
 import icon from '../../resources/icon.png?asset'
-import { IPC } from '../shared/api'
 import { registerIpcHandlers } from './ipc'
 import { closeDb } from './db'
 
@@ -12,56 +11,6 @@ let mainWindow: BrowserWindow | null = null
 const webPreferences = {
   preload: join(__dirname, '../preload/index.js'),
   sandbox: false
-}
-
-/**
- * Point a window at a renderer route. Transaction windows carry `?role=txn` so the
- * renderer can render its standalone (hub-less) chrome. Hash routing keeps the
- * query intact ahead of the `#`.
- */
-function loadRoute(win: BrowserWindow, role: 'txn' | null, hashPath: string): void {
-  if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-    const search = role ? `?role=${role}` : ''
-    void win.loadURL(`${process.env['ELECTRON_RENDERER_URL']}/${search}#${hashPath}`)
-  } else {
-    void win.loadFile(join(__dirname, '../renderer/index.html'), {
-      search: role ? `role=${role}` : undefined,
-      hash: hashPath
-    })
-  }
-}
-
-/** Open one transaction screen in its own OS window (ADR-deferred: see branch notes). */
-function createTransactionWindow(path: string): void {
-  const win = new BrowserWindow({
-    width: 820,
-    height: 760,
-    show: false,
-    autoHideMenuBar: true,
-    ...(process.platform === 'linux' ? { icon } : {}),
-    webPreferences
-  })
-
-  win.on('ready-to-show', () => {
-    win.show()
-    win.focus()
-  })
-
-  win.webContents.setWindowOpenHandler((details) => {
-    void shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
-
-  loadRoute(win, 'txn', path)
-}
-
-function registerWindowHandlers(): void {
-  ipcMain.handle(IPC.openTransactionWindow, (_e, path: string) => {
-    createTransactionWindow(path)
-  })
-  ipcMain.handle(IPC.closeCurrentWindow, (e) => {
-    BrowserWindow.fromWebContents(e.sender)?.close()
-  })
 }
 
 function showMainWindow(): void {
@@ -132,7 +81,6 @@ if (!hasSingleInstanceLock) {
     })
 
     registerIpcHandlers()
-    registerWindowHandlers()
 
     createWindow()
 

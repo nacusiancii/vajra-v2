@@ -6,6 +6,7 @@ import {
   Boxes,
   CircleDollarSign,
   HandCoins,
+  type LucideIcon,
   Package,
   ReceiptText,
   RefreshCcw,
@@ -25,23 +26,46 @@ import { TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
 const { data: transactions } = useTransactionsQuery()
 const recent = computed(() => (transactions.value ?? []).slice(0, 5))
 
-/** Transaction screens open in their own OS window so they never block one another. */
-function openTxn(path: string): void {
-  void window.api.openTransactionWindow(path)
-}
-
 function counterparty(t: Txn): string {
   return t.customerName ?? t.walkinName ?? t.label ?? '—'
 }
 
-interface ManagementLink {
+interface HomeLink {
   label: string
   route: string
-  icon: typeof Users
-  description: string
+  icon: LucideIcon
+  description?: string
 }
 
-const managementLinks: ManagementLink[] = [
+const secondaryTransactionLinks: HomeLink[] = [
+  {
+    label: 'Receipt',
+    route: '/receipt',
+    icon: HandCoins
+  },
+  {
+    label: 'Payment',
+    route: '/payment',
+    icon: Wallet
+  },
+  {
+    label: 'Expense',
+    route: '/expense',
+    icon: CircleDollarSign
+  },
+  {
+    label: 'Income',
+    route: '/income',
+    icon: Banknote
+  },
+  {
+    label: 'Stock Transfer',
+    route: '/stock-transfer',
+    icon: RefreshCcw
+  }
+]
+
+const managementLinks: HomeLink[] = [
   {
     label: 'Product Master',
     route: '/product-master',
@@ -101,43 +125,35 @@ const managementLinks: ManagementLink[] = [
       </div>
 
       <div class="flex flex-wrap gap-3" data-testid="primary-actions">
-        <Button size="lg" data-testid="open-sale" @click="openTxn('/sale')">
-          <ShoppingCart class="size-4" />
-          New Sale
+        <Button as-child size="lg">
+          <RouterLink to="/sale" data-testid="open-sale">
+            <ShoppingCart class="size-4" />
+            New Sale
+          </RouterLink>
         </Button>
-        <Button
-          variant="secondary"
-          size="lg"
-          data-testid="open-purchase"
-          @click="openTxn('/purchase')"
-        >
-          <Truck class="size-4" />
-          New Purchase
+
+        <Button as-child variant="secondary" size="lg">
+          <RouterLink to="/purchase" data-testid="open-purchase">
+            <Truck class="size-4" />
+            New Purchase
+          </RouterLink>
         </Button>
       </div>
     </section>
 
     <!-- Secondary money/stock actions -->
     <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="secondary-actions">
-      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/receipt')">
-        <HandCoins class="size-4" />
-        Receipt
-      </Button>
-      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/payment')">
-        <Wallet class="size-4" />
-        Payment
-      </Button>
-      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/expense')">
-        <CircleDollarSign class="size-4" />
-        Expense
-      </Button>
-      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/income')">
-        <Banknote class="size-4" />
-        Income
-      </Button>
-      <Button variant="outline" class="justify-start gap-2" @click="openTxn('/stock-transfer')">
-        <RefreshCcw class="size-4" />
-        Stock Transfer
+      <Button
+        v-for="link in secondaryTransactionLinks"
+        :key="link.route"
+        as-child
+        variant="outline"
+        class="justify-start gap-2"
+      >
+        <RouterLink :to="link.route">
+          <component :is="link.icon" class="size-4" />
+          {{ link.label }}
+        </RouterLink>
       </Button>
     </section>
 
