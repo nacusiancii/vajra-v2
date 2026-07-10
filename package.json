@@ -29,6 +29,8 @@
   "dependencies": {
     "@electron-toolkit/preload": "3.0.2",
     "@electron-toolkit/utils": "4.0.0",
+    "@fontsource/noto-sans": "^5.2.10",
+    "@fontsource/noto-sans-telugu": "^5.2.8",
     "@lucide/vue": "^1.16.0",
     "@tailwindcss/vite": "^4.3.0",
     "@tanstack/vue-query": "^5.100.14",
