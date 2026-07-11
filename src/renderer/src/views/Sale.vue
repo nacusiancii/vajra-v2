@@ -1,11 +1,19 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { AlertTriangle, Printer, ShoppingCart } from '@lucide/vue'
+import { AlertTriangle, Banknote, FileSignature, Printer, ShoppingCart } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle
+} from '@/components/ui/card'
 import {
   Dialog,
   DialogContent,
@@ -55,7 +63,9 @@ const walkinName = ref('')
 const walkinPlace = ref('')
 const walkinPhone = ref('')
 
-const mode = ref<SaleMode>('cash')
+// Cash or Credit is chosen before anything else — the whole workspace hangs off it.
+// null = the gate is still showing; editing an existing Sale prefills it instead.
+const mode = ref<SaleMode | null>(null)
 const lines = ref<CartLine[]>([])
 const applyLoading = ref(false)
 const additionalCharges = ref<number | null>(null)
@@ -76,6 +86,44 @@ const printGateOpen = ref(false)
 const productList = computed(() => products.value ?? [])
 const customerList = computed(() => customers.value ?? [])
 const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
+
+const isCredit = computed(() => mode.value === 'credit')
+
+// Cash is the counter's common case — the gate pre-focuses its tile so a bare
+// Enter starts a Cash Sale. (Not rendered when editing; the ref stays null.)
+const cashTile = ref<HTMLButtonElement | null>(null)
+onMounted(() => cashTile.value?.focus())
+
+// Credit Sales reject walk-ins — flipping to credit snaps the counterparty back to
+// the Customer Master; the walk-in fields keep their values in case the cashier flips back.
+watch(mode, (m) => {
+  if (m === 'credit' && counterpartyMode.value === 'walkin') counterpartyMode.value = 'customer'
+})
+
+const shellTint = computed(() => {
+  if (mode.value === 'cash') return 'bg-emerald-50/60 dark:bg-emerald-950/20'
+  if (mode.value === 'credit') return 'bg-amber-50/60 dark:bg-amber-950/20'
+  return ''
+})
+
+const cardAccent = computed(() =>
+  isCredit.value
+    ? 'border-amber-200 dark:border-amber-900'
+    : 'border-emerald-200 dark:border-emerald-900'
+)
+
+const finishTint = computed(() =>
+  isCredit.value
+    ? 'bg-amber-600 text-white hover:bg-amber-700'
+    : 'bg-emerald-600 text-white hover:bg-emerald-700'
+)
+
+function segmentClass(m: SaleMode): string {
+  const base =
+    'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors'
+  if (mode.value !== m) return `${base} text-muted-foreground hover:text-foreground`
+  return m === 'cash' ? `${base} bg-emerald-600 text-white` : `${base} bg-amber-600 text-white`
+}
 
 const selectedCustomer = computed(() =>
   customerId.value == null
@@ -142,9 +190,9 @@ async function printVoucher(): Promise<void> {
   voucherOpen.value = true
 }
 
-function buildInput(): CreateSaleInput {
+function buildInput(m: SaleMode): CreateSaleInput {
   return {
-    mode: mode.value,
+    mode: m,
     customerId: counterpartyMode.value === 'customer' ? customerId.value : null,
     walkin:
       counterpartyMode.value === 'walkin'
@@ -165,18 +213,20 @@ function buildInput(): CreateSaleInput {
       })),
     additionalCharges: additionalCharges.value ?? 0,
     loadingCharges: loadingCharge.value,
-    cashCollected: mode.value === 'cash' ? cashDue.value : 0,
-    upiCollected: mode.value === 'cash' ? (upiCollected.value ?? 0) : 0,
-    voucherSeq: mode.value === 'credit' ? printedVoucherSeq.value : null,
+    cashCollected: m === 'cash' ? cashDue.value : 0,
+    upiCollected: m === 'cash' ? (upiCollected.value ?? 0) : 0,
+    voucherSeq: m === 'credit' ? printedVoucherSeq.value : null,
     remarks: remarks.value.trim() || null
   }
 }
 
 function finish(): void {
+  const m = mode.value
+  if (!m) return
   error.value = null
-  const input = buildInput()
+  const input = buildInput(m)
   const reason = validateSale(input.lines, productLookup.value, {
-    mode: mode.value,
+    mode: m,
     hasCustomer: counterpartyMode.value === 'customer' && customerId.value != null,
     customerHasPhone: !!selectedCustomer.value?.phone,
     isWalkin: counterpartyMode.value === 'walkin'
@@ -194,7 +244,7 @@ function finish(): void {
   }
 
   // A Credit Sale can't finish until a voucher is printed at the current price for signing.
-  if (mode.value === 'credit' && !voucherPrinted.value) {
+  if (m === 'credit' && !voucherPrinted.value) {
     printGateOpen.value = true
     return
   }
@@ -248,219 +298,343 @@ watch(
 </script>
 
 <template>
-  <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8" data-testid="sale-page">
-    <div class="flex items-center gap-3">
-      <ShoppingCart class="size-6" />
-      <h1 class="text-2xl font-semibold tracking-tight">
-        {{ editId ? 'Edit Sale' : 'New Sale' }}
-      </h1>
-    </div>
-
-    <!-- Counterparty -->
-    <div class="flex flex-wrap items-end gap-4">
-      <div class="grid gap-2">
-        <Label>Customer</Label>
-        <Select v-model="counterpartyMode">
-          <SelectTrigger class="w-[180px]" data-testid="sale-counterparty-mode">
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="customer">Customer Master</SelectItem>
-            <SelectItem value="walkin">Walk-in</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
-
-      <div v-if="counterpartyMode === 'customer'" class="grid gap-2">
-        <Label>Select customer</Label>
-        <CustomerSelect v-model="customerId" :auto-focus="true" test-id="sale-customer" />
-      </div>
-
-      <template v-else>
-        <div class="grid gap-2">
-          <Label>Name</Label>
-          <Input v-model="walkinName" placeholder="Name" autofocus data-testid="sale-walkin-name" />
+  <div
+    class="min-h-full transition-colors"
+    :class="shellTint"
+    :data-mode="mode ?? 'unset'"
+    data-testid="sale-page"
+  >
+    <div class="mx-auto flex w-full max-w-4xl flex-col gap-6 px-6 py-8">
+      <div class="flex flex-wrap items-center justify-between gap-3">
+        <div class="flex items-center gap-3">
+          <ShoppingCart class="size-6" />
+          <h1 class="text-2xl font-semibold tracking-tight">
+            {{ editId ? 'Edit Sale' : 'New Sale' }}
+          </h1>
         </div>
-        <div class="grid gap-2">
-          <Label>Place</Label>
-          <Input v-model="walkinPlace" placeholder="Place" data-testid="sale-walkin-place" />
-        </div>
-        <div class="grid gap-2">
-          <Label>Phone</Label>
-          <Input v-model="walkinPhone" placeholder="Optional" />
-        </div>
-      </template>
-    </div>
 
-    <GoodsCart v-model="lines" :products="productList" :bag-types="bagTypes" />
-
-    <!-- Charges + payment -->
-    <div class="grid gap-4 sm:grid-cols-2">
-      <div class="space-y-3">
-        <label class="flex items-center gap-2 text-sm">
-          <Checkbox
-            :model-value="applyLoading"
-            @update:model-value="applyLoading = $event === true"
-          />
-          Apply Loading Charge ({{ formatRupees(loadingCharge) }})
-        </label>
-        <div class="grid gap-2">
-          <Label>Additional Charges</Label>
-          <Input
-            type="number"
-            min="0"
-            :model-value="additionalCharges ?? ''"
-            placeholder="0"
-            data-testid="sale-additional"
-            @update:model-value="additionalCharges = $event === '' ? null : Number($event)"
-          />
-        </div>
-      </div>
-
-      <div class="space-y-3">
-        <div class="grid gap-2">
-          <Label>Payment Mode</Label>
-          <Select v-model="mode">
-            <SelectTrigger class="w-[160px]" data-testid="sale-mode">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="cash">Cash</SelectItem>
-              <SelectItem value="credit">Credit</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-        <div v-if="mode === 'cash'" class="grid grid-cols-2 gap-2">
-          <div class="grid gap-2">
-            <Label>UPI</Label>
-            <Input
-              type="number"
-              min="0"
-              :model-value="upiCollected ?? ''"
-              placeholder="0"
-              data-testid="sale-upi"
-              @update:model-value="upiCollected = $event === '' ? null : Number($event)"
-            />
-          </div>
-          <div class="grid gap-2">
-            <Label>Cash (auto)</Label>
-            <Input :model-value="cashDue" type="number" disabled data-testid="sale-cash" />
-          </div>
-        </div>
-        <div v-else class="space-y-2" data-testid="credit-voucher-controls">
-          <p class="text-sm text-muted-foreground">
-            Credit Sale — the customer signs a Credit Voucher in lieu of cash.
-          </p>
-          <Button variant="outline" type="button" data-testid="print-voucher" @click="printVoucher">
-            <Printer class="mr-2 size-4" />
-            Print Voucher
-          </Button>
-          <p
-            v-if="priceChangedSincePrint"
-            class="flex items-center gap-1.5 text-sm text-amber-600"
-            data-testid="voucher-price-changed"
-          >
-            <AlertTriangle class="size-4" />
-            Price changed since the voucher was printed — reprint before finishing.
-          </p>
-          <p
-            v-else-if="voucherPrinted"
-            class="text-sm text-emerald-600"
-            data-testid="voucher-printed"
-          >
-            Voucher printed at {{ formatRupees(printedAtTotal ?? 0) }} — ready to sign.
-          </p>
-        </div>
-      </div>
-    </div>
-
-    <!-- Footer -->
-    <div class="flex items-center justify-between border-t pt-4">
-      <div>
-        <p class="text-sm text-muted-foreground">Total</p>
-        <p class="text-2xl font-semibold tabular-nums" data-testid="sale-total">
-          {{ formatRupees(total) }}
-        </p>
-      </div>
-      <div class="flex items-center gap-3">
-        <p v-if="error" class="text-sm text-destructive" data-testid="sale-error">{{ error }}</p>
-        <Button size="lg" data-testid="sale-finish" @click="finish">
-          {{ mode === 'credit' ? 'Finish — Credit' : 'Finish — Cash' }}
-        </Button>
-      </div>
-    </div>
-
-    <SlipPreview
-      :open="slipOpen"
-      :txn="finished"
-      :printerless="settings?.printerlessMode ?? false"
-      @update:open="(v) => (slipOpen = v)"
-      @done="onSlipDone"
-    />
-
-    <!-- Voucher preview, printed at the current price for the customer to sign -->
-    <Dialog :open="voucherOpen" @update:open="(v) => (voucherOpen = v)">
-      <DialogContent class="sm:max-w-md" data-testid="voucher-preview">
-        <DialogHeader>
-          <DialogTitle>Credit Voucher</DialogTitle>
-          <DialogDescription>
-            Hand this to the customer to sign. Reprinting after a price change issues a new Voucher
-            Number.
-          </DialogDescription>
-        </DialogHeader>
+        <!-- Mode stays flippable mid-cart; the segmented control mirrors the gate's choice -->
         <div
-          class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4 text-sm dark:bg-amber-950"
+          v-if="mode"
+          class="inline-flex items-center rounded-lg border bg-background p-1"
+          role="group"
+          aria-label="Sale mode"
+          data-testid="sale-mode"
         >
-          <div class="text-center">
-            <p class="font-semibold">క్రెడిట్ వోచర్</p>
-            <p class="text-xs uppercase tracking-widest text-muted-foreground">Credit Voucher</p>
-          </div>
-          <Separator class="my-2" />
-          <div class="flex items-center justify-between">
-            <span class="text-muted-foreground">Voucher No.</span>
-            <span class="text-lg font-bold tabular-nums" data-testid="voucher-number">
-              {{ printedVoucherSeq }}
-            </span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted-foreground">Customer</span>
-            <span>{{ selectedCustomerName }}</span>
-          </div>
-          <div class="flex items-center justify-between">
-            <span class="text-muted-foreground">Amount</span>
-            <span class="font-semibold tabular-nums">{{ formatRupees(printedAtTotal ?? 0) }}</span>
-          </div>
-          <p class="mt-3 border-t pt-3 text-xs text-muted-foreground">
-            Customer signature: ____________________
-          </p>
+          <button
+            type="button"
+            :class="segmentClass('cash')"
+            data-testid="sale-mode-cash"
+            @click="mode = 'cash'"
+          >
+            <Banknote class="size-4" />
+            Cash
+          </button>
+          <button
+            type="button"
+            :class="segmentClass('credit')"
+            data-testid="sale-mode-credit"
+            @click="mode = 'credit'"
+          >
+            <FileSignature class="size-4" />
+            Credit
+          </button>
         </div>
-        <DialogFooter>
-          <Button data-testid="voucher-preview-done" @click="voucherOpen = false">Done</Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      </div>
 
-    <!-- Finish blocked until a voucher is printed at the current price -->
-    <Dialog :open="printGateOpen" @update:open="(v) => (printGateOpen = v)">
-      <DialogContent class="sm:max-w-md" data-testid="voucher-gate">
-        <DialogHeader>
-          <DialogTitle>Print the Credit Voucher first</DialogTitle>
-          <DialogDescription>
-            {{
-              priceChangedSincePrint
-                ? 'The price changed since the last print. Reprint the voucher at the current price so the customer signs the right amount.'
-                : 'A Credit Sale needs a signed voucher. Print it at the current price before finishing.'
-            }}
-          </DialogDescription>
-        </DialogHeader>
-        <DialogFooter>
-          <Button variant="outline" type="button" @click="printGateOpen = false">Cancel</Button>
-          <Button type="button" data-testid="voucher-gate-print" @click="printVoucher">
-            <Printer class="mr-2 size-4" />
-            Print Voucher
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
+      <!-- The gate: pick Cash or Credit before anything else -->
+      <div
+        v-if="mode === null && !editId"
+        class="grid gap-4 sm:grid-cols-2"
+        data-testid="sale-gate"
+      >
+        <p class="text-sm text-muted-foreground sm:col-span-2">
+          How does this Sale settle? Customer, goods, and collection all follow from this.
+        </p>
+        <button
+          ref="cashTile"
+          type="button"
+          class="flex flex-col items-start gap-2 rounded-xl border-2 border-emerald-200 bg-card p-6 text-left transition-colors hover:border-emerald-500 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:border-emerald-900 dark:hover:bg-emerald-950/40"
+          data-testid="sale-gate-cash"
+          @click="mode = 'cash'"
+        >
+          <Banknote class="size-8 text-emerald-600" />
+          <span class="flex items-center gap-2 text-xl font-semibold">
+            Cash
+            <kbd
+              class="rounded border bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
+            >
+              Enter ↵
+            </kbd>
+          </span>
+          <span class="text-sm text-muted-foreground">
+            Cash and/or UPI collected at finish. Customer Master entry or walk-in.
+          </span>
+        </button>
+        <button
+          type="button"
+          class="flex flex-col items-start gap-2 rounded-xl border-2 border-amber-200 bg-card p-6 text-left transition-colors hover:border-amber-500 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:border-amber-900 dark:hover:bg-amber-950/40"
+          data-testid="sale-gate-credit"
+          @click="mode = 'credit'"
+        >
+          <FileSignature class="size-8 text-amber-600" />
+          <span class="text-xl font-semibold">Credit</span>
+          <span class="text-sm text-muted-foreground">
+            The customer signs a Credit Voucher in lieu of cash. Needs a Customer Master entry with
+            a phone — no walk-ins.
+          </span>
+        </button>
+      </div>
+
+      <!-- The workspace: three cards that adapt to the chosen mode -->
+      <template v-else-if="mode">
+        <Card :class="cardAccent" data-testid="sale-customer-card">
+          <CardHeader>
+            <CardTitle>Customer</CardTitle>
+            <CardDescription>
+              {{
+                isCredit
+                  ? 'Credit Sales need a Customer Master entry with a phone number.'
+                  : 'A Customer Master entry, or a walk-in captured on the Sale itself.'
+              }}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div class="flex flex-wrap items-end gap-4">
+              <div v-if="!isCredit" class="grid gap-2">
+                <Label>Customer</Label>
+                <Select v-model="counterpartyMode">
+                  <SelectTrigger class="w-[180px]" data-testid="sale-counterparty-mode">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="customer">Customer Master</SelectItem>
+                    <SelectItem value="walkin">Walk-in</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div v-if="counterpartyMode === 'customer'" class="grid gap-2">
+                <Label>Select customer</Label>
+                <CustomerSelect v-model="customerId" :auto-focus="true" test-id="sale-customer" />
+              </div>
+
+              <template v-else>
+                <div class="grid gap-2">
+                  <Label>Name</Label>
+                  <Input
+                    v-model="walkinName"
+                    placeholder="Name"
+                    autofocus
+                    data-testid="sale-walkin-name"
+                  />
+                </div>
+                <div class="grid gap-2">
+                  <Label>Place</Label>
+                  <Input
+                    v-model="walkinPlace"
+                    placeholder="Place"
+                    data-testid="sale-walkin-place"
+                  />
+                </div>
+                <div class="grid gap-2">
+                  <Label>Phone</Label>
+                  <Input v-model="walkinPhone" placeholder="Optional" />
+                </div>
+              </template>
+            </div>
+            <p
+              v-if="isCredit && selectedCustomer && !selectedCustomer.phone"
+              class="mt-3 flex items-center gap-1.5 text-sm text-amber-600"
+              data-testid="credit-phone-missing"
+            >
+              <AlertTriangle class="size-4" />
+              {{ selectedCustomer.name }} has no phone number — add one before finishing.
+            </p>
+          </CardContent>
+        </Card>
+
+        <Card :class="cardAccent" data-testid="sale-goods-card">
+          <CardHeader>
+            <CardTitle>Goods</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <GoodsCart v-model="lines" :products="productList" :bag-types="bagTypes" />
+          </CardContent>
+        </Card>
+
+        <Card :class="cardAccent" data-testid="sale-settle-card">
+          <CardHeader>
+            <CardTitle>Settle</CardTitle>
+            <CardDescription>
+              {{
+                isCredit
+                  ? 'Nothing is collected today — the signed Credit Voucher stands in for cash.'
+                  : 'The cashier types UPI; cash covers the rest of the total.'
+              }}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div class="space-y-3">
+                <label class="flex items-center gap-2 text-sm">
+                  <Checkbox
+                    :model-value="applyLoading"
+                    @update:model-value="applyLoading = $event === true"
+                  />
+                  Apply Loading Charge ({{ formatRupees(loadingCharge) }})
+                </label>
+                <div class="grid gap-2">
+                  <Label>Additional Charges</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    :model-value="additionalCharges ?? ''"
+                    placeholder="0"
+                    data-testid="sale-additional"
+                    @update:model-value="additionalCharges = $event === '' ? null : Number($event)"
+                  />
+                </div>
+              </div>
+
+              <div v-if="!isCredit" class="grid grid-cols-2 gap-2">
+                <div class="grid gap-2">
+                  <Label>UPI</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    :model-value="upiCollected ?? ''"
+                    placeholder="0"
+                    data-testid="sale-upi"
+                    @update:model-value="upiCollected = $event === '' ? null : Number($event)"
+                  />
+                </div>
+                <div class="grid gap-2">
+                  <Label>Cash (auto)</Label>
+                  <Input :model-value="cashDue" type="number" disabled data-testid="sale-cash" />
+                </div>
+              </div>
+              <div v-else class="space-y-2" data-testid="credit-voucher-controls">
+                <Button
+                  variant="outline"
+                  type="button"
+                  data-testid="print-voucher"
+                  @click="printVoucher"
+                >
+                  <Printer class="mr-2 size-4" />
+                  Print Voucher
+                </Button>
+                <p
+                  v-if="priceChangedSincePrint"
+                  class="flex items-center gap-1.5 text-sm text-amber-600"
+                  data-testid="voucher-price-changed"
+                >
+                  <AlertTriangle class="size-4" />
+                  Price changed since the voucher was printed — reprint before finishing.
+                </p>
+                <p
+                  v-else-if="voucherPrinted"
+                  class="text-sm text-emerald-600"
+                  data-testid="voucher-printed"
+                >
+                  Voucher printed at {{ formatRupees(printedAtTotal ?? 0) }} — ready to sign.
+                </p>
+              </div>
+            </div>
+          </CardContent>
+          <CardFooter class="justify-between border-t pt-4">
+            <div>
+              <p class="text-sm text-muted-foreground">Total</p>
+              <p class="text-2xl font-semibold tabular-nums" data-testid="sale-total">
+                {{ formatRupees(total) }}
+              </p>
+            </div>
+            <div class="flex items-center gap-3">
+              <p v-if="error" class="text-sm text-destructive" data-testid="sale-error">
+                {{ error }}
+              </p>
+              <Button size="lg" :class="finishTint" data-testid="sale-finish" @click="finish">
+                {{ isCredit ? 'Finish — Credit' : 'Finish — Cash' }}
+              </Button>
+            </div>
+          </CardFooter>
+        </Card>
+      </template>
+
+      <SlipPreview
+        :open="slipOpen"
+        :txn="finished"
+        :printerless="settings?.printerlessMode ?? false"
+        @update:open="(v) => (slipOpen = v)"
+        @done="onSlipDone"
+      />
+
+      <!-- Voucher preview, printed at the current price for the customer to sign -->
+      <Dialog :open="voucherOpen" @update:open="(v) => (voucherOpen = v)">
+        <DialogContent class="sm:max-w-md" data-testid="voucher-preview">
+          <DialogHeader>
+            <DialogTitle>Credit Voucher</DialogTitle>
+            <DialogDescription>
+              Hand this to the customer to sign. Reprinting after a price change issues a new
+              Voucher Number.
+            </DialogDescription>
+          </DialogHeader>
+          <div
+            class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4 text-sm dark:bg-amber-950"
+          >
+            <div class="text-center">
+              <p class="font-semibold">క్రెడిట్ వోచర్</p>
+              <p class="text-xs uppercase tracking-widest text-muted-foreground">Credit Voucher</p>
+            </div>
+            <Separator class="my-2" />
+            <div class="flex items-center justify-between">
+              <span class="text-muted-foreground">Voucher No.</span>
+              <span class="text-lg font-bold tabular-nums" data-testid="voucher-number">
+                {{ printedVoucherSeq }}
+              </span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-muted-foreground">Customer</span>
+              <span>{{ selectedCustomerName }}</span>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-muted-foreground">Amount</span>
+              <span class="font-semibold tabular-nums">{{
+                formatRupees(printedAtTotal ?? 0)
+              }}</span>
+            </div>
+            <p class="mt-3 border-t pt-3 text-xs text-muted-foreground">
+              Customer signature: ____________________
+            </p>
+          </div>
+          <DialogFooter>
+            <Button data-testid="voucher-preview-done" @click="voucherOpen = false">Done</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <!-- Finish blocked until a voucher is printed at the current price -->
+      <Dialog :open="printGateOpen" @update:open="(v) => (printGateOpen = v)">
+        <DialogContent class="sm:max-w-md" data-testid="voucher-gate">
+          <DialogHeader>
+            <DialogTitle>Print the Credit Voucher first</DialogTitle>
+            <DialogDescription>
+              {{
+                priceChangedSincePrint
+                  ? 'The price changed since the last print. Reprint the voucher at the current price so the customer signs the right amount.'
+                  : 'A Credit Sale needs a signed voucher. Print it at the current price before finishing.'
+              }}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" type="button" @click="printGateOpen = false">Cancel</Button>
+            <Button type="button" data-testid="voucher-gate-print" @click="printVoucher">
+              <Printer class="mr-2 size-4" />
+              Print Voucher
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
   </div>
 </template>
