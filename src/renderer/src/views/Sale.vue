@@ -176,6 +176,7 @@ const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0),
 
 const selectedCustomerName = computed(() => selectedCustomer.value?.name ?? 'Customer')
 const selectedCustomerPlace = computed(() => selectedCustomer.value?.placeName ?? '')
+const selectedCustomerPhone = computed(() => selectedCustomer.value?.phone ?? '')
 const voucherPrinted = computed(
   () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) < 0.01
 )
@@ -605,6 +606,7 @@ watch(
         :date="businessDay?.startDate ?? ''"
         :customer-name="selectedCustomerName"
         :place="selectedCustomerPlace"
+        :phone="selectedCustomerPhone"
         :amount="printedAtTotal ?? 0"
         :lines="voucherLines"
         :loading-charges="loadingCharge"

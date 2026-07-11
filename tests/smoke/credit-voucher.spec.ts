@@ -65,10 +65,11 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await expect(page.getByTestId('voucher-preview')).toBeVisible()
   await expect(page.getByTestId('voucher-number')).toHaveText('1')
 
-  // Front: company, date, place, customer, amount.
+  // Front: company, date, place, mobile, customer, amount.
   await expect(page.getByTestId('voucher-front')).toBeVisible()
   await expect(page.getByTestId('voucher-company')).toHaveText('Sri Venkateswara Traders')
   await expect(page.getByTestId('voucher-place')).toHaveText('Guntur')
+  await expect(page.getByTestId('voucher-phone')).toHaveText('9876543210')
   await expect(page.getByTestId('voucher-customer')).toHaveText('Ravi Kumar')
   await expect(page.getByTestId('voucher-date')).not.toHaveText('—')
   await expect(page.getByTestId('voucher-amount')).toContainText('6,000')

@@ -101,7 +101,7 @@ The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in 
 
 Two-sided layout:
 
-- **Front** — Company Name (from Settings), Date (Business Day), Place (Customer's place), Voucher Number, Customer name, total Amount, and the signature line.
+- **Front** — Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), Voucher Number, Customer name, total Amount, and the signature line.
 - **Back** — Chosen Products as line items in the form `quantity × ratio × price = line total` (Bulk: bags × bag-kg/100 × Quintal Rate; Packaged: qty × 1 × unit rate), plus Loading Charges and Additional Charges as their own lines, then the Total.
 _Avoid_: IOU, credit note, due slip.
 

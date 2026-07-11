@@ -31,6 +31,8 @@ const props = defineProps<{
   date: string
   customerName: string
   place: string
+  /** Customer mobile (required for Credit Sales). */
+  phone: string
   amount: number
   lines: VoucherLine[]
   loadingCharges: number
@@ -121,6 +123,12 @@ const breakdowns = computed(() =>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Place</span>
             <span data-testid="voucher-place">{{ place.trim() || '—' }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted-foreground">Mobile</span>
+            <span class="tabular-nums" data-testid="voucher-phone">{{
+              phone.trim() || '—'
+            }}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Amount</span>
