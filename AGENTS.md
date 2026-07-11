@@ -26,7 +26,7 @@ Before considering a change done, run `pnpm fix` — it fixes lint issues, forma
 
 ### Issue tracker
 
-Local markdown under `.scratch/<feature>/`. See [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md).
+GitHub Issues, via the `gh` CLI. Big features are tracked as `epic` parent issues. See [`docs/agents/issue-tracker.md`](./docs/agents/issue-tracker.md).
 
 ### Triage labels
 

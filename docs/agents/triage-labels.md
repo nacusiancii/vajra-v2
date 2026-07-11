@@ -1,6 +1,6 @@
 # Triage Labels
 
-The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker.
+The skills speak in terms of five canonical triage roles. This file maps those roles to the actual label strings used in this repo's issue tracker (GitHub Issues — see `issue-tracker.md`).
 
 | Label in mattpocock/skills | Label in our tracker | Meaning                                  |
 | -------------------------- | -------------------- | ---------------------------------------- |
@@ -10,6 +10,9 @@ The skills speak in terms of five canonical triage roles. This file maps those r
 | `ready-for-human`          | `ready-for-human`    | Requires human implementation            |
 | `wontfix`                  | `wontfix`            | Will not be actioned                     |
 
-When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table.
+When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the corresponding label string from this table. "Apply a label" means `gh issue edit <number> --add-label "<label>"`, removing the previous state label in the same command so an issue carries exactly one state.
 
-Since issues live as local markdown files (see `issue-tracker.md`), "apply a label" means writing/updating the `Status:` line near the top of the issue file with the right-hand-column string.
+## Additional labels
+
+- The category roles map to GitHub's default `bug` and `enhancement` labels.
+- `epic` — a big feature tracked as a parent issue with child issues (see the epic workflow in the triage skill). An epic carries `epic` plus a category label, never a `ready-for-*` state.

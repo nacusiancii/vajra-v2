@@ -1,24 +1,30 @@
-# Issue tracker: Local Markdown
+# Issue tracker: GitHub
 
-Issues and PRDs for this repo live as markdown files in `.scratch/`.
+Issues and PRDs for this repo live as GitHub issues. Use the `gh` CLI for all operations.
 
 ## Conventions
 
-- One feature per directory: `.scratch/<feature-slug>/`
-- The PRD is `.scratch/<feature-slug>/PRD.md`
-- Implementation issues are `.scratch/issues/<feature-slug>/<NN>-<slug>.md`, numbered from `01`
-- Done/closed issues move to `.scratch/issues/done/<feature-slug>/<NN>-<slug>.md`
-- Triage state is recorded as a `Status:` line near the top of each issue file (see `triage-labels.md` for the role strings)
-- Comments and conversation history append to the bottom of the file under a `## Comments` heading
+- **Create an issue**: `gh issue create --title "..." --body "..."`. Use a heredoc for multi-line bodies.
+- **Read an issue**: `gh issue view <number> --comments`, filtering comments by `jq` and also fetching labels.
+- **List issues**: `gh issue list --state open --json number,title,body,labels,comments --jq '[.[] | {number, title, body, labels: [.labels[].name], comments: [.comments[].body]}]'` with appropriate `--label` and `--state` filters.
+- **Comment on an issue**: `gh issue comment <number> --body "..."`
+- **Apply / remove labels**: `gh issue edit <number> --add-label "..."` / `--remove-label "..."`
+- **Close**: `gh issue close <number> --comment "..."`
+
+Infer the repo from `git remote -v` — `gh` does this automatically when run inside a clone.
 
 ## When a skill says "publish to the issue tracker"
 
-Create a new file under `.scratch/issues/<feature-slug>/` (creating the directory if needed).
+Create a GitHub issue.
 
 ## When a skill says "fetch the relevant ticket"
 
-Read the file at the referenced path. The user will normally pass the path or the issue number directly.
+Run `gh issue view <number> --comments`.
 
-## When a skill says "close an issue"
+## Epics
 
-Move the file from `.scratch/issues/<feature-slug>/` to `.scratch/issues/done/<feature-slug>/`.
+A big feature is tracked as an **epic**: a parent issue labeled `epic` whose body holds the PRD (or a link to it) and a task list of child issues (`- [ ] #NN`) so GitHub tracks progress. Child issues reference the parent in a `## Parent` section. The workflow — when to declare an epic, how it moves — lives in the triage skill.
+
+## Legacy `.scratch/` tracker
+
+Before moving to GitHub Issues, issues and PRDs for this repo lived as markdown files under `.scratch/`. Anything still there is historical reference — don't add new issues or PRDs to it. If work resumes on an open `.scratch/issues/` file, move its content to a GitHub issue first.
