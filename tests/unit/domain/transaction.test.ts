@@ -172,17 +172,45 @@ describe('summariseDrawer', () => {
       txn({ type: 'SA', cashIn: 100, upiIn: 50 }),
       txn({ type: 'EX', cashOut: 30 }),
       txn({ type: 'PA', upiOut: 20 }),
-      txn({ type: 'SA', cashIn: 999, voided: true }), // ignored
+      txn({ type: 'SA', cashIn: 999, voided: true }),
       txn({ type: 'SA', saleMode: 'credit', creditAmount: 200 }),
-      txn({ type: 'RE', cashIn: 75 })
+      txn({ type: 'RE', cashIn: 75 }),
+      txn({ type: 'PU', saleMode: 'credit', creditAmount: 150 })
     ])
-    expect(s.cashIn).toBe(100 + 75)
+    expect(s.cashIn).toBe(175)
     expect(s.upiIn).toBe(50)
     expect(s.cashOut).toBe(30)
     expect(s.upiOut).toBe(20)
-    expect(s.cashNet).toBe(175 - 30)
-    expect(s.upiNet).toBe(50 - 20)
+    expect(s.cashNet).toBe(145)
+    expect(s.upiNet).toBe(30)
     expect(s.creditIssued).toBe(200)
-    expect(s.creditReceived).toBe(75)
+    expect(s.creditReceived).toBe(150)
+  })
+
+  it('creditReceived sums Purchase creditAmount only; Receipts stay on cash/UPI in', () => {
+    const s = summariseDrawer([
+      txn({ type: 'PU', saleMode: 'credit', creditAmount: 400 }),
+      txn({ type: 'PU', saleMode: 'credit', creditAmount: 100 }),
+      txn({ type: 'PU', saleMode: 'cash', cashOut: 50 }),
+      txn({ type: 'RE', cashIn: 75, upiIn: 25 }),
+      txn({ type: 'PU', saleMode: 'credit', creditAmount: 999, voided: true })
+    ])
+    expect(s.creditReceived).toBe(500)
+    expect(s.cashIn).toBe(75)
+    expect(s.upiIn).toBe(25)
+    expect(s.cashOut).toBe(50)
+    expect(s.creditIssued).toBe(0)
+  })
+
+  it('creditIssued sums Sale creditAmount only; cash Sales and Purchases do not count', () => {
+    const s = summariseDrawer([
+      txn({ type: 'SA', saleMode: 'credit', creditAmount: 200 }),
+      txn({ type: 'SA', saleMode: 'cash', cashIn: 80 }),
+      txn({ type: 'PU', saleMode: 'credit', creditAmount: 300 }),
+      txn({ type: 'SA', saleMode: 'credit', creditAmount: 50, voided: true })
+    ])
+    expect(s.creditIssued).toBe(200)
+    expect(s.creditReceived).toBe(300)
+    expect(s.cashIn).toBe(80)
   })
 })
