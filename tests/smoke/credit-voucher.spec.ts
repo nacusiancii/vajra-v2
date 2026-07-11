@@ -30,7 +30,9 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
 
   // ── Credit Sale ──
   await page.getByTestId('open-sale').click()
-  // Customer mode auto-opens its picker — type into the filter, then pick the match.
+  // Picking Credit at the gate opens the workspace; the customer picker auto-opens —
+  // type into the filter, then pick the match.
+  await page.getByTestId('sale-gate-credit').click()
   await page.getByPlaceholder(/Type a customer name/).fill('Ravi')
   await page.getByRole('option', { name: /Ravi Kumar/ }).click()
 
@@ -40,8 +42,11 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await page.getByTestId('cart-rate').fill('6000')
   await page.getByTestId('cart-qty').fill('2')
 
-  await page.getByTestId('sale-mode').click()
-  await page.getByRole('option', { name: 'Credit' }).click()
+  // The segmented control still flips the mode mid-cart; the settle card follows.
+  await page.getByTestId('sale-mode-cash').click()
+  await expect(page.getByTestId('sale-upi')).toBeVisible()
+  await page.getByTestId('sale-mode-credit').click()
+  await expect(page.getByTestId('credit-voucher-controls')).toBeVisible()
 
   // Finishing without a printed voucher is blocked by the gate.
   await page.getByTestId('sale-finish').click()

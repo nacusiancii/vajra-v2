@@ -73,6 +73,9 @@ async function purchaseBulk(
 
 async function startWalkinSale(page: Page, name: string, place: string): Promise<void> {
   await page.getByTestId('open-sale').click()
+  // Cash/Credit gate comes first — walk-in is only available on Cash Sales.
+  await page.getByTestId('sale-gate-cash').click()
+  // Customer mode auto-opens its picker; dismiss before switching to walk-in.
   await page.keyboard.press('Escape')
   await page.getByTestId('sale-counterparty-mode').click()
   await page.getByRole('option', { name: 'Walk-in' }).click()
