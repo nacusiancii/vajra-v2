@@ -11,6 +11,21 @@ export class SettingsRepo {
   constructor(private db: Database) {}
 
   get(): AppSettings {
+    return lockPrinterless(this.read())
+  }
+
+  update(settings: AppSettings): AppSettings {
+    const next = lockPrinterless(settings)
+    this.db
+      .prepare(
+        `INSERT INTO setting (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+      )
+      .run(KEY, JSON.stringify(next))
+    return this.get()
+  }
+
+  private read(): AppSettings {
     const row = this.db.prepare(`SELECT value FROM setting WHERE key = ?`).get(KEY) as
       | { value: string }
       | undefined
@@ -21,14 +36,12 @@ export class SettingsRepo {
       return { ...DEFAULT_SETTINGS }
     }
   }
+}
 
-  update(settings: AppSettings): AppSettings {
-    this.db
-      .prepare(
-        `INSERT INTO setting (key, value) VALUES (?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-      )
-      .run(KEY, JSON.stringify(settings))
-    return this.get()
-  }
+/**
+ * Temporary: no printer driver yet (#22). Force printerless on every read/write
+ * so old rows and UI saves cannot turn it off. Drop when #28 ships.
+ */
+function lockPrinterless(settings: AppSettings): AppSettings {
+  return { ...settings, printerlessMode: true }
 }
