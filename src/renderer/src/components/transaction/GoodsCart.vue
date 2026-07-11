@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, nextTick, ref } from 'vue'
 import { Plus, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -32,6 +32,8 @@ export interface CartLine {
   qty: number | null
 }
 
+type Focusable = { focus: () => void }
+
 const props = defineProps<{
   products: Product[]
   bagTypes: number[]
@@ -43,6 +45,13 @@ const productMap = computed(() => new Map(props.products.map((p) => [p.id, p])))
 const productOptions = computed<ComboboxOption[]>(() =>
   props.products.map((p) => ({ value: p.id, label: p.name, hint: p.type }))
 )
+
+/** Product comboboxes by row — used to open the picker after auto-adding a line. */
+const productComboRefs = ref<(Focusable | null)[]>([])
+
+function setProductComboRef(index: number, el: unknown): void {
+  productComboRefs.value[index] = el != null ? (el as Focusable) : null
+}
 
 function productOf(line: CartLine): Product | undefined {
   return line.productId == null ? undefined : productMap.value.get(line.productId)
@@ -77,8 +86,16 @@ function addLine(): void {
   ]
 }
 
+/** Empty cart after customer pick — start the first line and open its product picker. */
+function ensureLineAndFocusProduct(): void {
+  if (lines.value.length > 0) return
+  addLine()
+  void nextTick(() => productComboRefs.value[0]?.focus())
+}
+
 function removeLine(index: number): void {
   lines.value = lines.value.filter((_, i) => i !== index)
+  productComboRefs.value.splice(index, 1)
 }
 
 function onProductChange(line: CartLine, value: number | null): void {
@@ -87,6 +104,8 @@ function onProductChange(line: CartLine, value: number | null): void {
   // Default a Bulk line's bag size to the Product's Default Bag Size; clear for Packaged.
   line.bagSizeKg = p?.type === 'bulk' ? (p.defaultBagSizeKg ?? null) : null
 }
+
+defineExpose({ ensureLineAndFocusProduct })
 </script>
 
 <template>
@@ -96,8 +115,8 @@ function onProductChange(line: CartLine, value: number | null): void {
         <TableRow>
           <TableHead class="min-w-[180px]">Product</TableHead>
           <TableHead class="w-[110px]">Bag Type</TableHead>
-          <TableHead class="w-[120px]">Rate</TableHead>
           <TableHead class="w-[90px]">Qty</TableHead>
+          <TableHead class="w-[120px]">Rate</TableHead>
           <TableHead class="w-[110px] text-right">Total</TableHead>
           <TableHead class="w-[48px]"></TableHead>
         </TableRow>
@@ -111,6 +130,7 @@ function onProductChange(line: CartLine, value: number | null): void {
         <TableRow v-for="(line, index) in lines" :key="index" data-testid="cart-line">
           <TableCell>
             <EntityCombobox
+              :ref="(el) => setProductComboRef(index, el)"
               :model-value="line.productId"
               :options="productOptions"
               placeholder="Select product"
@@ -139,6 +159,16 @@ function onProductChange(line: CartLine, value: number | null): void {
           </TableCell>
           <TableCell>
             <Input
+              type="number"
+              min="0"
+              step="0.5"
+              :model-value="line.qty ?? ''"
+              data-testid="cart-qty"
+              @update:model-value="line.qty = $event === '' ? null : Number($event)"
+            />
+          </TableCell>
+          <TableCell>
+            <Input
               v-if="isBulk(line)"
               type="number"
               min="0"
@@ -155,16 +185,6 @@ function onProductChange(line: CartLine, value: number | null): void {
               placeholder="₹/unit"
               data-testid="cart-rate"
               @update:model-value="line.unitRate = $event === '' ? null : Number($event)"
-            />
-          </TableCell>
-          <TableCell>
-            <Input
-              type="number"
-              min="0"
-              step="0.5"
-              :model-value="line.qty ?? ''"
-              data-testid="cart-qty"
-              @update:model-value="line.qty = $event === '' ? null : Number($event)"
             />
           </TableCell>
           <TableCell class="text-right tabular-nums">

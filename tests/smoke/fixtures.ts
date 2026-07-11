@@ -1,4 +1,4 @@
-import { test as base, type ElectronApplication, type Page } from '@playwright/test'
+import { test as base, expect, type ElectronApplication, type Page } from '@playwright/test'
 import { _electron as electron } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -56,3 +56,9 @@ export const test = base.extend<Fixtures>({
 })
 
 export { expect } from '@playwright/test'
+
+/** Dismiss an auto-opened EntityCombobox filter and wait until its layer is gone. */
+export async function dismissAutoPicker(page: Page): Promise<void> {
+  await page.keyboard.press('Escape')
+  await expect(page.getByPlaceholder(/Type a (customer|product) name/i)).toHaveCount(0)
+}

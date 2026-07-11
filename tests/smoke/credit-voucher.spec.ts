@@ -3,11 +3,19 @@ import { test, expect } from './fixtures'
 /**
  * A Credit Sale can't finish until a voucher is printed at the current price for the
  * customer to sign. Each print mints a fresh Voucher Number; the Sale records the one
- * printed at the final price.
+ * printed at the final price. The voucher is two-sided: front carries shop identity +
+ * signature; back lists chosen products as qty × ratio × price.
  */
 
 test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   test.setTimeout(60_000)
+
+  // Company Name appears on the voucher front.
+  await page.getByRole('link', { name: /Settings/ }).click()
+  await page.getByTestId('company-name-input').fill('Sri Venkateswara Traders')
+  await page.getByTestId('settings-save').click()
+  await expect(page.getByTestId('settings-saved')).toBeVisible()
+  await page.getByRole('link', { name: /^Vajra$/ }).click()
 
   // A Bulk product to sell.
   await page.getByTestId('management-links').getByText('Product Master').click()
@@ -31,13 +39,14 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   // ── Credit Sale ──
   await page.getByTestId('open-sale').click()
   // Picking Credit at the gate opens the workspace; the customer picker auto-opens —
-  // type into the filter, then pick the match.
+  // type into the filter, then pick the match. Selecting a customer on an empty cart
+  // adds the first line and opens the product dropdown.
   await page.getByTestId('sale-gate-credit').click()
   await page.getByPlaceholder(/Type a customer name/).fill('Ravi')
   await page.getByRole('option', { name: /Ravi Kumar/ }).click()
 
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
+  await expect(page.getByTestId('cart-line')).toHaveCount(1)
+  await expect(page.getByRole('option', { name: 'Toor Dal' })).toBeVisible()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   await page.getByTestId('cart-rate').fill('6000')
   await page.getByTestId('cart-qty').fill('2')
@@ -52,10 +61,28 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('voucher-gate')).toBeVisible()
 
-  // Print mints Voucher #1.
+  // Print mints Voucher #1 and shows the two-sided preview.
   await page.getByTestId('voucher-gate-print').click()
   await expect(page.getByTestId('voucher-preview')).toBeVisible()
   await expect(page.getByTestId('voucher-number')).toHaveText('1')
+
+  // Front: company, date, place, mobile, customer, amount.
+  await expect(page.getByTestId('voucher-front')).toBeVisible()
+  await expect(page.getByTestId('voucher-company')).toHaveText('Sri Venkateswara Traders')
+  await expect(page.getByTestId('voucher-place')).toHaveText('Guntur')
+  await expect(page.getByTestId('voucher-phone')).toHaveText('9876543210')
+  await expect(page.getByTestId('voucher-customer')).toHaveText('Ravi Kumar')
+  await expect(page.getByTestId('voucher-date')).not.toHaveText('—')
+  await expect(page.getByTestId('voucher-amount')).toContainText('6,000')
+
+  // Back: qty × ratio × price for bulk (2 bags × 0.5 × ₹6000 = ₹6000).
+  await expect(page.getByTestId('voucher-back')).toBeVisible()
+  const line = page.getByTestId('voucher-line')
+  await expect(line).toHaveCount(1)
+  await expect(line).toContainText('Toor Dal')
+  await expect(line).toContainText('2 × 0.5 ×')
+  await expect(page.getByTestId('voucher-total')).toContainText('6,000')
+
   await page.getByTestId('voucher-preview-done').click()
 
   // Now the Sale finishes and shows its invoice.
