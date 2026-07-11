@@ -43,14 +43,18 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
 
   // ── Purchase 10 bags @ ₹6000/quintal on credit (stock-in, no drawer impact) ──
   await page.getByTestId('open-purchase').click()
+  // The Cash/Credit gate comes first — no supplier or goods until a mode is picked.
+  await expect(page.getByTestId('purchase-gate')).toBeVisible()
+  await expect(page.getByTestId('cart-add-line')).not.toBeVisible()
+  // The Cash tile is pre-focused as the common case — pick Credit for this narrative.
+  await expect(page.getByTestId('purchase-gate-cash')).toBeFocused()
+  await page.getByTestId('purchase-gate-credit').click()
   await dismissAutoPicker(page) // supplier CustomerSelect auto-opens
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   await page.getByTestId('cart-rate').fill('6000')
   await page.getByTestId('cart-qty').fill('10')
-  await page.getByTestId('purchase-mode').click()
-  await page.getByRole('option', { name: 'Credit received' }).click()
   // Finishing routes to the Transactions ledger.
   await page.getByTestId('purchase-finish').click()
   await expect(page.getByTestId('transactions-page')).toBeVisible()

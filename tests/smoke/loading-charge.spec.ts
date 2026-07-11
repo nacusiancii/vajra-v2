@@ -58,14 +58,14 @@ async function purchaseBulk(
   qty: string
 ): Promise<void> {
   await page.getByTestId('open-purchase').click()
+  // Cash/Credit gate comes first — pick Credit so stock-in has no drawer impact.
+  await page.getByTestId('purchase-gate-credit').click()
   await dismissAutoPicker(page)
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: productName }).click()
   await page.getByTestId('cart-rate').fill(rate)
   await page.getByTestId('cart-qty').fill(qty)
-  await page.getByTestId('purchase-mode').click()
-  await page.getByRole('option', { name: 'Credit received' }).click()
   await page.getByTestId('purchase-finish').click()
   await expect(page.getByTestId('transactions-page')).toBeVisible()
   await goHome(page)
@@ -213,14 +213,13 @@ test('mixed cart: packaged lines never contribute to loading', async ({ page }) 
 
   // Purchase packaged stock too
   await page.getByTestId('open-purchase').click()
+  await page.getByTestId('purchase-gate-credit').click()
   await dismissAutoPicker(page)
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Atta 1kg' }).click()
   await page.getByTestId('cart-rate').fill('40')
   await page.getByTestId('cart-qty').fill('20')
-  await page.getByTestId('purchase-mode').click()
-  await page.getByRole('option', { name: 'Credit received' }).click()
   await page.getByTestId('purchase-finish').click()
   await goHome(page)
 
