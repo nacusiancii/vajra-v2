@@ -92,6 +92,10 @@ _Avoid_: Other charges, expenses, sundry.
 A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods. A new Sale starts by explicitly picking Cash or Credit before any customer or goods entry — nothing is chosen for the cashier, but Cash is pre-focused so the common case is a single key press — and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher.
 _Avoid_: Bill, transaction (as a synonym for Sale).
 
+**Draft**:
+An unfinished Sale or Purchase the cashier has explicitly parked mid-entry so they can leave the cart, do other work, and resume later. Only Sales and Purchases are draftable. Only an explicit Save creates a Draft; resuming a Draft replaces any open unfinished cart without saving it. Saving requires a counterparty — a Customer Master entry, or walk-in name and place where that Sale or Purchase allows walk-ins. A Draft does not affect Inventory, does not receive a Sale Number or Voucher Number, and is discarded at Rollover. Clearing a Draft is free deletion, not a Void.
+_Avoid_: held cart, parked bill, incomplete transaction, temporary sale.
+
 **Sale Invoice**:
 The paper artifact produced when a Sale finishes — one business copy always, one customer copy by default (customer can opt-out). Carries the line items, totals, payment captured (cash and UPI), Customer details where available, and a user-visible **Sale Number** that resets to 1 each Business Day. Reprintable from the cashier UI until the next transaction starts; not reprintable thereafter.
 _Avoid_: Bill, slip, receipt (collides with the Receipt entity).

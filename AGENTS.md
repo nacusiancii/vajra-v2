@@ -17,6 +17,7 @@ v1 became prototype-as-architecture. v2 rebuilds the foundation:
 - **Use the glossary's words.** Missing term = flag it, don't invent a synonym.
 - **Contradicting an ADR?** Say so explicitly. Don't silently override.
 - **`archive/v1/` is reference, not source.** Import a pattern only with a written reason.
+- **Tests: few high-value beats many low-value.** Protect real cashier paths and hard domain invariants; skip large suites that rot. Too early for deep unit coverage everywhere — light unit tests only in **critical** areas (Inventory projection, money/stock rules, Draft isolation from the ledger) when a silent failure would be expensive. Prefer smoke/E2E for multi-step counter flows. Do not add tests that only restate the implementation.
 
 And most importantly, if you do end up touching code, leave it in a better state than what you started with 😄.
 
