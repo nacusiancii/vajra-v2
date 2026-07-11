@@ -38,6 +38,7 @@ const api: VajraApi = {
   listDrafts: (type) => ipcRenderer.invoke(IPC.listDrafts, type),
   getDraft: (id) => ipcRenderer.invoke(IPC.getDraft, id),
   saveSaleDraft: (input) => ipcRenderer.invoke(IPC.saveSaleDraft, input),
+  savePurchaseDraft: (input) => ipcRenderer.invoke(IPC.savePurchaseDraft, input),
   clearDraft: (id) => ipcRenderer.invoke(IPC.clearDraft, id),
 
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),

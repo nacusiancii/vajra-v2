@@ -27,13 +27,18 @@ import type { Draft } from '@domain/draft'
 
 const router = useRouter()
 const { data: transactions } = useTransactionsQuery()
-const { data: saleDrafts } = useDraftsQuery('SA')
+/** Sale + Purchase Drafts share one pool; list both on Home (ADR-0010). */
+const { data: allDrafts } = useDraftsQuery()
 const clearDraft = useClearDraft()
 const recent = computed(() => (transactions.value ?? []).slice(0, 5))
-const drafts = computed(() => saleDrafts.value ?? [])
+const drafts = computed(() => allDrafts.value ?? [])
 
 function counterparty(t: Txn): string {
   return t.customerName ?? t.walkinName ?? t.label ?? '—'
+}
+
+function draftTypeLabel(d: Draft): string {
+  return d.type === 'PU' ? 'Purchase' : 'Sale'
 }
 
 function draftModeLabel(d: Draft): string {
@@ -42,7 +47,8 @@ function draftModeLabel(d: Draft): string {
 
 function resumeDraft(d: Draft): void {
   // Resume replaces any open cart — no auto-save, no conflict dialog (ADR-0010).
-  void router.push({ path: '/sale', query: { draft: String(d.id) } })
+  const path = d.type === 'PU' ? '/purchase' : '/sale'
+  void router.push({ path, query: { draft: String(d.id) } })
 }
 
 function clearHomeDraft(d: Draft): void {
@@ -176,10 +182,10 @@ const managementLinks: HomeLink[] = [
       </Button>
     </section>
 
-    <!-- Sale Drafts (parked carts — outside the ledger) -->
-    <Card v-if="drafts.length > 0" data-testid="sale-drafts">
+    <!-- Drafts (parked Sale + Purchase carts — outside the ledger) -->
+    <Card v-if="drafts.length > 0" data-testid="home-drafts">
       <CardHeader>
-        <CardTitle>Sale Drafts</CardTitle>
+        <CardTitle>Drafts</CardTitle>
       </CardHeader>
       <CardContent>
         <ul class="space-y-2">
@@ -187,7 +193,7 @@ const managementLinks: HomeLink[] = [
             v-for="d in drafts"
             :key="d.id"
             class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-3"
-            :data-testid="`sale-draft-row-${d.id}`"
+            :data-testid="d.type === 'PU' ? `purchase-draft-row-${d.id}` : `sale-draft-row-${d.id}`"
           >
             <div class="min-w-0 flex-1 space-y-0.5">
               <p class="truncate font-semibold" data-testid="draft-counterparty">
@@ -202,7 +208,7 @@ const managementLinks: HomeLink[] = [
                 {{ d.counterpartyLabelTe }}
               </p>
               <p class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-                <span>Sale</span>
+                <span data-testid="draft-type">{{ draftTypeLabel(d) }}</span>
                 <Badge variant="outline" class="text-xs font-normal">
                   {{ draftModeLabel(d) }}
                 </Badge>

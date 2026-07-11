@@ -12,7 +12,7 @@ import type {
   CreateStockTransferInput,
   Txn
 } from '@domain/transaction'
-import type { Draft, DraftType, SaveSaleDraftInput } from '@domain/draft'
+import type { Draft, DraftType, SavePurchaseDraftInput, SaveSaleDraftInput } from '@domain/draft'
 import type { MoneyTxnType } from '@shared/api'
 
 const KEYS = {
@@ -169,6 +169,19 @@ export function useSaveSaleDraft(): UseMutationReturnType<
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (input: SaveSaleDraftInput) => window.api.saveSaleDraft(input),
+    onSuccess: () => invalidateDrafts(qc)
+  })
+}
+
+export function useSavePurchaseDraft(): UseMutationReturnType<
+  Draft,
+  Error,
+  SavePurchaseDraftInput,
+  unknown
+> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: SavePurchaseDraftInput) => window.api.savePurchaseDraft(input),
     onSuccess: () => invalidateDrafts(qc)
   })
 }

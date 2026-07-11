@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { Banknote, FileSignature, Truck } from '@lucide/vue'
+import { Banknote, FileSignature, Save, Trash2, Truck } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -24,24 +24,41 @@ import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useSettingsQuery } from '@/queries/operations'
-import { useCreatePurchase, useEditPurchase } from '@/queries/transactions'
+import {
+  useClearDraft,
+  useCreatePurchase,
+  useEditPurchase,
+  useSavePurchaseDraft
+} from '@/queries/transactions'
 import {
   grandTotal,
   lineTotal,
   validatePurchase,
   type LineProductLookup
 } from '@domain/transaction-rules'
+import { validatePurchaseDraftCounterparty, type PurchaseDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
+import { userFacingError } from '@/lib/utils'
 import type { CreatePurchaseInput, SaleMode } from '@domain/transaction'
 
 const route = useRoute()
 const router = useRouter()
 const editId = computed(() => (typeof route.query.edit === 'string' ? route.query.edit : null))
+const resumeDraftQuery = computed(() =>
+  typeof route.query.draft === 'string' ? Number(route.query.draft) : null
+)
 
 const { data: products } = useProductsQuery()
 const { data: settings } = useSettingsQuery()
 const createPurchase = useCreatePurchase()
 const editPurchase = useEditPurchase()
+const savePurchaseDraft = useSavePurchaseDraft()
+const clearDraftMut = useClearDraft()
+
+/** When set, this cart is a parked Draft (resume or after Save). Not used on Edit Purchase. */
+const activeDraftId = ref<number | null>(null)
+/** Id already applied into the cart — prevents query re-fires from wiping dirty edits. */
+const draftHydratedId = ref<number | null>(null)
 
 const counterpartyMode = ref<'customer' | 'walkin'>('customer')
 const customerId = ref<number | null>(null)
@@ -151,6 +168,105 @@ function buildInput(m: SaleMode): CreatePurchaseInput {
   }
 }
 
+function buildDraftPayload(m: SaleMode): PurchaseDraftPayload {
+  return {
+    mode: m,
+    counterpartyMode: counterpartyMode.value,
+    customerId: counterpartyMode.value === 'customer' ? customerId.value : null,
+    walkinName: walkinName.value,
+    walkinPlace: walkinPlace.value,
+    walkinPhone: walkinPhone.value,
+    lines: lines.value.map((l) => ({
+      productId: l.productId,
+      bagSizeKg: l.bagSizeKg,
+      quintalRate: l.quintalRate,
+      unitRate: l.unitRate,
+      qty: l.qty
+    })),
+    additionalCharges: additionalCharges.value,
+    upiCollected: upiCollected.value,
+    remarks: remarks.value
+  }
+}
+
+function applyDraftPayload(payload: PurchaseDraftPayload): void {
+  mode.value = payload.mode
+  counterpartyMode.value = payload.counterpartyMode
+  customerId.value = payload.customerId
+  walkinName.value = payload.walkinName
+  walkinPlace.value = payload.walkinPlace
+  walkinPhone.value = payload.walkinPhone
+  lines.value = payload.lines.map((l) => ({ ...l }))
+  additionalCharges.value = payload.additionalCharges
+  upiCollected.value = payload.upiCollected
+  remarks.value = payload.remarks
+}
+
+function saveDraft(): void {
+  const m = mode.value
+  if (!m || editId.value) return
+  error.value = null
+  const payload = buildDraftPayload(m)
+  const reason = validatePurchaseDraftCounterparty(payload)
+  if (reason) {
+    error.value = reason
+    return
+  }
+  savePurchaseDraft.mutate(
+    { id: activeDraftId.value, payload },
+    {
+      onSuccess: () => {
+        // Parked — leave the cart so the cashier can start other counter work from Home.
+        void router.push('/')
+      },
+      onError: (err) => {
+        error.value = userFacingError(err, 'Could not save Draft')
+      }
+    }
+  )
+}
+
+function clearActiveDraft(): void {
+  error.value = null
+  const id = activeDraftId.value
+  if (id == null) return
+  clearDraftMut.mutate(id, {
+    onSuccess: () => {
+      activeDraftId.value = null
+      draftHydratedId.value = null
+      void router.push('/')
+    },
+    onError: (err) => {
+      error.value = userFacingError(err, 'Could not clear Draft')
+    }
+  })
+}
+
+/** After a successful create Purchase, drop any parked Draft and leave the cart. */
+function finishWithDraftCleanup(): void {
+  const draftId = activeDraftId.value
+  const goTxns = (): void => {
+    void router.push('/transactions')
+  }
+  if (draftId == null) {
+    goTxns()
+    return
+  }
+  clearDraftMut.mutate(draftId, {
+    onSuccess: () => {
+      activeDraftId.value = null
+      draftHydratedId.value = null
+      goTxns()
+    },
+    onError: () => {
+      // Purchase already committed — still leave; Draft may linger until Clear.
+      activeDraftId.value = null
+      draftHydratedId.value = null
+      goTxns()
+    }
+  })
+}
+
 function finish(): void {
   const m = mode.value
   if (!m) return
@@ -165,9 +281,11 @@ function finish(): void {
     error.value = reason
     return
   }
-  const onSuccess = (): void => void router.push('/transactions')
-  if (editId.value) editPurchase.mutate({ id: editId.value, input }, { onSuccess })
-  else createPurchase.mutate(input, { onSuccess })
+  if (editId.value) {
+    editPurchase.mutate({ id: editId.value, input }, { onSuccess: finishWithDraftCleanup })
+  } else {
+    createPurchase.mutate(input, { onSuccess: finishWithDraftCleanup })
+  }
 }
 
 // Prefill when editing an existing Purchase.
@@ -197,6 +315,24 @@ watch(
   },
   { immediate: true }
 )
+
+// Resume a Purchase Draft — replaces any open cart without auto-save or a conflict dialog.
+watch(
+  resumeDraftQuery,
+  async (id) => {
+    if (editId.value || id == null || Number.isNaN(id) || draftHydratedId.value === id) return
+    const draft = await window.api.getDraft(id)
+    if (!draft || draft.type !== 'PU') {
+      error.value = 'Draft not found'
+      return
+    }
+    applyDraftPayload(draft.payload)
+    activeDraftId.value = draft.id
+    draftHydratedId.value = draft.id
+    error.value = null
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -211,7 +347,9 @@ watch(
         <div class="flex items-center gap-3">
           <Truck class="size-6" />
           <h1 class="text-2xl font-semibold tracking-tight">
-            {{ editId ? 'Edit Purchase' : 'New Purchase' }}
+            {{
+              editId ? 'Edit Purchase' : activeDraftId != null ? 'Purchase Draft' : 'New Purchase'
+            }}
           </h1>
         </div>
 
@@ -410,17 +548,40 @@ watch(
               </div>
             </div>
           </CardContent>
-          <CardFooter class="justify-between border-t pt-4">
+          <CardFooter class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <div>
               <p class="text-sm text-muted-foreground">Total cost</p>
               <p class="text-2xl font-semibold tabular-nums" data-testid="purchase-total">
                 {{ formatRupees(total) }}
               </p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-end gap-3">
               <p v-if="error" class="text-sm text-destructive" data-testid="purchase-error">
                 {{ error }}
               </p>
+              <template v-if="!editId">
+                <Button
+                  variant="outline"
+                  type="button"
+                  data-testid="purchase-save-draft"
+                  :disabled="savePurchaseDraft.isPending.value"
+                  @click="saveDraft"
+                >
+                  <Save class="mr-2 size-4" />
+                  {{ activeDraftId != null ? 'Update Draft' : 'Save Draft' }}
+                </Button>
+                <Button
+                  v-if="activeDraftId != null"
+                  variant="outline"
+                  type="button"
+                  data-testid="purchase-clear-draft"
+                  :disabled="clearDraftMut.isPending.value"
+                  @click="clearActiveDraft"
+                >
+                  <Trash2 class="mr-2 size-4" />
+                  Clear Draft
+                </Button>
+              </template>
               <Button size="lg" :class="finishTint" data-testid="purchase-finish" @click="finish">
                 {{ isCredit ? 'Record — Credit' : 'Record — Cash' }}
               </Button>
