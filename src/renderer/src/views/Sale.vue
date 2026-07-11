@@ -54,7 +54,7 @@ import {
   lineTotal,
   validateSale
 } from '@domain/transaction-rules'
-import { validateDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
+import { validateSaleDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
 import { userFacingError } from '@/lib/utils'
 import type { CreateSaleInput, SaleMode, Txn } from '@domain/transaction'
@@ -328,7 +328,7 @@ function saveDraft(): void {
   if (!m || editId.value) return
   error.value = null
   const payload = buildDraftPayload(m)
-  const reason = validateDraftCounterparty(payload)
+  const reason = validateSaleDraftCounterparty(payload)
   if (reason) {
     error.value = reason
     return

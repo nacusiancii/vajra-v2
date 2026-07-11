@@ -1,10 +1,15 @@
 import type { Database } from 'better-sqlite3'
 import {
   draftCapExceededMessage,
-  validateDraftCounterparty,
+  validatePurchaseDraftCounterparty,
+  validateSaleDraftCounterparty,
   type Draft,
+  type DraftCartFields,
+  type DraftPayload,
   type DraftType,
+  type PurchaseDraftPayload,
   type SaleDraftPayload,
+  type SavePurchaseDraftInput,
   type SaveSaleDraftInput
 } from '../../domain/draft'
 import { DEFAULT_SETTINGS } from '../../domain/settings'
@@ -56,32 +61,15 @@ export class DraftRepo {
   }
 
   saveSale(input: SaveSaleDraftInput): Draft {
-    const reason = validateDraftCounterparty(input.payload)
+    const reason = validateSaleDraftCounterparty(input.payload)
     if (reason) throw new Error(reason)
+    return this.save('SA', input.id ?? null, input.payload)
+  }
 
-    const dayId = this.currentDayId()
-    const existingId = input.id ?? null
-
-    if (existingId != null) {
-      const existing = this.getById(existingId)
-      if (!existing) throw new Error('Draft not found')
-      if (existing.type !== 'SA') throw new Error('Draft is not a Sale Draft')
-      this.db
-        .prepare(
-          `UPDATE draft SET payload = ?, updated_at = datetime('now')
-           WHERE id = ? AND business_day_id = ?`
-        )
-        .run(JSON.stringify(input.payload), existingId, dayId)
-      return this.requireById(existingId)
-    }
-
-    const cap = this.draftCap()
-    if (this.count() >= cap) throw new Error(draftCapExceededMessage(cap))
-
-    const result = this.db
-      .prepare(`INSERT INTO draft (business_day_id, type, payload) VALUES (?, 'SA', ?)`)
-      .run(dayId, JSON.stringify(input.payload))
-    return this.requireById(Number(result.lastInsertRowid))
+  savePurchase(input: SavePurchaseDraftInput): Draft {
+    const reason = validatePurchaseDraftCounterparty(input.payload)
+    if (reason) throw new Error(reason)
+    return this.save('PU', input.id ?? null, input.payload)
   }
 
   clear(id: number): void {
@@ -91,6 +79,35 @@ export class DraftRepo {
     if (result.changes === 0) throw new Error('Draft not found')
   }
 
+  private save(type: DraftType, existingId: number | null, payload: DraftPayload): Draft {
+    const dayId = this.currentDayId()
+
+    if (existingId != null) {
+      const existing = this.getById(existingId)
+      if (!existing) throw new Error('Draft not found')
+      if (existing.type !== type) {
+        throw new Error(
+          type === 'SA' ? 'Draft is not a Sale Draft' : 'Draft is not a Purchase Draft'
+        )
+      }
+      this.db
+        .prepare(
+          `UPDATE draft SET payload = ?, updated_at = datetime('now')
+           WHERE id = ? AND business_day_id = ?`
+        )
+        .run(JSON.stringify(payload), existingId, dayId)
+      return this.requireById(existingId)
+    }
+
+    const cap = this.draftCap()
+    if (this.count() >= cap) throw new Error(draftCapExceededMessage(cap))
+
+    const result = this.db
+      .prepare(`INSERT INTO draft (business_day_id, type, payload) VALUES (?, ?, ?)`)
+      .run(dayId, type, JSON.stringify(payload))
+    return this.requireById(Number(result.lastInsertRowid))
+  }
+
   private requireById(id: number): Draft {
     const draft = this.getById(id)
     if (!draft) throw new Error('Draft not found')
@@ -98,21 +115,23 @@ export class DraftRepo {
   }
 
   private hydrate(row: DraftRow): Draft {
-    const payload = JSON.parse(row.payload) as SaleDraftPayload
-    const counterparty = this.counterpartyDisplay(payload)
-    return {
+    const raw = JSON.parse(row.payload) as DraftPayload
+    const counterparty = this.counterpartyDisplay(raw)
+    const base = {
       id: row.id,
-      type: row.type,
       businessDayId: row.business_day_id,
       counterpartyLabel: counterparty.label,
       counterpartyLabelTe: counterparty.labelTe,
-      payload,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }
+    if (row.type === 'SA') {
+      return { ...base, type: 'SA', payload: raw as SaleDraftPayload }
+    }
+    return { ...base, type: 'PU', payload: raw as PurchaseDraftPayload }
   }
 
-  private counterpartyDisplay(payload: SaleDraftPayload): {
+  private counterpartyDisplay(payload: DraftCartFields): {
     label: string
     labelTe: string | null
   } {

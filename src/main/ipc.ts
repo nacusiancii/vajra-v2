@@ -67,6 +67,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.listDrafts, (_e, type) => drafts.list(type))
   ipcMain.handle(IPC.getDraft, (_e, id) => drafts.getById(id) ?? null)
   ipcMain.handle(IPC.saveSaleDraft, (_e, input) => drafts.saveSale(input))
+  ipcMain.handle(IPC.savePurchaseDraft, (_e, input) => drafts.savePurchase(input))
   ipcMain.handle(IPC.clearDraft, (_e, id) => drafts.clear(id))
 
   // ── Settings ───────────────────────────────────────────────

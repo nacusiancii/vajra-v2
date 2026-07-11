@@ -26,7 +26,7 @@ import type {
   Txn
 } from '../domain/transaction'
 import type { AppSettings } from '../domain/settings'
-import type { Draft, DraftType, SaveSaleDraftInput } from '../domain/draft'
+import type { Draft, DraftType, SavePurchaseDraftInput, SaveSaleDraftInput } from '../domain/draft'
 
 export type MoneyTxnType = 'RE' | 'PA' | 'EX' | 'IN'
 
@@ -73,6 +73,7 @@ export interface VajraApi {
   listDrafts(type?: DraftType): Promise<Draft[]>
   getDraft(id: number): Promise<Draft | null>
   saveSaleDraft(input: SaveSaleDraftInput): Promise<Draft>
+  savePurchaseDraft(input: SavePurchaseDraftInput): Promise<Draft>
   clearDraft(id: number): Promise<void>
 
   // ── Settings ───────────────────────────────────────────────
@@ -119,6 +120,7 @@ export const IPC = {
   listDrafts: 'draft:list',
   getDraft: 'draft:get',
   saveSaleDraft: 'draft:saveSale',
+  savePurchaseDraft: 'draft:savePurchase',
   clearDraft: 'draft:clear',
 
   getSettings: 'settings:get',

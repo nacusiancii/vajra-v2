@@ -82,8 +82,9 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
   // Save parks the cart and returns Home so the cashier can start other work.
   await page.getByTestId('sale-save-draft').click()
   await expect(page.getByTestId('home-page')).toBeVisible()
-  await expect(page.getByTestId('sale-drafts')).toBeVisible()
-  await expect(page.getByTestId('sale-drafts')).toContainText('Parked Customer')
+  await expect(page.getByTestId('home-drafts')).toBeVisible()
+  await expect(page.getByTestId('home-drafts')).toContainText('Parked Customer')
+  await expect(page.getByTestId('home-drafts')).toContainText('Sale')
   await expect(page.getByTestId('recent-transactions')).not.toContainText('Parked Customer')
 
   // Inventory still 4 while drafted.
@@ -106,7 +107,7 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
   await expect(page.getByTestId('transactions-page')).toBeVisible()
   await expect(page.getByTestId('txn-row').filter({ hasText: 'Parked Customer' })).toBeVisible()
   await goHome(page)
-  await expect(page.getByTestId('sale-drafts')).toHaveCount(0)
+  await expect(page.getByTestId('home-drafts')).toHaveCount(0)
 
   await openManagement(page, 'Inventory')
   await expect(page.getByTestId('inventory-row')).toContainText('3')
@@ -126,5 +127,5 @@ test('Save Draft blocked without counterparty', async ({ page }) => {
   await expect(page.getByTestId('sale-error')).toBeVisible()
   await expect(page.getByTestId('sale-error')).toContainText(/Customer Master|walk-in/i)
   await goHome(page)
-  await expect(page.getByTestId('sale-drafts')).toHaveCount(0)
+  await expect(page.getByTestId('home-drafts')).toHaveCount(0)
 })
