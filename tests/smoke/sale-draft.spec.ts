@@ -79,11 +79,9 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
   await page.getByTestId('cart-qty').fill('1')
   await expect(page.getByTestId('sale-total')).toContainText('2,750')
 
+  // Save parks the cart and returns Home so the cashier can start other work.
   await page.getByTestId('sale-save-draft').click()
-  await expect(page.getByTestId('sale-draft-status')).toContainText('Draft saved')
-
-  // Leave for other work (Home). Draft must not appear as a finished Sale.
-  await goHome(page)
+  await expect(page.getByTestId('home-page')).toBeVisible()
   await expect(page.getByTestId('sale-drafts')).toBeVisible()
   await expect(page.getByTestId('sale-drafts')).toContainText('Parked Customer')
   await expect(page.getByTestId('recent-transactions')).not.toContainText('Parked Customer')

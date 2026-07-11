@@ -43,6 +43,8 @@ export interface Draft {
   businessDayId: number
   /** Human label for list UIs (Customer name or walk-in name). */
   counterpartyLabel: string
+  /** Telugu name when the counterparty is a Customer Master entry that has one. */
+  counterpartyLabelTe: string | null
   payload: SaleDraftPayload
   createdAt: string
   updatedAt: string
@@ -80,5 +82,5 @@ export function validateDraftCounterparty(payload: SaleDraftPayload): string | n
 
 /** Cap exceeded message — shared by repo and any thin unit tests. */
 export function draftCapExceededMessage(cap: number): string {
-  return `Draft limit reached (${cap}). Clear a Draft before saving another.`
+  return `Draft limit reached (${cap}). Clear a Draft or increase the limit in Settings to save more.`
 }

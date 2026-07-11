@@ -185,23 +185,35 @@ const managementLinks: HomeLink[] = [
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ul class="divide-y">
+        <ul class="space-y-2">
           <li
             v-for="d in drafts"
             :key="d.id"
-            class="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+            class="flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/40 px-4 py-3"
             :data-testid="`sale-draft-row-${d.id}`"
           >
-            <span class="flex min-w-0 flex-wrap items-center gap-2">
-              <span class="font-medium">Sale</span>
-              <Badge variant="outline" class="text-xs">{{ draftModeLabel(d) }}</Badge>
-              <span class="truncate text-muted-foreground" data-testid="draft-counterparty">
+            <div class="min-w-0 flex-1 space-y-0.5">
+              <p class="truncate font-semibold" data-testid="draft-counterparty">
                 {{ d.counterpartyLabel }}
-              </span>
-              <span class="text-xs text-muted-foreground">
-                {{ d.payload.lines.filter((l) => l.productId != null).length }} line(s)
-              </span>
-            </span>
+              </p>
+              <p
+                v-if="d.counterpartyLabelTe"
+                class="truncate text-sm text-muted-foreground"
+                lang="te"
+                data-testid="draft-counterparty-te"
+              >
+                {{ d.counterpartyLabelTe }}
+              </p>
+              <p class="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                <span>Sale</span>
+                <Badge variant="outline" class="text-xs font-normal">
+                  {{ draftModeLabel(d) }}
+                </Badge>
+                <span>
+                  {{ d.payload.lines.filter((l) => l.productId != null).length }} line(s)
+                </span>
+              </p>
+            </div>
             <span class="flex shrink-0 items-center gap-2">
               <Button
                 size="sm"

@@ -56,6 +56,7 @@ import {
 } from '@domain/transaction-rules'
 import { validateDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
+import { userFacingError } from '@/lib/utils'
 import type { CreateSaleInput, SaleMode, Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
 
@@ -79,7 +80,6 @@ const clearDraftMut = useClearDraft()
 const activeDraftId = ref<number | null>(null)
 /** Id already applied into the cart — prevents query re-fires from wiping dirty edits. */
 const draftHydratedId = ref<number | null>(null)
-const draftStatus = ref<string | null>(null)
 
 const counterpartyMode = ref<'customer' | 'walkin'>('customer')
 const customerId = ref<number | null>(null)
@@ -327,7 +327,6 @@ function saveDraft(): void {
   const m = mode.value
   if (!m || editId.value) return
   error.value = null
-  draftStatus.value = null
   const payload = buildDraftPayload(m)
   const reason = validateDraftCounterparty(payload)
   if (reason) {
@@ -337,18 +336,12 @@ function saveDraft(): void {
   saveSaleDraft.mutate(
     { id: activeDraftId.value, payload },
     {
-      onSuccess: (draft) => {
-        activeDraftId.value = draft.id
-        draftHydratedId.value = draft.id
-        draftStatus.value = 'Draft saved'
-        error.value = null
-        // Keep the URL in sync so a refresh still resumes this Draft.
-        if (route.query.draft !== String(draft.id)) {
-          void router.replace({ path: '/sale', query: { draft: String(draft.id) } })
-        }
+      onSuccess: () => {
+        // Parked — leave the cart so the cashier can start other counter work from Home.
+        void router.push('/')
       },
       onError: (err) => {
-        error.value = err.message || 'Could not save Draft'
+        error.value = userFacingError(err, 'Could not save Draft')
       }
     }
   )
@@ -356,7 +349,6 @@ function saveDraft(): void {
 
 function clearActiveDraft(): void {
   error.value = null
-  draftStatus.value = null
   const id = activeDraftId.value
   if (id == null) return
   clearDraftMut.mutate(id, {
@@ -366,7 +358,7 @@ function clearActiveDraft(): void {
       void router.push('/')
     },
     onError: (err) => {
-      error.value = err.message || 'Could not clear Draft'
+      error.value = userFacingError(err, 'Could not clear Draft')
     }
   })
 }
@@ -401,7 +393,6 @@ function finish(): void {
   const m = mode.value
   if (!m) return
   error.value = null
-  draftStatus.value = null
   const input = buildInput(m)
   const reason = validateSale(input.lines, productLookup.value, {
     mode: m,
@@ -483,7 +474,6 @@ watch(
     applyDraftPayload(draft.payload)
     activeDraftId.value = draft.id
     draftHydratedId.value = draft.id
-    draftStatus.value = null
     error.value = null
   },
   { immediate: true }
@@ -740,13 +730,6 @@ watch(
               <p v-if="error" class="text-sm text-destructive" data-testid="sale-error">
                 {{ error }}
               </p>
-              <p
-                v-else-if="draftStatus"
-                class="text-sm text-emerald-600"
-                data-testid="sale-draft-status"
-              >
-                {{ draftStatus }}
-              </p>
               <template v-if="!editId">
                 <Button
                   variant="outline"
@@ -756,7 +739,7 @@ watch(
                   @click="saveDraft"
                 >
                   <Save class="mr-2 size-4" />
-                  Save Draft
+                  {{ activeDraftId != null ? 'Update Draft' : 'Save Draft' }}
                 </Button>
                 <Button
                   v-if="activeDraftId != null"

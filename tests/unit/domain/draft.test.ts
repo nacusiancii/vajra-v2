@@ -75,8 +75,11 @@ describe('validateDraftCounterparty', () => {
 })
 
 describe('draftCapExceededMessage', () => {
-  it('names the cap clearly', () => {
-    expect(draftCapExceededMessage(5)).toMatch(/5/)
-    expect(draftCapExceededMessage(5)).toMatch(/Draft limit/i)
+  it('names the cap and points to Clear or Settings', () => {
+    const msg = draftCapExceededMessage(5)
+    expect(msg).toMatch(/5/)
+    expect(msg).toMatch(/Draft limit/i)
+    expect(msg).toMatch(/Clear a Draft/i)
+    expect(msg).toMatch(/Settings/i)
   })
 })

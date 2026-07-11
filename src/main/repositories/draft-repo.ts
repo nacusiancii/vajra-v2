@@ -99,28 +99,36 @@ export class DraftRepo {
 
   private hydrate(row: DraftRow): Draft {
     const payload = JSON.parse(row.payload) as SaleDraftPayload
+    const counterparty = this.counterpartyDisplay(payload)
     return {
       id: row.id,
       type: row.type,
       businessDayId: row.business_day_id,
-      counterpartyLabel: this.counterpartyLabel(payload),
+      counterpartyLabel: counterparty.label,
+      counterpartyLabelTe: counterparty.labelTe,
       payload,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     }
   }
 
-  private counterpartyLabel(payload: SaleDraftPayload): string {
+  private counterpartyDisplay(payload: SaleDraftPayload): {
+    label: string
+    labelTe: string | null
+  } {
     if (payload.counterpartyMode === 'customer' && payload.customerId != null) {
       const c = this.db
-        .prepare(`SELECT name FROM customer WHERE id = ?`)
-        .get(payload.customerId) as { name: string } | undefined
-      return c?.name ?? `Customer #${payload.customerId}`
+        .prepare(`SELECT name, name_te FROM customer WHERE id = ?`)
+        .get(payload.customerId) as { name: string; name_te: string | null } | undefined
+      return {
+        label: c?.name ?? `Customer #${payload.customerId}`,
+        labelTe: c?.name_te?.trim() || null
+      }
     }
     const name = payload.walkinName.trim()
     const place = payload.walkinPlace.trim()
-    if (name && place) return `${name} (${place})`
-    return name || place || '—'
+    const label = name && place ? `${name} (${place})` : name || place || '—'
+    return { label, labelTe: null }
   }
 
   private currentDayId(): number {
