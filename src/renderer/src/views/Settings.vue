@@ -107,6 +107,26 @@ function save(): void {
       </label>
     </section>
 
+    <!-- Draft capacity (ADR-0010) -->
+    <section class="space-y-2">
+      <h2 class="font-semibold">Drafts</h2>
+      <div class="grid gap-2">
+        <Label for="draft-cap">Maximum Drafts (Sale + Purchase)</Label>
+        <Input
+          id="draft-cap"
+          type="number"
+          min="1"
+          class="w-32"
+          :model-value="draft.draftCap"
+          data-testid="draft-cap-input"
+          @update:model-value="draft.draftCap = Math.max(1, Math.floor(Number($event) || 1))"
+        />
+        <p class="text-sm text-muted-foreground">
+          Global cap for parked carts on the open Business Day. Default is 5.
+        </p>
+      </div>
+    </section>
+
     <!-- Bag Types + Loading Charges -->
     <section class="space-y-3">
       <h2 class="font-semibold">Bag Types &amp; Loading Charges</h2>

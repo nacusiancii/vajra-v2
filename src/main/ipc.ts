@@ -6,6 +6,7 @@ import { ProductRepo } from './repositories/product-repo'
 import { TransactionRepo } from './repositories/transaction-repo'
 import { BusinessDayRepo } from './repositories/business-day-repo'
 import { SettingsRepo } from './repositories/settings-repo'
+import { DraftRepo } from './repositories/draft-repo'
 
 export function registerIpcHandlers(): void {
   const db = getDb()
@@ -20,6 +21,7 @@ export function registerIpcHandlers(): void {
   const transactions = new TransactionRepo(db)
   const businessDay = new BusinessDayRepo(db)
   const settings = new SettingsRepo(db)
+  const drafts = new DraftRepo(db, settings)
 
   // ── Customers ──────────────────────────────────────────────
   ipcMain.handle(IPC.listCustomers, () => customers.list())
@@ -60,6 +62,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.editMoneyTxn, (_e, id, type, input) =>
     transactions.editMoneyTxn(id, type, input)
   )
+
+  // ── Drafts ─────────────────────────────────────────────────
+  ipcMain.handle(IPC.listDrafts, (_e, type) => drafts.list(type))
+  ipcMain.handle(IPC.getDraft, (_e, id) => drafts.getById(id) ?? null)
+  ipcMain.handle(IPC.saveSaleDraft, (_e, input) => drafts.saveSale(input))
+  ipcMain.handle(IPC.clearDraft, (_e, id) => drafts.clear(id))
 
   // ── Settings ───────────────────────────────────────────────
   ipcMain.handle(IPC.getSettings, () => settings.get())

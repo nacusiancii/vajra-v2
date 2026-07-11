@@ -118,6 +118,19 @@ const SCHEMA = `
     key    TEXT PRIMARY KEY,
     value  TEXT NOT NULL
   );
+
+  -- Day-scoped parked carts outside the transactional ledger (ADR-0010).
+  -- Payload is JSON cart state; never contributes to Inventory or drawer totals.
+  CREATE TABLE IF NOT EXISTS draft (
+    id               INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_day_id  INTEGER NOT NULL REFERENCES business_day(id),
+    type             TEXT    NOT NULL CHECK (type IN ('SA', 'PU')),
+    payload          TEXT    NOT NULL,
+    created_at       TEXT    NOT NULL DEFAULT (datetime('now')),
+    updated_at       TEXT    NOT NULL DEFAULT (datetime('now'))
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_draft_day ON draft(business_day_id);
 `
 
 export function getDb(): Database.Database {

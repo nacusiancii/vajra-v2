@@ -1,7 +1,15 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { AlertTriangle, Banknote, FileSignature, Printer, ShoppingCart } from '@lucide/vue'
+import {
+  AlertTriangle,
+  Banknote,
+  FileSignature,
+  Printer,
+  Save,
+  ShoppingCart,
+  Trash2
+} from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -39,20 +47,25 @@ import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useCustomersQuery } from '@/queries/customers'
 import { useSettingsQuery, useBusinessDayQuery } from '@/queries/operations'
-import { useCreateSale, useEditSale } from '@/queries/transactions'
+import { useClearDraft, useCreateSale, useEditSale, useSaveSaleDraft } from '@/queries/transactions'
 import {
   computeLoadingCharge,
   grandTotal,
   lineTotal,
   validateSale
 } from '@domain/transaction-rules'
+import { validateDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
+import { userFacingError } from '@/lib/utils'
 import type { CreateSaleInput, SaleMode, Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
 
 const route = useRoute()
 const router = useRouter()
 const editId = computed(() => (typeof route.query.edit === 'string' ? route.query.edit : null))
+const resumeDraftQuery = computed(() =>
+  typeof route.query.draft === 'string' ? Number(route.query.draft) : null
+)
 
 const { data: products } = useProductsQuery()
 const { data: customers } = useCustomersQuery()
@@ -60,6 +73,13 @@ const { data: settings } = useSettingsQuery()
 const { data: businessDay } = useBusinessDayQuery()
 const createSale = useCreateSale()
 const editSale = useEditSale()
+const saveSaleDraft = useSaveSaleDraft()
+const clearDraftMut = useClearDraft()
+
+/** When set, this cart is a parked Draft (resume or after Save). Not used on Edit Sale. */
+const activeDraftId = ref<number | null>(null)
+/** Id already applied into the cart — prevents query re-fires from wiping dirty edits. */
+const draftHydratedId = ref<number | null>(null)
 
 const counterpartyMode = ref<'customer' | 'walkin'>('customer')
 const customerId = ref<number | null>(null)
@@ -264,6 +284,111 @@ function buildInput(m: SaleMode): CreateSaleInput {
   }
 }
 
+function buildDraftPayload(m: SaleMode): SaleDraftPayload {
+  return {
+    mode: m,
+    counterpartyMode: counterpartyMode.value,
+    customerId: counterpartyMode.value === 'customer' ? customerId.value : null,
+    walkinName: walkinName.value,
+    walkinPlace: walkinPlace.value,
+    walkinPhone: walkinPhone.value,
+    lines: lines.value.map((l) => ({
+      productId: l.productId,
+      bagSizeKg: l.bagSizeKg,
+      quintalRate: l.quintalRate,
+      unitRate: l.unitRate,
+      qty: l.qty
+    })),
+    applyLoading: applyLoading.value,
+    additionalCharges: additionalCharges.value,
+    upiCollected: upiCollected.value,
+    remarks: remarks.value
+  }
+}
+
+function applyDraftPayload(payload: SaleDraftPayload): void {
+  mode.value = payload.mode
+  counterpartyMode.value = payload.counterpartyMode
+  customerId.value = payload.customerId
+  walkinName.value = payload.walkinName
+  walkinPlace.value = payload.walkinPlace
+  walkinPhone.value = payload.walkinPhone
+  lines.value = payload.lines.map((l) => ({ ...l }))
+  applyLoading.value = payload.applyLoading
+  additionalCharges.value = payload.additionalCharges
+  upiCollected.value = payload.upiCollected
+  remarks.value = payload.remarks
+  // Voucher state is not parked — reprint on credit finish after resume.
+  printedAtTotal.value = null
+  printedVoucherSeq.value = null
+}
+
+function saveDraft(): void {
+  const m = mode.value
+  if (!m || editId.value) return
+  error.value = null
+  const payload = buildDraftPayload(m)
+  const reason = validateDraftCounterparty(payload)
+  if (reason) {
+    error.value = reason
+    return
+  }
+  saveSaleDraft.mutate(
+    { id: activeDraftId.value, payload },
+    {
+      onSuccess: () => {
+        // Parked — leave the cart so the cashier can start other counter work from Home.
+        void router.push('/')
+      },
+      onError: (err) => {
+        error.value = userFacingError(err, 'Could not save Draft')
+      }
+    }
+  )
+}
+
+function clearActiveDraft(): void {
+  error.value = null
+  const id = activeDraftId.value
+  if (id == null) return
+  clearDraftMut.mutate(id, {
+    onSuccess: () => {
+      activeDraftId.value = null
+      draftHydratedId.value = null
+      void router.push('/')
+    },
+    onError: (err) => {
+      error.value = userFacingError(err, 'Could not clear Draft')
+    }
+  })
+}
+
+/** After a successful create Sale, drop any parked Draft and open the slip. */
+function finishWithDraftCleanup(txn: Txn): void {
+  const draftId = activeDraftId.value
+  const showSlip = (): void => {
+    finished.value = txn
+    slipOpen.value = true
+  }
+  if (draftId == null) {
+    showSlip()
+    return
+  }
+  clearDraftMut.mutate(draftId, {
+    onSuccess: () => {
+      activeDraftId.value = null
+      draftHydratedId.value = null
+      showSlip()
+    },
+    onError: () => {
+      // Sale already committed — still show the slip; Draft may linger until Clear.
+      activeDraftId.value = null
+      draftHydratedId.value = null
+      showSlip()
+    }
+  })
+}
+
 function finish(): void {
   const m = mode.value
   if (!m) return
@@ -293,14 +418,10 @@ function finish(): void {
     return
   }
 
-  const onSuccess = (txn: Txn): void => {
-    finished.value = txn
-    slipOpen.value = true
-  }
   if (editId.value) {
-    editSale.mutate({ id: editId.value, input }, { onSuccess })
+    editSale.mutate({ id: editId.value, input }, { onSuccess: finishWithDraftCleanup })
   } else {
-    createSale.mutate(input, { onSuccess })
+    createSale.mutate(input, { onSuccess: finishWithDraftCleanup })
   }
 }
 
@@ -339,6 +460,24 @@ watch(
   },
   { immediate: true }
 )
+
+// Resume a Sale Draft — replaces any open cart without auto-save or a conflict dialog.
+watch(
+  resumeDraftQuery,
+  async (id) => {
+    if (editId.value || id == null || Number.isNaN(id) || draftHydratedId.value === id) return
+    const draft = await window.api.getDraft(id)
+    if (!draft || draft.type !== 'SA') {
+      error.value = 'Draft not found'
+      return
+    }
+    applyDraftPayload(draft.payload)
+    activeDraftId.value = draft.id
+    draftHydratedId.value = draft.id
+    error.value = null
+  },
+  { immediate: true }
+)
 </script>
 
 <template>
@@ -353,7 +492,7 @@ watch(
         <div class="flex items-center gap-3">
           <ShoppingCart class="size-6" />
           <h1 class="text-2xl font-semibold tracking-tight">
-            {{ editId ? 'Edit Sale' : 'New Sale' }}
+            {{ editId ? 'Edit Sale' : activeDraftId != null ? 'Sale Draft' : 'New Sale' }}
           </h1>
         </div>
 
@@ -580,17 +719,40 @@ watch(
               </div>
             </div>
           </CardContent>
-          <CardFooter class="justify-between border-t pt-4">
+          <CardFooter class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <div>
               <p class="text-sm text-muted-foreground">Total</p>
               <p class="text-2xl font-semibold tabular-nums" data-testid="sale-total">
                 {{ formatRupees(total) }}
               </p>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="flex flex-wrap items-center justify-end gap-3">
               <p v-if="error" class="text-sm text-destructive" data-testid="sale-error">
                 {{ error }}
               </p>
+              <template v-if="!editId">
+                <Button
+                  variant="outline"
+                  type="button"
+                  data-testid="sale-save-draft"
+                  :disabled="saveSaleDraft.isPending.value"
+                  @click="saveDraft"
+                >
+                  <Save class="mr-2 size-4" />
+                  {{ activeDraftId != null ? 'Update Draft' : 'Save Draft' }}
+                </Button>
+                <Button
+                  v-if="activeDraftId != null"
+                  variant="outline"
+                  type="button"
+                  data-testid="sale-clear-draft"
+                  :disabled="clearDraftMut.isPending.value"
+                  @click="clearActiveDraft"
+                >
+                  <Trash2 class="mr-2 size-4" />
+                  Clear Draft
+                </Button>
+              </template>
               <Button size="lg" :class="finishTint" data-testid="sale-finish" @click="finish">
                 {{ isCredit ? 'Finish — Credit' : 'Finish — Cash' }}
               </Button>

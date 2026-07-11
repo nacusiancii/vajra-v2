@@ -12,11 +12,17 @@ export interface AppSettings {
   bagTypes: BagSizeKg[]
   /** Opt-in Loading Charge as a rupee rate per bag, keyed by Bag Type. 0 = not charged. */
   loadingChargePerBag: Record<number, number>
+  /**
+   * Global max Drafts for the open Business Day (Sale + Purchase share one pool).
+   * ADR-0010 — default 5; no per-type caps.
+   */
+  draftCap: number
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
   printerlessMode: false,
   companyName: '',
   bagTypes: [...BAG_SIZES],
-  loadingChargePerBag: { 25: 0, 30: 0, 50: 0 }
+  loadingChargePerBag: { 25: 0, 30: 0, 50: 0 },
+  draftCap: 5
 }
