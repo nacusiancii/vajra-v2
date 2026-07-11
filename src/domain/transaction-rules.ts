@@ -16,6 +16,21 @@ export function lineKg(productType: ProductType, qty: number, bagSizeKg: number 
 }
 
 /**
+ * Suggested target bag count so source kg lands on the target Product's Default Bag Size.
+ * Used by Stock Transfer UI auto-fill; cashier may still override for yield differences.
+ * Returns null when not computable (no kg, missing/invalid default bag).
+ */
+export function suggestedTransferTargetQty(
+  sourceKg: number,
+  targetDefaultBagSizeKg: number | null
+): number | null {
+  if (!(sourceKg > 0) || targetDefaultBagSizeKg == null || !(targetDefaultBagSizeKg > 0)) {
+    return null
+  }
+  return sourceKg / targetDefaultBagSizeKg
+}
+
+/**
  * Money total for one line.
  * Bulk: (kg / 100) × Quintal Rate. Packaged: qty × unit rate.
  */
