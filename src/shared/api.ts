@@ -26,6 +26,7 @@ import type {
   Txn
 } from '../domain/transaction'
 import type { AppSettings } from '../domain/settings'
+import type { Draft, DraftType, SaveSaleDraftInput } from '../domain/draft'
 
 export type MoneyTxnType = 'RE' | 'PA' | 'EX' | 'IN'
 
@@ -67,6 +68,13 @@ export interface VajraApi {
   createMoneyTxn(type: MoneyTxnType, input: CreateMoneyTxnInput): Promise<Txn>
   editMoneyTxn(id: string, type: MoneyTxnType, input: CreateMoneyTxnInput): Promise<Txn>
 
+  // ── Drafts (ADR-0010 — outside the ledger) ─────────────────
+  /** List Drafts for the open Business Day; optional type filter (SA / PU). */
+  listDrafts(type?: DraftType): Promise<Draft[]>
+  getDraft(id: number): Promise<Draft | null>
+  saveSaleDraft(input: SaveSaleDraftInput): Promise<Draft>
+  clearDraft(id: number): Promise<void>
+
   // ── Settings ───────────────────────────────────────────────
   getSettings(): Promise<AppSettings>
   updateSettings(settings: AppSettings): Promise<AppSettings>
@@ -107,6 +115,11 @@ export const IPC = {
   editStockTransfer: 'txn:editStockTransfer',
   createMoneyTxn: 'txn:createMoney',
   editMoneyTxn: 'txn:editMoney',
+
+  listDrafts: 'draft:list',
+  getDraft: 'draft:get',
+  saveSaleDraft: 'draft:saveSale',
+  clearDraft: 'draft:clear',
 
   getSettings: 'settings:get',
   updateSettings: 'settings:update'

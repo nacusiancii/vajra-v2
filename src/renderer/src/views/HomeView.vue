@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import {
   Banknote,
   Boxes,
@@ -12,6 +12,7 @@ import {
   RefreshCcw,
   Settings,
   ShoppingCart,
+  Trash2,
   Truck,
   Users,
   Wallet
@@ -19,15 +20,33 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { useTransactionsQuery } from '@/queries/transactions'
+import { useClearDraft, useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
 import { formatRupees } from '@/lib/format'
 import { TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
+import type { Draft } from '@domain/draft'
 
+const router = useRouter()
 const { data: transactions } = useTransactionsQuery()
+const { data: saleDrafts } = useDraftsQuery('SA')
+const clearDraft = useClearDraft()
 const recent = computed(() => (transactions.value ?? []).slice(0, 5))
+const drafts = computed(() => saleDrafts.value ?? [])
 
 function counterparty(t: Txn): string {
   return t.customerName ?? t.walkinName ?? t.label ?? '—'
+}
+
+function draftModeLabel(d: Draft): string {
+  return d.payload.mode === 'credit' ? 'Credit' : 'Cash'
+}
+
+function resumeDraft(d: Draft): void {
+  // Resume replaces any open cart — no auto-save, no conflict dialog (ADR-0010).
+  void router.push({ path: '/sale', query: { draft: String(d.id) } })
+}
+
+function clearHomeDraft(d: Draft): void {
+  clearDraft.mutate(d.id)
 }
 
 interface HomeLink {
@@ -156,6 +175,58 @@ const managementLinks: HomeLink[] = [
         </RouterLink>
       </Button>
     </section>
+
+    <!-- Sale Drafts (parked carts — outside the ledger) -->
+    <Card v-if="drafts.length > 0" data-testid="sale-drafts">
+      <CardHeader>
+        <CardTitle>Sale Drafts</CardTitle>
+        <CardDescription>
+          Parked unfinished Sales. Resume replaces any open cart. Clear deletes freely — no Void.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <ul class="divide-y">
+          <li
+            v-for="d in drafts"
+            :key="d.id"
+            class="flex flex-wrap items-center justify-between gap-3 py-3 text-sm"
+            :data-testid="`sale-draft-row-${d.id}`"
+          >
+            <span class="flex min-w-0 flex-wrap items-center gap-2">
+              <span class="font-medium">Sale</span>
+              <Badge variant="outline" class="text-xs">{{ draftModeLabel(d) }}</Badge>
+              <span class="truncate text-muted-foreground" data-testid="draft-counterparty">
+                {{ d.counterpartyLabel }}
+              </span>
+              <span class="text-xs text-muted-foreground">
+                {{ d.payload.lines.filter((l) => l.productId != null).length }} line(s)
+              </span>
+            </span>
+            <span class="flex shrink-0 items-center gap-2">
+              <Button
+                size="sm"
+                type="button"
+                :data-testid="`draft-resume-${d.id}`"
+                @click="resumeDraft(d)"
+              >
+                Resume
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                type="button"
+                :data-testid="`draft-clear-${d.id}`"
+                :disabled="clearDraft.isPending.value"
+                @click="clearHomeDraft(d)"
+              >
+                <Trash2 class="size-4" />
+                Clear
+              </Button>
+            </span>
+          </li>
+        </ul>
+      </CardContent>
+    </Card>
 
     <!-- Recent Transactions -->
     <Card data-testid="recent-transactions">
