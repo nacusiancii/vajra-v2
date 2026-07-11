@@ -1,5 +1,4 @@
 import type { ProductType } from '@domain/types'
-import { formatQty } from '@/lib/format'
 
 /** One Bag Type's contribution to the cart's Loading Charge (for display). */
 export interface LoadingBagBucket {
@@ -29,14 +28,4 @@ export function loadingChargeBuckets(
     }
   }
   return [...map.values()].sort((a, b) => a.bagSizeKg - b.bagSizeKg)
-}
-
-/**
- * Compact bag formula for the Loading Charge line:
- * `25kg:2×₹20, 50kg:3×₹15`
- */
-export function formatLoadingFormula(buckets: LoadingBagBucket[]): string {
-  return buckets
-    .map((b) => `${b.bagSizeKg}kg:${formatQty(b.bagCount)}×₹${formatQty(b.ratePerBag)}`)
-    .join(', ')
 }
