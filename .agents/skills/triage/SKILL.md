@@ -25,21 +25,29 @@ Two **category** roles:
 - `bug` — something is broken
 - `enhancement` — new feature or improvement
 
-Five **state** roles:
+Six **state** roles:
 
 - `triage-done` — maintainer has finished evaluating (parked after review)
 - `needs-info` — waiting on reporter for more information
+- `needs-research` — needs investigation / design research before an implementable brief
 - `ready-for-agent` — fully specified, ready for an AFK agent
 - `ready-for-human` — needs human implementation
 - `wontfix` — will not be actioned
 
-Every triaged issue should carry exactly one category role and one state role. If state roles conflict, flag it and ask the maintainer before doing anything else.
+Four **priority** roles (orthogonal to state — at most one per issue):
 
-One exception: an issue labeled `epic` carries a category role but no state role — see [Epics (big features)](#epics-big-features).
+- `prio-highest` — blocks first demo / ship-critical
+- `prio-high` — high priority for the next milestone
+- `prio-medium` — medium priority
+- `prio-low` — low priority / parkable until higher work clears
+
+Every triaged issue should carry exactly one category role and one state role (plus optional priority). If state or priority roles conflict, flag it and ask the maintainer before doing anything else.
+
+One exception: an issue labeled `epic` carries a category role (and optionally a priority) but no state role — see [Epics (big features)](#epics-big-features).
 
 These are canonical role names — the actual label strings used in the issue tracker may differ. See `docs/agents/triage-labels.md` for this repo's mapping.
 
-State transitions: **unlabeled issues need evaluation** — do not require a state label when creating tickets. From unlabeled, triage moves the issue to `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`, or `triage-done` (evaluated and parked). `needs-info` returns to unlabeled once the reporter replies (needs re-evaluation). The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
+State transitions: **unlabeled issues need evaluation** — do not require a state label when creating tickets. From unlabeled, triage moves the issue to `needs-info`, `needs-research`, `ready-for-agent`, `ready-for-human`, `wontfix`, or `triage-done` (evaluated and parked). `needs-info` returns to unlabeled once the reporter replies (needs re-evaluation). `needs-research` returns to unlabeled (or moves to `ready-for-*` / `triage-done`) once research lands and is accepted. The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
 
 ## Invocation
 
@@ -52,10 +60,12 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 
 ## Show what needs attention
 
-Query the issue tracker and present two buckets, oldest first:
+Query the issue tracker and present buckets, oldest first:
 
 1. **Unlabeled** — never triaged / needs evaluation.
 2. **`needs-info` with reporter activity since the last triage notes** — needs re-evaluation.
+3. **`needs-research` with new findings (or stale research)** — research landed or needs a kick; re-evaluate into `ready-for-*` / park / epic children.
+4. Optionally surface **`prio-highest` / `prio-high`** open work so milestone focus stays visible.
 
 Show counts and a one-line summary per issue. Let the maintainer pick.
 
@@ -73,10 +83,12 @@ Show counts and a one-line summary per issue. Let the maintainer pick.
    - `ready-for-agent` — post an agent brief comment ([AGENT-BRIEF.md](AGENT-BRIEF.md)).
    - `ready-for-human` — same structure as an agent brief, but note why it can't be delegated (judgment calls, external access, design decisions, manual testing).
    - `needs-info` — post triage notes (template below).
+   - `needs-research` — post a short research prompt (what to investigate, decisions needed, what "done researching" looks like). Optionally set priority.
    - `wontfix` (bug) — polite explanation, then close.
    - `wontfix` (enhancement) — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
-   - `triage-done` — apply the role when evaluation is finished but the issue is parked (not ready-for-*, not waiting on info, not wontfix). Optional comment with parking notes.
-   - `epic` — the feature is too big for one brief; see below.
+   - `triage-done` — apply the role when evaluation is finished but the issue is parked (not ready-for-*, not waiting on info/research, not wontfix). Optional comment with parking notes.
+   - `epic` — the feature is too big for one brief; see below. Apply priority when known; post a research kickoff prompt on high / highest epics when starting discovery.
+   - priority — set or change `prio-*` when the maintainer states urgency. Highest/high work should not sit without a next action (brief, research prompt, or explicit park note).
 
 ## Epics (big features)
 
