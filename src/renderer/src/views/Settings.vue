@@ -70,6 +70,24 @@ function save(): void {
       <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
     </div>
 
+    <!-- Shop identity -->
+    <section class="space-y-2">
+      <h2 class="font-semibold">Shop</h2>
+      <div class="grid gap-2">
+        <Label for="company-name">Company Name</Label>
+        <Input
+          id="company-name"
+          :model-value="draft.companyName"
+          placeholder="Printed on the Credit Voucher"
+          data-testid="company-name-input"
+          @update:model-value="draft.companyName = String($event)"
+        />
+        <p class="text-sm text-muted-foreground">
+          Appears on the front of every Credit Voucher the customer signs.
+        </p>
+      </div>
+    </section>
+
     <!-- Printerless Mode -->
     <section class="space-y-2">
       <h2 class="font-semibold">Printing</h2>

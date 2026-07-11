@@ -22,7 +22,6 @@ import {
   DialogDescription,
   DialogFooter
 } from '@/components/ui/dialog'
-import { Separator } from '@/components/ui/separator'
 import {
   Select,
   SelectContent,
@@ -32,10 +31,13 @@ import {
 } from '@/components/ui/select'
 import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
 import SlipPreview from '@/components/transaction/SlipPreview.vue'
+import CreditVoucherPreview, {
+  type VoucherLine
+} from '@/components/transaction/CreditVoucherPreview.vue'
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useCustomersQuery } from '@/queries/customers'
-import { useSettingsQuery } from '@/queries/operations'
+import { useSettingsQuery, useBusinessDayQuery } from '@/queries/operations'
 import { useCreateSale, useEditSale } from '@/queries/transactions'
 import {
   computeLoadingCharge,
@@ -54,6 +56,7 @@ const editId = computed(() => (typeof route.query.edit === 'string' ? route.quer
 const { data: products } = useProductsQuery()
 const { data: customers } = useCustomersQuery()
 const { data: settings } = useSettingsQuery()
+const { data: businessDay } = useBusinessDayQuery()
 const createSale = useCreateSale()
 const editSale = useEditSale()
 
@@ -172,11 +175,32 @@ const total = computed(() =>
 const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0), 0))
 
 const selectedCustomerName = computed(() => selectedCustomer.value?.name ?? 'Customer')
+const selectedCustomerPlace = computed(() => selectedCustomer.value?.placeName ?? '')
 const voucherPrinted = computed(
   () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) < 0.01
 )
 const priceChangedSincePrint = computed(
   () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) >= 0.01
+)
+
+/** Snapshot of cart lines for the Credit Voucher back side. */
+const voucherLines = computed<VoucherLine[]>(() =>
+  lines.value
+    .map((l, i) => {
+      const p =
+        l.productId == null ? undefined : productList.value.find((x) => x.id === l.productId)
+      if (!p || !l.qty) return null
+      return {
+        productName: p.name,
+        productType: p.type,
+        qty: l.qty,
+        bagSizeKg: l.bagSizeKg,
+        quintalRate: l.quintalRate,
+        unitRate: l.unitRate,
+        lineTotal: lineTotals.value[i] ?? 0
+      }
+    })
+    .filter((l): l is VoucherLine => l != null)
 )
 
 /**
@@ -477,7 +501,10 @@ watch(
           <CardContent>
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="space-y-3">
-                <label class="flex items-center gap-2 text-sm" data-testid="sale-apply-loading-label">
+                <label
+                  class="flex items-center gap-2 text-sm"
+                  data-testid="sale-apply-loading-label"
+                >
                   <Checkbox
                     :model-value="applyLoading"
                     data-testid="sale-apply-loading"
@@ -570,49 +597,22 @@ watch(
         @done="onSlipDone"
       />
 
-      <!-- Voucher preview, printed at the current price for the customer to sign -->
-      <Dialog :open="voucherOpen" @update:open="(v) => (voucherOpen = v)">
-        <DialogContent class="sm:max-w-md" data-testid="voucher-preview">
-          <DialogHeader>
-            <DialogTitle>Credit Voucher</DialogTitle>
-            <DialogDescription>
-              Hand this to the customer to sign. Reprinting after a price change issues a new
-              Voucher Number.
-            </DialogDescription>
-          </DialogHeader>
-          <div
-            class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4 text-sm dark:bg-amber-950"
-          >
-            <div class="text-center">
-              <p class="font-semibold">క్రెడిట్ వోచర్</p>
-              <p class="text-xs uppercase tracking-widest text-muted-foreground">Credit Voucher</p>
-            </div>
-            <Separator class="my-2" />
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">Voucher No.</span>
-              <span class="text-lg font-bold tabular-nums" data-testid="voucher-number">
-                {{ printedVoucherSeq }}
-              </span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">Customer</span>
-              <span>{{ selectedCustomerName }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">Amount</span>
-              <span class="font-semibold tabular-nums">{{
-                formatRupees(printedAtTotal ?? 0)
-              }}</span>
-            </div>
-            <p class="mt-3 border-t pt-3 text-xs text-muted-foreground">
-              Customer signature: ____________________
-            </p>
-          </div>
-          <DialogFooter>
-            <Button data-testid="voucher-preview-done" @click="voucherOpen = false">Done</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <!-- Voucher preview (front + back), printed at the current price for the customer to sign -->
+      <CreditVoucherPreview
+        :open="voucherOpen"
+        :voucher-seq="printedVoucherSeq"
+        :company-name="settings?.companyName ?? ''"
+        :date="businessDay?.startDate ?? ''"
+        :customer-name="selectedCustomerName"
+        :place="selectedCustomerPlace"
+        :amount="printedAtTotal ?? 0"
+        :lines="voucherLines"
+        :loading-charges="loadingCharge"
+        :additional-charges="additionalCharges ?? 0"
+        :total="printedAtTotal ?? total"
+        @update:open="(v) => (voucherOpen = v)"
+        @done="voucherOpen = false"
+      />
 
       <!-- Finish blocked until a voucher is printed at the current price -->
       <Dialog :open="printGateOpen" @update:open="(v) => (printGateOpen = v)">
