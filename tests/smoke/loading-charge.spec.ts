@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures'
+import { test, expect, dismissAutoPicker } from './fixtures'
 import type { Page } from '@playwright/test'
 
 /**
@@ -58,7 +58,7 @@ async function purchaseBulk(
   qty: string
 ): Promise<void> {
   await page.getByTestId('open-purchase').click()
-  await page.keyboard.press('Escape')
+  await dismissAutoPicker(page)
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: productName }).click()
@@ -76,7 +76,7 @@ async function startWalkinSale(page: Page, name: string, place: string): Promise
   // Cash/Credit gate comes first — walk-in is only available on Cash Sales.
   await page.getByTestId('sale-gate-cash').click()
   // Customer mode auto-opens its picker; dismiss before switching to walk-in.
-  await page.keyboard.press('Escape')
+  await dismissAutoPicker(page)
   await page.getByTestId('sale-counterparty-mode').click()
   await page.getByRole('option', { name: 'Walk-in' }).click()
   await page.getByTestId('sale-walkin-name').fill(name)
@@ -213,7 +213,7 @@ test('mixed cart: packaged lines never contribute to loading', async ({ page }) 
 
   // Purchase packaged stock too
   await page.getByTestId('open-purchase').click()
-  await page.keyboard.press('Escape')
+  await dismissAutoPicker(page)
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Atta 1kg' }).click()

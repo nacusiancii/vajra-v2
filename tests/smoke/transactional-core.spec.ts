@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures'
+import { test, expect, dismissAutoPicker } from './fixtures'
 import type { Page } from '@playwright/test'
 
 /**
@@ -43,7 +43,7 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
 
   // ── Purchase 10 bags @ ₹6000/quintal on credit (stock-in, no drawer impact) ──
   await page.getByTestId('open-purchase').click()
-  await page.keyboard.press('Escape') // dismiss the auto-opened supplier picker
+  await dismissAutoPicker(page) // supplier CustomerSelect auto-opens
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
@@ -71,7 +71,7 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('sale-gate-cash')).toBeFocused()
   await page.keyboard.press('Enter')
   // Customer mode auto-opens its picker; dismiss it before switching to walk-in.
-  await page.keyboard.press('Escape')
+  await dismissAutoPicker(page)
   await page.getByTestId('sale-counterparty-mode').click()
   await page.getByRole('option', { name: 'Walk-in' }).click()
   await page.getByTestId('sale-walkin-name').fill('Counter Customer')

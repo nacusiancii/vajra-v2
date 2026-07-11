@@ -67,6 +67,7 @@ const walkinPhone = ref('')
 // null = the gate is still showing; editing an existing Sale prefills it instead.
 const mode = ref<SaleMode | null>(null)
 const lines = ref<CartLine[]>([])
+const goodsCart = ref<InstanceType<typeof GoodsCart> | null>(null)
 const applyLoading = ref(false)
 const additionalCharges = ref<number | null>(null)
 const upiCollected = ref<number | null>(null)
@@ -75,6 +76,11 @@ const remarks = ref('')
 const error = ref<string | null>(null)
 const finished = ref<Txn | null>(null)
 const slipOpen = ref(false)
+
+// Customer picked on an empty cart → first goods line + product dropdown.
+watch(customerId, (id) => {
+  if (id != null) goodsCart.value?.ensureLineAndFocusProduct()
+})
 
 // Credit Voucher: the customer signs a voucher printed at the current price before
 // the Sale can finish. We track the total it was last printed at to catch price drift.
@@ -459,7 +465,12 @@ watch(
             <CardTitle>Goods</CardTitle>
           </CardHeader>
           <CardContent>
-            <GoodsCart v-model="lines" :products="productList" :bag-types="bagTypes" />
+            <GoodsCart
+              ref="goodsCart"
+              v-model="lines"
+              :products="productList"
+              :bag-types="bagTypes"
+            />
           </CardContent>
         </Card>
 

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref } from 'vue'
 import { Check, ChevronsUpDown } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
@@ -31,21 +31,67 @@ const props = defineProps<{
 
 const model = defineModel<number | null>({ required: true })
 const open = ref(false)
-
 const selected = computed(() => props.options.find((o) => o.value === model.value) ?? null)
+
+// --- Handoff guards ----------------------------------------------------------
+// Selecting an option (or programmatically opening right after another popover
+// closes) races reka's close-auto-focus and outside-dismiss handlers — often
+// after the exit animation. Without these guards the next picker opens then
+// snaps shut.
+
+/** Skip restoring focus to this trigger on close after an option is chosen. */
+let skipCloseAutoFocus = false
+
+/** Briefly ignore outside dismiss after a programmatic open. */
+let ignoreOutsideDismiss = false
+let ignoreOutsideTimer: ReturnType<typeof setTimeout> | null = null
+
+/** Cover Presence exit animation (~150ms) plus focus-outside's double nextTick. */
+const IGNORE_OUTSIDE_MS = 200
 
 function choose(value: number): void {
   model.value = value
+  skipCloseAutoFocus = true
   open.value = false
 }
 
+function onCloseAutoFocus(event: Event): void {
+  if (!skipCloseAutoFocus) return
+  event.preventDefault()
+  skipCloseAutoFocus = false
+}
+
+function armIgnoreOutsideDismiss(): void {
+  ignoreOutsideDismiss = true
+  if (ignoreOutsideTimer != null) clearTimeout(ignoreOutsideTimer)
+  ignoreOutsideTimer = setTimeout(() => {
+    ignoreOutsideDismiss = false
+    ignoreOutsideTimer = null
+  }, IGNORE_OUTSIDE_MS)
+}
+
+function onOutsideDismiss(event: Event): void {
+  if (ignoreOutsideDismiss) event.preventDefault()
+}
+
+/** Open the filter, protected against a sibling popover's late focus restore. */
+function openFilter(): void {
+  armIgnoreOutsideDismiss()
+  open.value = true
+}
+
 onMounted(() => {
-  if (props.autoFocus) void nextTick(() => (open.value = true))
+  if (props.autoFocus) void nextTick(() => openFilter())
+})
+
+onUnmounted(() => {
+  if (ignoreOutsideTimer != null) clearTimeout(ignoreOutsideTimer)
 })
 
 defineExpose({
+  /** Open after the current close cycle so a handoff target stays open. */
   focus: () => {
-    open.value = true
+    window.setTimeout(() => openFilter(), 0)
   }
 })
 </script>
@@ -66,7 +112,14 @@ defineExpose({
         <ChevronsUpDown class="ml-2 size-4 shrink-0 opacity-50" />
       </Button>
     </PopoverTrigger>
-    <PopoverContent class="w-[--reka-popover-trigger-width] p-0" align="start">
+    <PopoverContent
+      class="w-[--reka-popover-trigger-width] p-0"
+      align="start"
+      @close-auto-focus="onCloseAutoFocus"
+      @focus-outside="onOutsideDismiss"
+      @interact-outside="onOutsideDismiss"
+      @pointer-down-outside="onOutsideDismiss"
+    >
       <Command>
         <CommandInput :placeholder="searchPlaceholder ?? 'Type to filter…'" />
         <CommandList>

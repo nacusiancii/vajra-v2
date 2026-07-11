@@ -39,10 +39,16 @@ const walkinPhone = ref('')
 
 const mode = ref<SaleMode>('cash')
 const lines = ref<CartLine[]>([])
+const goodsCart = ref<InstanceType<typeof GoodsCart> | null>(null)
 const additionalCharges = ref<number | null>(null)
 const upiCollected = ref<number | null>(null)
 const remarks = ref('')
 const error = ref<string | null>(null)
+
+// Supplier picked on an empty cart → first goods line + product dropdown.
+watch(customerId, (id) => {
+  if (id != null) goodsCart.value?.ensureLineAndFocusProduct()
+})
 
 const productList = computed(() => products.value ?? [])
 const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
@@ -195,7 +201,7 @@ watch(
       </template>
     </div>
 
-    <GoodsCart v-model="lines" :products="productList" :bag-types="bagTypes" />
+    <GoodsCart ref="goodsCart" v-model="lines" :products="productList" :bag-types="bagTypes" />
 
     <!-- Charges + payment -->
     <div class="grid gap-4 sm:grid-cols-2">
