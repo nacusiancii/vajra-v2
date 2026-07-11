@@ -81,19 +81,19 @@ Show counts and a one-line summary per issue. Let the maintainer pick.
 
 ## Epics (big features)
 
-Some enhancements are too big for a single agent brief — multiple vertical slices, design decisions that cut across layers. Track those as an **epic**: a parent issue that carries the feature's PRD and a task list of child issues.
+Some enhancements are too big for a single agent brief — multiple vertical slices, design decisions that cut across layers. Track those as an **epic**: a parent issue that carries the shared understanding of the feature and a task list of child issues.
 
 **Spotting one:** during triage, if you can't specify the work in one brief, recommend `epic` instead of forcing a state.
 
 **Flow:**
 
 1. Label the parent issue `epic` (plus its category role). Epics never take `ready-for-agent` / `ready-for-human` — those states belong to the children.
-2. Flesh out the feature — `/grill-with-docs`, then `/to-prd` if no PRD exists yet. The PRD lives on the epic issue.
+2. Reach shared understanding before breaking anything down. How is up to the maintainer — open-ended discovery of the user experience, exploring possibilities, `/prototype` sessions, technical research where the feature calls for it. No mandated artifact or skill chain. What matters is what lands on the epic body: the outcome we want, the decisions made, and the reasoning behind them — written for a fresh agent that has none of the conversation.
 3. Break it down with `/to-issues`. Each child references the epic in its `## Parent` section; add each child to a task list in the epic body (`- [ ] #NN`) so the tracker shows progress.
 4. Children move through the normal triage state machine individually.
-5. Close the epic when every child is done and the feature has been verified end-to-end.
+5. Close the epic when every child is done and the feature has been verified end-to-end. If the epic settled new vocabulary or durable decisions along the way, fold them into `CONTEXT.md` / ADRs before closing — a `/grill-me` session works well for this.
 
-Keep epics this light. No stage gates or per-epic checklists — the state machine lives on the children.
+Keep epics this light. No stage gates or per-epic checklists — the state machine lives on the children, and the epic body earns its keep by recording outcomes and decisions, not process.
 
 ## Quick state override
 
