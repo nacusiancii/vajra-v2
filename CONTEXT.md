@@ -89,7 +89,7 @@ _Avoid_: Other charges, expenses, sundry.
 ### Sales and payment
 
 **Sale**:
-A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods. The cashier may toggle the mode any time during the cart; the default is Cash. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher.
+A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods. A new Sale starts by explicitly picking Cash or Credit before any customer or goods entry — nothing is chosen for the cashier, but Cash is pre-focused so the common case is a single key press — and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher.
 _Avoid_: Bill, transaction (as a synonym for Sale).
 
 **Sale Invoice**:

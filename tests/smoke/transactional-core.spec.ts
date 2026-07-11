@@ -64,6 +64,12 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
 
   // ── Sale: 2 bags cash to a walk-in (100kg = 1 quintal = ₹6000) ──
   await page.getByTestId('open-sale').click()
+  // The Cash/Credit gate comes first — no customer or goods until a mode is picked.
+  await expect(page.getByTestId('sale-gate')).toBeVisible()
+  await expect(page.getByTestId('cart-add-line')).not.toBeVisible()
+  // The Cash tile is pre-focused as the common case — a bare Enter picks it.
+  await expect(page.getByTestId('sale-gate-cash')).toBeFocused()
+  await page.keyboard.press('Enter')
   // Customer mode auto-opens its picker; dismiss it before switching to walk-in.
   await page.keyboard.press('Escape')
   await page.getByTestId('sale-counterparty-mode').click()
