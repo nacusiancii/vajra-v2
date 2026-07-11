@@ -5,6 +5,12 @@ import icon from '../../resources/icon.png?asset'
 import { registerIpcHandlers } from './ipc'
 import { closeDb } from './db'
 
+// Isolate userData (DB + single-instance lock) when tests set VAJRA_USER_DATA.
+// Must run before requestSingleInstanceLock().
+if (process.env.VAJRA_USER_DATA) {
+  app.setPath('userData', process.env.VAJRA_USER_DATA)
+}
+
 let mainWindow: BrowserWindow | null = null
 
 /** Common web preferences for every Vajra window. */
@@ -25,7 +31,6 @@ function showMainWindow(): void {
 }
 
 function createWindow(): void {
-  // Create the browser window.
   mainWindow = new BrowserWindow({
     width: 900,
     height: 670,
@@ -36,6 +41,8 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
+    // Maximize on first open; width/height above are the restore size.
+    mainWindow?.maximize()
     showMainWindow()
   })
 

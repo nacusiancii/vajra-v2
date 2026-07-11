@@ -1,5 +1,18 @@
 import { test, expect } from './fixtures'
 
+test.describe('Window shell', () => {
+  test('opens maximized by default', async ({ electronApp, page }) => {
+    await expect(page.getByTestId('home-page')).toBeVisible()
+
+    const isMaximized = await electronApp.evaluate(({ BrowserWindow }) => {
+      const win = BrowserWindow.getAllWindows()[0]
+      return win?.isMaximized() ?? false
+    })
+
+    expect(isMaximized).toBe(true)
+  })
+})
+
 test.describe('Home page', () => {
   test('shows primary counter actions', async ({ page }) => {
     await expect(page.getByTestId('home-page')).toBeVisible()
