@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, Plus, RefreshCcw, Trash2 } from '@lucide/vue'
+import { ArrowRight, RefreshCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
@@ -14,15 +14,13 @@ import {
   type LineProductLookup
 } from '@domain/transaction-rules'
 import { formatQty } from '@/lib/format'
-import type { CreateStockTransferInput } from '@domain/transaction'
+import type { CreateStockTransferInput, TransferLegInput } from '@domain/transaction'
 
 interface LegRow {
   productId: number | null
   bagSizeKg: number | null
   qty: number | null
 }
-
-type Side = 'source' | 'target'
 
 const emptyLeg = (): LegRow => ({ productId: null, bagSizeKg: null, qty: null })
 
@@ -34,8 +32,9 @@ const { data: products } = useProductsQuery()
 const createTransfer = useCreateStockTransfer()
 const editTransfer = useEditStockTransfer()
 
-const source = ref<LegRow[]>([emptyLeg()])
-const target = ref<LegRow[]>([emptyLeg()])
+/** One source product out, one target product in. */
+const source = ref<LegRow>(emptyLeg())
+const target = ref<LegRow>(emptyLeg())
 const remarks = ref('')
 const error = ref<string | null>(null)
 /** True after a manual target-qty edit; blocks auto-fill until target product changes. */
@@ -59,20 +58,14 @@ function isBulk(leg: LegRow): boolean {
   return leg.productId != null && productMap.value.get(leg.productId)?.type === 'bulk'
 }
 
-function legKg(legs: LegRow[]): number {
-  return legs.reduce((sum, leg) => {
-    const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
-    if (!p || !leg.qty) return sum
-    return sum + lineKg(p.type, leg.qty, leg.bagSizeKg)
-  }, 0)
+function rowKg(leg: LegRow): number {
+  const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
+  if (!p || !leg.qty) return 0
+  return lineKg(p.type, leg.qty, leg.bagSizeKg)
 }
 
-const sourceKg = computed(() => legKg(source.value))
-const targetKg = computed(() => legKg(target.value))
-
-function legsFor(side: Side): typeof source {
-  return side === 'source' ? source : target
-}
+const sourceKg = computed(() => rowKg(source.value))
+const targetKg = computed(() => rowKg(target.value))
 
 function parseQty(value: string | number): number | null {
   return value === '' ? null : Number(value)
@@ -83,27 +76,12 @@ function markTargetQtyManual(): void {
   targetQtySuggested.value = false
 }
 
-/** Resume auto-fill (e.g. after target product change or back to a single target leg). */
 function resumeTargetQtySuggestion(): void {
   targetQtyDirty.value = false
   applySuggestedTargetQty()
 }
 
-function add(side: Side): void {
-  const legs = legsFor(side)
-  legs.value = [...legs.value, emptyLeg()]
-  // Multi-target cannot share one kg→qty suggestion.
-  if (side === 'target') markTargetQtyManual()
-}
-
-function remove(side: Side, index: number): void {
-  const legs = legsFor(side)
-  legs.value = legs.value.filter((_, i) => i !== index)
-  if (legs.value.length === 0) legs.value = [emptyLeg()]
-  if (side === 'target' && legs.value.length === 1) resumeTargetQtySuggestion()
-}
-
-function onProduct(leg: LegRow, value: number | null, side: Side): void {
+function onProduct(leg: LegRow, value: number | null, side: 'source' | 'target'): void {
   leg.productId = value
   const p = value == null ? undefined : productMap.value.get(value)
   // Stock Transfers always move Default-Bag-Size bags — no per-leg bag choice.
@@ -111,22 +89,22 @@ function onProduct(leg: LegRow, value: number | null, side: Side): void {
   if (side === 'target') resumeTargetQtySuggestion()
 }
 
-function onQtyInput(leg: LegRow, value: string | number, side: Side): void {
+function onQtyInput(leg: LegRow, value: string | number, side: 'source' | 'target'): void {
   leg.qty = parseQty(value)
   if (side === 'target') markTargetQtyManual()
 }
 
 /**
- * Fill the single bulk target leg as sourceKg ÷ target Default Bag Size.
- * No-op when the cashier has overridden qty, there are multiple targets, or kg is unknown.
+ * Fill target qty as sourceKg ÷ target Default Bag Size.
+ * No-op when the cashier has overridden qty or kg is not computable.
  */
 function applySuggestedTargetQty(): void {
-  if (targetQtyDirty.value || target.value.length !== 1) {
+  if (targetQtyDirty.value) {
     targetQtySuggested.value = false
     return
   }
-  const leg = target.value[0]
-  const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
+  const p =
+    target.value.productId == null ? undefined : productMap.value.get(target.value.productId)
   if (!p || p.type !== 'bulk') {
     targetQtySuggested.value = false
     return
@@ -136,24 +114,21 @@ function applySuggestedTargetQty(): void {
     targetQtySuggested.value = false
     return
   }
-  leg.qty = suggested
+  target.value.qty = suggested
   targetQtySuggested.value = true
 }
 
-function rowKg(leg: LegRow): number {
-  const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
-  if (!p || !leg.qty) return 0
-  return lineKg(p.type, leg.qty, leg.bagSizeKg)
+function toLegInput(leg: LegRow): TransferLegInput | null {
+  if (leg.productId == null) return null
+  return { productId: leg.productId, bagSizeKg: leg.bagSizeKg, qty: leg.qty ?? 0 }
 }
 
 function buildInput(): CreateStockTransferInput {
-  const map = (legs: LegRow[]): CreateStockTransferInput['source'] =>
-    legs
-      .filter((l) => l.productId != null)
-      .map((l) => ({ productId: l.productId as number, bagSizeKg: l.bagSizeKg, qty: l.qty ?? 0 }))
+  const src = toLegInput(source.value)
+  const tgt = toLegInput(target.value)
   return {
-    source: map(source.value),
-    target: map(target.value),
+    source: src ? [src] : [],
+    target: tgt ? [tgt] : [],
     remarks: remarks.value.trim() || null
   }
 }
@@ -162,7 +137,7 @@ function finish(): void {
   error.value = null
   const input = buildInput()
   if (input.source.length === 0 || input.target.length === 0) {
-    error.value = 'A Stock Transfer needs at least one source and one target'
+    error.value = 'A Stock Transfer needs a source and a target product'
     return
   }
   for (const leg of [...input.source, ...input.target]) {
@@ -187,12 +162,14 @@ watch(
     if (!txn || txn.type !== 'ST') return
     // Preserve saved target qty: mark dirty before source write so the watcher cannot overwrite.
     markTargetQtyManual()
-    const toRows = (side: Side): LegRow[] =>
-      txn.lines
-        .filter((l) => l.side === side)
-        .map((l) => ({ productId: l.productId, bagSizeKg: l.bagSizeKg, qty: l.qty }))
-    source.value = toRows('source')
-    target.value = toRows('target')
+    const first = (side: 'source' | 'target'): LegRow => {
+      const line = txn.lines.find((l) => l.side === side)
+      return line
+        ? { productId: line.productId, bagSizeKg: line.bagSizeKg, qty: line.qty }
+        : emptyLeg()
+    }
+    source.value = first('source')
+    target.value = first('target')
     remarks.value = txn.remarks ?? ''
   },
   { immediate: true }
@@ -213,62 +190,56 @@ watch(
 
     <div class="grid gap-6 md:grid-cols-2">
       <div
-        v-for="leg in [
-          { key: 'source', label: 'From (removed)', legs: source, kg: sourceKg },
-          { key: 'target', label: 'To (added)', legs: target, kg: targetKg }
-        ] as const"
-        :key="leg.key"
+        v-for="side in [
+          { key: 'source' as const, label: 'From (removed)', leg: source, kg: sourceKg },
+          { key: 'target' as const, label: 'To (added)', leg: target, kg: targetKg }
+        ]"
+        :key="side.key"
         class="space-y-3 rounded-md border p-4"
-        :data-testid="`transfer-${leg.key}`"
+        :data-testid="`transfer-${side.key}`"
       >
         <div class="flex items-center justify-between">
-          <h2 class="font-semibold">{{ leg.label }}</h2>
-          <span class="text-sm text-muted-foreground tabular-nums">{{ formatQty(leg.kg) }} kg</span>
+          <h2 class="font-semibold">{{ side.label }}</h2>
+          <span class="text-sm text-muted-foreground tabular-nums"
+            >{{ formatQty(side.kg) }} kg</span
+          >
         </div>
-        <div
-          v-for="(row, index) in leg.legs"
-          :key="index"
-          class="flex items-center gap-2"
-          data-testid="transfer-leg"
-        >
-          <div class="flex-1">
+        <div class="flex flex-wrap items-center gap-2" data-testid="transfer-leg">
+          <div class="min-w-[12rem] flex-1">
             <EntityCombobox
-              :model-value="row.productId"
+              :model-value="side.leg.productId"
               :options="productOptions"
               placeholder="Product"
               search-placeholder="Type a product name…"
               empty-text="No product matches."
               test-id="transfer-product"
-              @update:model-value="onProduct(row, $event, leg.key)"
+              @update:model-value="onProduct(side.leg, $event, side.key)"
             />
           </div>
           <span
-            v-if="isBulk(row)"
-            class="w-[64px] shrink-0 text-center text-sm text-muted-foreground"
+            v-if="isBulk(side.leg)"
+            class="w-16 shrink-0 text-center text-sm text-muted-foreground"
             data-testid="transfer-bag"
           >
-            {{ row.bagSizeKg }}kg
+            {{ side.leg.bagSizeKg }}kg
           </span>
           <Input
             type="number"
             min="0"
             step="0.5"
-            class="w-[72px]"
-            :model-value="row.qty ?? ''"
+            class="w-28 shrink-0 tabular-nums"
+            :model-value="side.leg.qty ?? ''"
             placeholder="Qty"
             data-testid="transfer-qty"
-            @update:model-value="onQtyInput(row, $event, leg.key)"
+            @update:model-value="onQtyInput(side.leg, $event, side.key)"
           />
-          <span class="w-[72px] shrink-0 text-right text-xs text-muted-foreground tabular-nums">
-            {{ rowKg(row) > 0 ? `${formatQty(rowKg(row))} kg` : '' }}
+          <span
+            class="w-24 shrink-0 text-right text-sm text-muted-foreground tabular-nums"
+            data-testid="transfer-leg-kg"
+          >
+            {{ rowKg(side.leg) > 0 ? `${formatQty(rowKg(side.leg))} kg` : '' }}
           </span>
-          <Button variant="ghost" size="icon" @click="remove(leg.key, index)">
-            <Trash2 class="size-4 text-destructive" />
-          </Button>
         </div>
-        <Button variant="outline" size="sm" @click="add(leg.key)">
-          <Plus class="mr-2 size-4" /> Add
-        </Button>
       </div>
     </div>
 
