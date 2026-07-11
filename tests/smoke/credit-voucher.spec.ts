@@ -39,13 +39,14 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   // ── Credit Sale ──
   await page.getByTestId('open-sale').click()
   // Picking Credit at the gate opens the workspace; the customer picker auto-opens —
-  // type into the filter, then pick the match.
+  // type into the filter, then pick the match. Selecting a customer on an empty cart
+  // adds the first line and opens the product dropdown.
   await page.getByTestId('sale-gate-credit').click()
   await page.getByPlaceholder(/Type a customer name/).fill('Ravi')
   await page.getByRole('option', { name: /Ravi Kumar/ }).click()
 
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
+  await expect(page.getByTestId('cart-line')).toHaveCount(1)
+  await expect(page.getByRole('option', { name: 'Toor Dal' })).toBeVisible()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   await page.getByTestId('cart-rate').fill('6000')
   await page.getByTestId('cart-qty').fill('2')
