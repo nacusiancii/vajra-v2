@@ -158,6 +158,7 @@ describe('summariseDrawer', () => {
       loadingCharges: 0,
       total: 0,
       creditAmount: 0,
+      discountAmount: 0,
       remarks: null,
       voided: false,
       successorId: null,

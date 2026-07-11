@@ -130,6 +130,11 @@ export function validateTransferLeg(
 
 // ── Money movement schema (Receipt / Payment / Expense / Income) ─────────────
 
+/**
+ * Authoritative shape for money movements. Cashier enters cash, UPI, and (for RE/PA)
+ * discount amount; pure write-off (cash=0, UPI=0, discount>0) is allowed; all-zero is not.
+ * `total` is always derived as cash + UPI — never taken from the client.
+ */
 export const MoneyTxnSchema = z
   .object({
     customerId: z.number().nullable(),
@@ -138,18 +143,16 @@ export const MoneyTxnSchema = z
       .trim()
       .transform((v) => (v === '' ? null : v))
       .nullable(),
-    amount: z.coerce.number().positive('Amount must be greater than zero'),
-    discountPercent: z.coerce.number().min(0).max(100).default(0),
-    cashCollected: z.coerce.number().min(0).default(0),
-    upiCollected: z.coerce.number().min(0).default(0),
+    cashCollected: z.coerce.number().min(0, 'Cash cannot be negative').default(0),
+    upiCollected: z.coerce.number().min(0, 'UPI cannot be negative').default(0),
+    discountAmount: z.coerce.number().min(0, 'Discount cannot be negative').default(0),
     remarks: z
       .string()
       .trim()
       .transform((v) => (v === '' ? null : v))
       .nullable()
   })
-  .refine(
-    (v) =>
-      Math.abs(v.cashCollected + v.upiCollected - v.amount * (1 - v.discountPercent / 100)) < 0.01,
-    { message: 'Cash + UPI must equal the amount after discount', path: ['cashCollected'] }
-  )
+  .refine((v) => v.cashCollected + v.upiCollected + v.discountAmount > 0, {
+    message: 'Enter cash, UPI, or a discount amount',
+    path: ['cashCollected']
+  })

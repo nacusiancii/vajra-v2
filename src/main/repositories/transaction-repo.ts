@@ -3,7 +3,7 @@ import type { ProductType } from '../../domain/types'
 import {
   formatTxnId,
   lineStockDelta,
-  moneyNetAmount,
+  moneyRealized,
   type CreateMoneyTxnInput,
   type CreatePurchaseInput,
   type CreateSaleInput,
@@ -13,7 +13,7 @@ import {
   type TxnLine,
   type TxnType
 } from '../../domain/transaction'
-import { grandTotal, lineTotal } from '../../domain/transaction-rules'
+import { grandTotal, lineTotal, MoneyTxnSchema } from '../../domain/transaction-rules'
 
 interface TxnRow {
   id: string
@@ -35,6 +35,7 @@ interface TxnRow {
   loading_charges: number
   total: number
   credit_amount: number
+  discount_amount: number
   remarks: string | null
   voided: number
   successor_id: string | null
@@ -207,20 +208,26 @@ export class TransactionRepo {
     type: Extract<TxnType, 'RE' | 'PA' | 'EX' | 'IN'>,
     input: CreateMoneyTxnInput
   ): Txn {
+    const parsed = MoneyTxnSchema.parse(input)
+    // Settlement write-off is RE/PA only — reject it on labelled money movements.
+    if ((type === 'EX' || type === 'IN') && parsed.discountAmount > 0) {
+      throw new Error('Expense and Income cannot carry a discount')
+    }
     const moneyIn = type === 'RE' || type === 'IN'
-    const net = moneyNetAmount(input.amount, input.discountPercent)
     const drawer: DrawerColumns = {
-      cashIn: moneyIn ? input.cashCollected : 0,
-      upiIn: moneyIn ? input.upiCollected : 0,
-      cashOut: moneyIn ? 0 : input.cashCollected,
-      upiOut: moneyIn ? 0 : input.upiCollected
+      cashIn: moneyIn ? parsed.cashCollected : 0,
+      upiIn: moneyIn ? parsed.upiCollected : 0,
+      cashOut: moneyIn ? 0 : parsed.cashCollected,
+      upiOut: moneyIn ? 0 : parsed.upiCollected
     }
     return this.insert(type, [], {
-      customerId: input.customerId,
-      label: input.label,
-      total: net,
+      customerId: parsed.customerId,
+      label: parsed.label,
+      // total is always realized (cash + UPI); discount is stored separately.
+      total: moneyRealized(parsed.cashCollected, parsed.upiCollected),
+      discountAmount: type === 'RE' || type === 'PA' ? parsed.discountAmount : 0,
       drawer,
-      remarks: input.remarks
+      remarks: parsed.remarks
     })
   }
 
@@ -276,6 +283,7 @@ export class TransactionRepo {
       loadingCharges?: number
       total: number
       creditAmount?: number
+      discountAmount?: number
       drawer: DrawerColumns
       voucherSeq?: number | null
       remarks: string | null
@@ -291,8 +299,8 @@ export class TransactionRepo {
              id, business_day_id, type, seq, voucher_seq, sale_mode, customer_id,
              walkin_name, walkin_place, walkin_phone, label,
              cash_in, upi_in, cash_out, upi_out,
-             additional_charges, loading_charges, total, credit_amount, remarks
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             additional_charges, loading_charges, total, credit_amount, discount_amount, remarks
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           id,
@@ -314,6 +322,7 @@ export class TransactionRepo {
           fields.loadingCharges ?? 0,
           fields.total,
           fields.creditAmount ?? 0,
+          fields.discountAmount ?? 0,
           fields.remarks
         )
 
@@ -471,6 +480,7 @@ export class TransactionRepo {
       loadingCharges: row.loading_charges,
       total: row.total,
       creditAmount: row.credit_amount,
+      discountAmount: row.discount_amount ?? 0,
       remarks: row.remarks,
       voided: row.voided === 1,
       successorId: row.successor_id,
