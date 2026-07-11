@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { ArrowRight, RefreshCcw } from '@lucide/vue'
+import { ArrowRight, RefreshCcw, RotateCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useCreateStockTransfer, useEditStockTransfer } from '@/queries/transactions'
@@ -67,6 +68,21 @@ function rowKg(leg: LegRow): number {
 const sourceKg = computed(() => rowKg(source.value))
 const targetKg = computed(() => rowKg(target.value))
 
+/** Suggested target bags from current source kg, if computable. */
+const suggestedTargetQty = computed(() => {
+  const p =
+    target.value.productId == null ? undefined : productMap.value.get(target.value.productId)
+  if (!p || p.type !== 'bulk') return null
+  return suggestedTransferTargetQty(sourceKg.value, p.defaultBagSizeKg)
+})
+
+/** Show re-suggest when a suggestion exists and target qty is not already that value. */
+const canResuggestTargetQty = computed(() => {
+  const suggested = suggestedTargetQty.value
+  if (suggested == null) return false
+  return target.value.qty !== suggested
+})
+
 function parseQty(value: string | number): number | null {
   return value === '' ? null : Number(value)
 }
@@ -103,13 +119,7 @@ function applySuggestedTargetQty(): void {
     targetQtySuggested.value = false
     return
   }
-  const p =
-    target.value.productId == null ? undefined : productMap.value.get(target.value.productId)
-  if (!p || p.type !== 'bulk') {
-    targetQtySuggested.value = false
-    return
-  }
-  const suggested = suggestedTransferTargetQty(sourceKg.value, p.defaultBagSizeKg)
+  const suggested = suggestedTargetQty.value
   if (suggested == null) {
     targetQtySuggested.value = false
     return
@@ -244,13 +254,31 @@ watch(
     </div>
 
     <div class="flex flex-col items-center gap-1 text-sm text-muted-foreground">
-      <div class="flex items-center justify-center gap-3">
+      <div class="flex items-center justify-center gap-2">
         <span class="tabular-nums">{{ formatQty(sourceKg) }} kg</span>
         <ArrowRight class="size-4" />
         <span class="tabular-nums">{{ formatQty(targetKg) }} kg</span>
         <span v-if="sourceKg !== targetKg && (sourceKg || targetKg)" class="text-amber-600">
           (yield difference {{ formatQty(targetKg - sourceKg) }} kg)
         </span>
+        <TooltipProvider v-if="canResuggestTargetQty" :delay-duration="300">
+          <Tooltip>
+            <TooltipTrigger as-child>
+              <Button
+                type="button"
+                variant="ghost"
+                size="icon"
+                class="size-8 shrink-0"
+                data-testid="transfer-resuggest"
+                aria-label="Re-suggest target quantity from source kg"
+                @click="resumeTargetQtySuggestion"
+              >
+                <RotateCcw class="size-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Re-suggest target qty from source kg</TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       <p v-if="targetQtySuggested" class="text-xs" data-testid="transfer-qty-suggested">
         Target qty suggested from source kg — edit to set a yield difference.
