@@ -477,7 +477,10 @@ watch(
           <CardContent>
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="space-y-3">
-                <label class="flex items-center gap-2 text-sm" data-testid="sale-apply-loading-label">
+                <label
+                  class="flex items-center gap-2 text-sm"
+                  data-testid="sale-apply-loading-label"
+                >
                   <Checkbox
                     :model-value="applyLoading"
                     data-testid="sale-apply-loading"

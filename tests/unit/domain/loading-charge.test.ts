@@ -24,9 +24,7 @@ describe('computeLoadingCharge — core cases', () => {
   })
 
   it('returns 0 when rates are empty (opt-in with no configured rates)', () => {
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 3 }], {})
-    ).toBe(0)
+    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 3 }], {})).toBe(0)
   })
 
   it('returns 0 when all rates are 0 (shipped defaults)', () => {
@@ -39,9 +37,9 @@ describe('computeLoadingCharge — core cases', () => {
   })
 
   it('charges one bag type only', () => {
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 3 }], { 50: 15 })
-    ).toBe(45)
+    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 3 }], { 50: 15 })).toBe(
+      45
+    )
   })
 
   it('sums multiple bulk lines with different bag types', () => {
@@ -103,9 +101,9 @@ describe('computeLoadingCharge — edge / break cases', () => {
   })
 
   it('skips bulk lines with bagSizeKg 0 (falsy)', () => {
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 0, qty: 5 }], { 0: 100 })
-    ).toBe(0)
+    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 0, qty: 5 }], { 0: 100 })).toBe(
+      0
+    )
   })
 
   it('charges fractional qty (half bags get half loading)', () => {
@@ -122,9 +120,9 @@ describe('computeLoadingCharge — edge / break cases', () => {
   })
 
   it('qty 0 contributes nothing', () => {
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 0 }], { 50: 20 })
-    ).toBe(0)
+    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 0 }], { 50: 20 })).toBe(
+      0
+    )
   })
 
   it('negative qty produces negative loading (no guard)', () => {
@@ -136,9 +134,9 @@ describe('computeLoadingCharge — edge / break cases', () => {
 
   it('handles a custom bag size not in shipped BAG_SIZES (e.g. 40 kg)', () => {
     // Settings UI can add 40 kg; product Default Bag Size cannot use it.
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 40, qty: 3 }], { 40: 18 })
-    ).toBe(54)
+    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 40, qty: 3 }], { 40: 18 })).toBe(
+      54
+    )
   })
 
   it('handles very large qty without precision blow-up for whole rupees', () => {
@@ -189,10 +187,9 @@ describe('line pricing + loading composition (Sale total math)', () => {
       quintalRate: 6000,
       unitRate: null
     })
-    const loading = computeLoadingCharge(
-      [{ productType: 'bulk', bagSizeKg: 50, qty: 2 }],
-      { 50: 20 }
-    )
+    const loading = computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 2 }], {
+      50: 20
+    })
     expect(goods).toBe(6000)
     expect(loading).toBe(40)
     expect(grandTotal([goods], loading, 25)).toBe(6065)
@@ -207,10 +204,10 @@ describe('line pricing + loading composition (Sale total math)', () => {
       quintalRate: 6000,
       unitRate: null
     })
-    const loading = computeLoadingCharge(
-      [{ productType: 'bulk', bagSizeKg: 25, qty: 4 }],
-      { 25: 10, 50: 20 }
-    )
+    const loading = computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 25, qty: 4 }], {
+      25: 10,
+      50: 20
+    })
     expect(goods).toBe(6000)
     expect(loading).toBe(40) // 4 × ₹10, not 4 × ₹20
     expect(grandTotal([goods], loading, 0)).toBe(6040)
@@ -225,10 +222,9 @@ describe('line pricing + loading composition (Sale total math)', () => {
       quintalRate: 5000,
       unitRate: null
     })
-    const loading = computeLoadingCharge(
-      [{ productType: 'bulk', bagSizeKg: 30, qty: 10 }],
-      { 30: 12 }
-    )
+    const loading = computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 30, qty: 10 }], {
+      30: 12
+    })
     expect(goods).toBe(15_000)
     expect(loading).toBe(120)
     expect(grandTotal([goods], loading, 0)).toBe(15_120)
@@ -319,10 +315,9 @@ describe('stock delta vs loading — loading must not affect stock', () => {
     expect(delta).toBe(-2)
 
     // Loading is independent money
-    const loading = computeLoadingCharge(
-      [{ productType: 'bulk', bagSizeKg: 25, qty: 4 }],
-      { 25: 10 }
-    )
+    const loading = computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 25, qty: 4 }], {
+      25: 10
+    })
     expect(loading).toBe(40)
   })
 
@@ -347,23 +342,23 @@ describe('stock delta vs loading — loading must not affect stock', () => {
     })
     expect(goods2x50).toBe(goods4x25)
 
-    const load2x50 = computeLoadingCharge(
-      [{ productType: 'bulk', bagSizeKg: 50, qty: 2 }],
-      { 50: 20, 25: 10 }
-    )
-    const load4x25 = computeLoadingCharge(
-      [{ productType: 'bulk', bagSizeKg: 25, qty: 4 }],
-      { 50: 20, 25: 10 }
-    )
+    const load2x50 = computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 2 }], {
+      50: 20,
+      25: 10
+    })
+    const load4x25 = computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 25, qty: 4 }], {
+      50: 20,
+      25: 10
+    })
     // Same weight, different bag counts → different loading (shop charges per bag)
     expect(load2x50).toBe(40)
     expect(load4x25).toBe(40) // rates chosen so equal; change rates to diverge
 
     // With uneven rates, loading diverges for same kg
-    const load4x25_cheap = computeLoadingCharge(
-      [{ productType: 'bulk', bagSizeKg: 25, qty: 4 }],
-      { 50: 20, 25: 5 }
-    )
+    const load4x25_cheap = computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 25, qty: 4 }], {
+      50: 20,
+      25: 5
+    })
     expect(load4x25_cheap).toBe(20)
     expect(load4x25_cheap).not.toBe(load2x50)
 

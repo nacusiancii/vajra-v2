@@ -96,8 +96,8 @@ function onProductChange(line: CartLine, value: number | null): void {
         <TableRow>
           <TableHead class="min-w-[180px]">Product</TableHead>
           <TableHead class="w-[110px]">Bag Type</TableHead>
-          <TableHead class="w-[120px]">Rate</TableHead>
           <TableHead class="w-[90px]">Qty</TableHead>
+          <TableHead class="w-[120px]">Rate</TableHead>
           <TableHead class="w-[110px] text-right">Total</TableHead>
           <TableHead class="w-[48px]"></TableHead>
         </TableRow>
@@ -139,6 +139,16 @@ function onProductChange(line: CartLine, value: number | null): void {
           </TableCell>
           <TableCell>
             <Input
+              type="number"
+              min="0"
+              step="0.5"
+              :model-value="line.qty ?? ''"
+              data-testid="cart-qty"
+              @update:model-value="line.qty = $event === '' ? null : Number($event)"
+            />
+          </TableCell>
+          <TableCell>
+            <Input
               v-if="isBulk(line)"
               type="number"
               min="0"
@@ -155,16 +165,6 @@ function onProductChange(line: CartLine, value: number | null): void {
               placeholder="₹/unit"
               data-testid="cart-rate"
               @update:model-value="line.unitRate = $event === '' ? null : Number($event)"
-            />
-          </TableCell>
-          <TableCell>
-            <Input
-              type="number"
-              min="0"
-              step="0.5"
-              :model-value="line.qty ?? ''"
-              data-testid="cart-qty"
-              @update:model-value="line.qty = $event === '' ? null : Number($event)"
             />
           </TableCell>
           <TableCell class="text-right tabular-nums">
