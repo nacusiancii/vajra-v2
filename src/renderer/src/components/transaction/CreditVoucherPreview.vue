@@ -126,9 +126,7 @@ const breakdowns = computed(() =>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Mobile</span>
-            <span class="tabular-nums" data-testid="voucher-phone">{{
-              phone.trim() || '—'
-            }}</span>
+            <span class="tabular-nums" data-testid="voucher-phone">{{ phone.trim() || '—' }}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Amount</span>

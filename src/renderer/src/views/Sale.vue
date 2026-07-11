@@ -5,7 +5,6 @@ import { AlertTriangle, Banknote, FileSignature, Printer, ShoppingCart } from '@
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Card,
   CardContent,
@@ -31,6 +30,8 @@ import {
 } from '@/components/ui/select'
 import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
 import SlipPreview from '@/components/transaction/SlipPreview.vue'
+import SettleReceiptStack from '@/components/transaction/SettleReceiptStack.vue'
+import { loadingChargeBuckets } from '@/components/transaction/loading-buckets'
 import CreditVoucherPreview, {
   type VoucherLine
 } from '@/components/transaction/CreditVoucherPreview.vue'
@@ -161,17 +162,29 @@ const lineTotals = computed(() =>
   })
 )
 
+const bulkLineInputs = computed(() =>
+  lines.value.map((l) => {
+    const p = l.productId == null ? undefined : productLookup.value.get(l.productId)
+    return {
+      productType: p?.type ?? ('packaged' as const),
+      bagSizeKg: l.bagSizeKg,
+      qty: l.qty ?? 0
+    }
+  })
+)
+
+const loadingRules = computed(() => settings.value?.loadingChargePerBag ?? {})
+
+const loadingBuckets = computed(() =>
+  loadingChargeBuckets(bulkLineInputs.value, loadingRules.value)
+)
+
 const loadingCharge = computed(() => {
   if (!applyLoading.value) return 0
-  const rules = settings.value?.loadingChargePerBag ?? {}
-  return computeLoadingCharge(
-    lines.value.map((l) => {
-      const p = l.productId == null ? undefined : productLookup.value.get(l.productId)
-      return { productType: p?.type ?? 'packaged', bagSizeKg: l.bagSizeKg, qty: l.qty ?? 0 }
-    }),
-    rules
-  )
+  return computeLoadingCharge(bulkLineInputs.value, loadingRules.value)
 })
+
+const goodsTotal = computed(() => lineTotals.value.reduce((a, b) => a + b, 0))
 
 const total = computed(() =>
   grandTotal(lineTotals.value, loadingCharge.value, additionalCharges.value ?? 0)
@@ -512,30 +525,15 @@ watch(
           </CardHeader>
           <CardContent>
             <div class="grid gap-4 sm:grid-cols-2">
-              <div class="space-y-3">
-                <label
-                  class="flex items-center gap-2 text-sm"
-                  data-testid="sale-apply-loading-label"
-                >
-                  <Checkbox
-                    :model-value="applyLoading"
-                    data-testid="sale-apply-loading"
-                    @update:model-value="applyLoading = $event === true"
-                  />
-                  Apply Loading Charge ({{ formatRupees(loadingCharge) }})
-                </label>
-                <div class="grid gap-2">
-                  <Label>Additional Charges</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    :model-value="additionalCharges ?? ''"
-                    placeholder="0"
-                    data-testid="sale-additional"
-                    @update:model-value="additionalCharges = $event === '' ? null : Number($event)"
-                  />
-                </div>
-              </div>
+              <SettleReceiptStack
+                :apply-loading="applyLoading"
+                :loading-charge="loadingCharge"
+                :goods-total="goodsTotal"
+                :additional-charges="additionalCharges"
+                :buckets="loadingBuckets"
+                @update:apply-loading="applyLoading = $event"
+                @update:additional-charges="additionalCharges = $event"
+              />
 
               <div v-if="!isCredit" class="grid grid-cols-2 gap-2">
                 <div class="grid gap-2">
