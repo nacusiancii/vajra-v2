@@ -58,6 +58,42 @@ describe('lineStockDelta', () => {
       })
     ).toBe(-0.5)
   })
+
+  it('30kg bag against 50kg default is 0.6 units per bag', () => {
+    expect(
+      lineStockDelta({
+        productType: 'bulk',
+        qty: 5,
+        bagSizeKg: 30,
+        defaultBagSizeKg: 50,
+        direction: -1
+      })
+    ).toBe(-3)
+  })
+
+  it('custom 40kg bag against 50kg default is 0.8 units per bag', () => {
+    expect(
+      lineStockDelta({
+        productType: 'bulk',
+        qty: 5,
+        bagSizeKg: 40,
+        defaultBagSizeKg: 50,
+        direction: 1
+      })
+    ).toBe(4)
+  })
+
+  it('missing bag sizes falls back to raw qty (edge / incomplete line)', () => {
+    expect(
+      lineStockDelta({
+        productType: 'bulk',
+        qty: 3,
+        bagSizeKg: null,
+        defaultBagSizeKg: 50,
+        direction: -1
+      })
+    ).toBe(-3)
+  })
 })
 
 describe('projectInventory', () => {

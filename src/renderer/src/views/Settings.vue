@@ -47,7 +47,10 @@ function removeBagType(size: number): void {
 
 function save(): void {
   if (!draft.value) return
-  updateSettings.mutate(draft.value, {
+  // Clone to a plain object — Vue reactive proxies are not structured-cloneable
+  // and ipcRenderer.invoke would fail silently from the mutation's perspective.
+  const payload = JSON.parse(JSON.stringify(draft.value)) as AppSettings
+  updateSettings.mutate(payload, {
     onSuccess: () => {
       saved.value = true
       setTimeout(() => (saved.value = false), 2000)
@@ -98,6 +101,7 @@ function save(): void {
           :key="size"
           class="flex items-center gap-3 rounded-md border p-2"
           data-testid="bag-type-row"
+          :data-bag-size="size"
         >
           <span class="w-20 font-medium tabular-nums">{{ size }} kg</span>
           <div class="flex flex-1 items-center gap-2">
@@ -107,10 +111,16 @@ function save(): void {
               min="0"
               class="w-28"
               :model-value="loadingRate(size)"
+              :data-testid="`bag-type-rate-${size}`"
               @update:model-value="setLoadingRate(size, Number($event) || 0)"
             />
           </div>
-          <Button variant="ghost" size="icon" @click="removeBagType(size)">
+          <Button
+            variant="ghost"
+            size="icon"
+            :data-testid="`bag-type-remove-${size}`"
+            @click="removeBagType(size)"
+          >
             <Trash2 class="size-4 text-destructive" />
           </Button>
         </div>

@@ -56,6 +56,22 @@ describe('computeLoadingCharge', () => {
     )
     expect(charge).toBe(2 * 20 + 4 * 10)
   })
+
+  it('returns 0 when not opted in / empty rates', () => {
+    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 50, qty: 2 }], {})).toBe(0)
+  })
+
+  it('missing bag-type rate contributes 0 for that line only', () => {
+    expect(
+      computeLoadingCharge(
+        [
+          { productType: 'bulk', bagSizeKg: 50, qty: 1 },
+          { productType: 'bulk', bagSizeKg: 30, qty: 2 }
+        ],
+        { 50: 20 }
+      )
+    ).toBe(20)
+  })
 })
 
 describe('validateSale', () => {

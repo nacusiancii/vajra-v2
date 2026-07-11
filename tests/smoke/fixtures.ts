@@ -27,11 +27,16 @@ export const test = base.extend<Fixtures>({
   electronApp: async ({}, use) => {
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vajra-test-'))
 
+    // Parent shells (e.g. IDE/agent runtimes) sometimes set ELECTRON_RUN_AS_NODE=1,
+    // which makes the Electron binary behave like Node and reject Chromium flags.
+    const launchEnv = { ...process.env }
+    delete launchEnv.ELECTRON_RUN_AS_NODE
+
     const app = await electron.launch({
       executablePath: electronBinary,
       args: [path.join(__dirname, '../../out/main/index.js')],
       env: {
-        ...process.env,
+        ...launchEnv,
         ELECTRON_DISABLE_SANDBOX: '1',
         VAJRA_USER_DATA: userDataDir
       }
