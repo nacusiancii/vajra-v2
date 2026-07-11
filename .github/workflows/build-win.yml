@@ -9,9 +9,6 @@ name: build-win
 
 on:
   workflow_dispatch:
-  push:
-    tags:
-      - 'v*'
 
 jobs:
   build:
