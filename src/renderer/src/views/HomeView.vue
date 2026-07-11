@@ -180,9 +180,6 @@ const managementLinks: HomeLink[] = [
     <Card v-if="drafts.length > 0" data-testid="sale-drafts">
       <CardHeader>
         <CardTitle>Sale Drafts</CardTitle>
-        <CardDescription>
-          Parked unfinished Sales. Resume replaces any open cart. Clear deletes freely — no Void.
-        </CardDescription>
       </CardHeader>
       <CardContent>
         <ul class="space-y-2">
