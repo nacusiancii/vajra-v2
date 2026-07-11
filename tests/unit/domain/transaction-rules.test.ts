@@ -5,6 +5,7 @@ import {
   lineKg,
   lineTotal,
   MoneyTxnSchema,
+  suggestedTransferTargetQty,
   validateSale,
   type LineProductLookup
 } from '@domain/transaction-rules'
@@ -21,6 +22,26 @@ describe('lineKg', () => {
   })
   it('packaged has no kg', () => {
     expect(lineKg('packaged', 5, null)).toBe(0)
+  })
+})
+
+describe('suggestedTransferTargetQty', () => {
+  it('converts source kg into bags of the target Default Bag Size', () => {
+    // glossary: 6 × 50 kg → 12 × 25 kg
+    expect(suggestedTransferTargetQty(300, 25)).toBe(12)
+    expect(suggestedTransferTargetQty(250, 50)).toBe(5)
+  })
+
+  it('allows fractional bags when kg does not divide evenly', () => {
+    expect(suggestedTransferTargetQty(250, 30)).toBeCloseTo(250 / 30)
+  })
+
+  it('returns null when source kg or default bag is missing/invalid', () => {
+    expect(suggestedTransferTargetQty(0, 25)).toBeNull()
+    expect(suggestedTransferTargetQty(-10, 25)).toBeNull()
+    expect(suggestedTransferTargetQty(100, null)).toBeNull()
+    expect(suggestedTransferTargetQty(100, 0)).toBeNull()
+    expect(suggestedTransferTargetQty(100, -50)).toBeNull()
   })
 })
 

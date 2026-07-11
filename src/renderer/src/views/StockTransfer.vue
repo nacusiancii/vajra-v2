@@ -7,16 +7,24 @@ import { Input } from '@/components/ui/input'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useCreateStockTransfer, useEditStockTransfer } from '@/queries/transactions'
-import { lineKg, validateTransferLeg } from '@domain/transaction-rules'
+import {
+  lineKg,
+  suggestedTransferTargetQty,
+  validateTransferLeg,
+  type LineProductLookup
+} from '@domain/transaction-rules'
 import { formatQty } from '@/lib/format'
 import type { CreateStockTransferInput } from '@domain/transaction'
-import type { LineProductLookup } from '@domain/transaction-rules'
 
 interface LegRow {
   productId: number | null
   bagSizeKg: number | null
   qty: number | null
 }
+
+type Side = 'source' | 'target'
+
+const emptyLeg = (): LegRow => ({ productId: null, bagSizeKg: null, qty: null })
 
 const route = useRoute()
 const router = useRouter()
@@ -26,10 +34,13 @@ const { data: products } = useProductsQuery()
 const createTransfer = useCreateStockTransfer()
 const editTransfer = useEditStockTransfer()
 
-const source = ref<LegRow[]>([{ productId: null, bagSizeKg: null, qty: null }])
-const target = ref<LegRow[]>([{ productId: null, bagSizeKg: null, qty: null }])
+const source = ref<LegRow[]>([emptyLeg()])
+const target = ref<LegRow[]>([emptyLeg()])
 const remarks = ref('')
 const error = ref<string | null>(null)
+/** True after a manual target-qty edit; blocks auto-fill until target product changes. */
+const targetQtyDirty = ref(false)
+const targetQtySuggested = ref(false)
 
 const productList = computed(() => products.value ?? [])
 const productMap = computed(() => new Map(productList.value.map((p) => [p.id, p])))
@@ -59,22 +70,74 @@ function legKg(legs: LegRow[]): number {
 const sourceKg = computed(() => legKg(source.value))
 const targetKg = computed(() => legKg(target.value))
 
-function legsFor(side: 'source' | 'target'): typeof source {
+function legsFor(side: Side): typeof source {
   return side === 'source' ? source : target
 }
-function add(side: 'source' | 'target'): void {
-  const legs = legsFor(side)
-  legs.value = [...legs.value, { productId: null, bagSizeKg: null, qty: null }]
+
+function parseQty(value: string | number): number | null {
+  return value === '' ? null : Number(value)
 }
-function remove(side: 'source' | 'target', index: number): void {
+
+function markTargetQtyManual(): void {
+  targetQtyDirty.value = true
+  targetQtySuggested.value = false
+}
+
+/** Resume auto-fill (e.g. after target product change or back to a single target leg). */
+function resumeTargetQtySuggestion(): void {
+  targetQtyDirty.value = false
+  applySuggestedTargetQty()
+}
+
+function add(side: Side): void {
+  const legs = legsFor(side)
+  legs.value = [...legs.value, emptyLeg()]
+  // Multi-target cannot share one kg→qty suggestion.
+  if (side === 'target') markTargetQtyManual()
+}
+
+function remove(side: Side, index: number): void {
   const legs = legsFor(side)
   legs.value = legs.value.filter((_, i) => i !== index)
+  if (legs.value.length === 0) legs.value = [emptyLeg()]
+  if (side === 'target' && legs.value.length === 1) resumeTargetQtySuggestion()
 }
-function onProduct(leg: LegRow, value: number | null): void {
+
+function onProduct(leg: LegRow, value: number | null, side: Side): void {
   leg.productId = value
   const p = value == null ? undefined : productMap.value.get(value)
-  // Stock Transfers always move whole Default-Bag-Size bags — no per-leg bag choice.
+  // Stock Transfers always move Default-Bag-Size bags — no per-leg bag choice.
   leg.bagSizeKg = p?.type === 'bulk' ? (p.defaultBagSizeKg ?? null) : null
+  if (side === 'target') resumeTargetQtySuggestion()
+}
+
+function onQtyInput(leg: LegRow, value: string | number, side: Side): void {
+  leg.qty = parseQty(value)
+  if (side === 'target') markTargetQtyManual()
+}
+
+/**
+ * Fill the single bulk target leg as sourceKg ÷ target Default Bag Size.
+ * No-op when the cashier has overridden qty, there are multiple targets, or kg is unknown.
+ */
+function applySuggestedTargetQty(): void {
+  if (targetQtyDirty.value || target.value.length !== 1) {
+    targetQtySuggested.value = false
+    return
+  }
+  const leg = target.value[0]
+  const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
+  if (!p || p.type !== 'bulk') {
+    targetQtySuggested.value = false
+    return
+  }
+  const suggested = suggestedTransferTargetQty(sourceKg.value, p.defaultBagSizeKg)
+  if (suggested == null) {
+    targetQtySuggested.value = false
+    return
+  }
+  leg.qty = suggested
+  targetQtySuggested.value = true
 }
 
 function rowKg(leg: LegRow): number {
@@ -114,13 +177,17 @@ function finish(): void {
   else createTransfer.mutate(input, { onSuccess })
 }
 
+watch(sourceKg, () => applySuggestedTargetQty())
+
 watch(
   editId,
   async () => {
     if (!editId.value) return
     const txn = await window.api.getTransaction(editId.value)
     if (!txn || txn.type !== 'ST') return
-    const toRows = (side: 'source' | 'target'): LegRow[] =>
+    // Preserve saved target qty: mark dirty before source write so the watcher cannot overwrite.
+    markTargetQtyManual()
+    const toRows = (side: Side): LegRow[] =>
       txn.lines
         .filter((l) => l.side === side)
         .map((l) => ({ productId: l.productId, bagSizeKg: l.bagSizeKg, qty: l.qty }))
@@ -172,7 +239,7 @@ watch(
               search-placeholder="Type a product name…"
               empty-text="No product matches."
               test-id="transfer-product"
-              @update:model-value="onProduct(row, $event)"
+              @update:model-value="onProduct(row, $event, leg.key)"
             />
           </div>
           <span
@@ -190,7 +257,7 @@ watch(
             :model-value="row.qty ?? ''"
             placeholder="Qty"
             data-testid="transfer-qty"
-            @update:model-value="row.qty = $event === '' ? null : Number($event)"
+            @update:model-value="onQtyInput(row, $event, leg.key)"
           />
           <span class="w-[72px] shrink-0 text-right text-xs text-muted-foreground tabular-nums">
             {{ rowKg(row) > 0 ? `${formatQty(rowKg(row))} kg` : '' }}
@@ -205,13 +272,18 @@ watch(
       </div>
     </div>
 
-    <div class="flex items-center justify-center gap-3 text-sm text-muted-foreground">
-      <span class="tabular-nums">{{ formatQty(sourceKg) }} kg</span>
-      <ArrowRight class="size-4" />
-      <span class="tabular-nums">{{ formatQty(targetKg) }} kg</span>
-      <span v-if="sourceKg !== targetKg && (sourceKg || targetKg)" class="text-amber-600">
-        (yield difference {{ formatQty(targetKg - sourceKg) }} kg)
-      </span>
+    <div class="flex flex-col items-center gap-1 text-sm text-muted-foreground">
+      <div class="flex items-center justify-center gap-3">
+        <span class="tabular-nums">{{ formatQty(sourceKg) }} kg</span>
+        <ArrowRight class="size-4" />
+        <span class="tabular-nums">{{ formatQty(targetKg) }} kg</span>
+        <span v-if="sourceKg !== targetKg && (sourceKg || targetKg)" class="text-amber-600">
+          (yield difference {{ formatQty(targetKg - sourceKg) }} kg)
+        </span>
+      </div>
+      <p v-if="targetQtySuggested" class="text-xs" data-testid="transfer-qty-suggested">
+        Target qty suggested from source kg — edit to set a yield difference.
+      </p>
     </div>
 
     <div class="flex items-center justify-between border-t pt-4">
