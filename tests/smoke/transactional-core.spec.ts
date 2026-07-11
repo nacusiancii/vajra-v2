@@ -53,6 +53,8 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
+  // After product pick, qty should be focused so the cashier can type immediately.
+  await expect(page.getByTestId('cart-qty')).toBeFocused()
   await page.getByTestId('cart-rate').fill('6000')
   await page.getByTestId('cart-qty').fill('10')
   // Finishing routes to the Transactions ledger.
@@ -83,6 +85,8 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
+  // Same product → qty handoff on Sale.
+  await expect(page.getByTestId('cart-qty')).toBeFocused()
   await page.getByTestId('cart-rate').fill('6000')
   await page.getByTestId('cart-qty').fill('2')
   await expect(page.getByTestId('sale-total')).toContainText('6,000')

@@ -48,9 +48,24 @@ const productOptions = computed<ComboboxOption[]>(() =>
 
 /** Product comboboxes by row — used to open the picker after auto-adding a line. */
 const productComboRefs = ref<(Focusable | null)[]>([])
+/** Qty inputs by row — focused after a product is chosen. */
+const qtyInputRefs = ref<(Focusable | null)[]>([])
 
 function setProductComboRef(index: number, el: unknown): void {
   productComboRefs.value[index] = el != null ? (el as Focusable) : null
+}
+
+function setQtyInputRef(index: number, el: unknown): void {
+  if (el == null) {
+    qtyInputRefs.value[index] = null
+    return
+  }
+  // Input.vue is a single-root component — use $el when given a component instance.
+  const target = (el as { $el?: HTMLElement }).$el ?? el
+  qtyInputRefs.value[index] =
+    target != null && typeof (target as Focusable).focus === 'function'
+      ? (target as Focusable)
+      : null
 }
 
 function productOf(line: CartLine): Product | undefined {
@@ -96,13 +111,23 @@ function ensureLineAndFocusProduct(): void {
 function removeLine(index: number): void {
   lines.value = lines.value.filter((_, i) => i !== index)
   productComboRefs.value.splice(index, 1)
+  qtyInputRefs.value.splice(index, 1)
 }
 
-function onProductChange(line: CartLine, value: number | null): void {
+function focusQty(index: number): void {
+  // EntityCombobox skips close-auto-focus after a pick; land on qty once the
+  // popover has released focus (same setTimeout(0) handoff pattern).
+  void nextTick(() => {
+    window.setTimeout(() => qtyInputRefs.value[index]?.focus(), 0)
+  })
+}
+
+function onProductChange(line: CartLine, value: number | null, index: number): void {
   line.productId = value
   const p = productOf(line)
   // Default a Bulk line's bag size to the Product's Default Bag Size; clear for Packaged.
   line.bagSizeKg = p?.type === 'bulk' ? (p.defaultBagSizeKg ?? null) : null
+  if (value != null) focusQty(index)
 }
 
 defineExpose({ ensureLineAndFocusProduct })
@@ -137,7 +162,7 @@ defineExpose({ ensureLineAndFocusProduct })
               search-placeholder="Type a product name…"
               empty-text="No product matches."
               test-id="cart-product"
-              @update:model-value="onProductChange(line, $event)"
+              @update:model-value="onProductChange(line, $event, index)"
             />
           </TableCell>
           <TableCell>
@@ -159,6 +184,7 @@ defineExpose({ ensureLineAndFocusProduct })
           </TableCell>
           <TableCell>
             <Input
+              :ref="(el) => setQtyInputRef(index, el)"
               type="number"
               min="0"
               step="0.5"
