@@ -103,7 +103,7 @@ Two-sided layout:
 
 - **Front** — Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), Voucher Number, Customer name, total Amount, and the signature line.
 - **Back** — Chosen Products as line items in the form `quantity × ratio × price = line total` (Bulk: bags × bag-kg/100 × Quintal Rate; Packaged: qty × 1 × unit rate), plus Loading Charges and Additional Charges as their own lines, then the Total.
-_Avoid_: IOU, credit note, due slip.
+  _Avoid_: IOU, credit note, due slip.
 
 **Receipt**:
 A payment a customer brings in _after_ a Credit Sale was finished — possibly that same day, possibly weeks later. Records amount, mode (cash or UPI), and Customer. Receipts do _not_ reference a specific Voucher ID because they may be paying against a voucher issued in a past Business Day, which Vajra no longer holds; matching is the shopkeeper's paper-side job. Receipts can be partial or full. Like all other transactional entries, Receipts are wiped at Rollover.

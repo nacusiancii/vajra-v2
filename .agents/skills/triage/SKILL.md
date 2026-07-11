@@ -35,6 +35,8 @@ Five **state** roles:
 
 Every triaged issue should carry exactly one category role and one state role. If state roles conflict, flag it and ask the maintainer before doing anything else.
 
+One exception: an issue labeled `epic` carries a category role but no state role — see [Epics (big features)](#epics-big-features).
+
 These are canonical role names — the actual label strings used in the issue tracker may differ. The mapping should have been provided to you - run `/setup-matt-pocock-skills` if not.
 
 State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
@@ -75,6 +77,23 @@ Show counts and a one-line summary per issue. Let the maintainer pick.
    - `wontfix` (bug) — polite explanation, then close.
    - `wontfix` (enhancement) — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
    - `needs-triage` — apply the role. Optional comment if there's partial progress.
+   - `epic` — the feature is too big for one brief; see below.
+
+## Epics (big features)
+
+Some enhancements are too big for a single agent brief — multiple vertical slices, design decisions that cut across layers. Track those as an **epic**: a parent issue that carries the shared understanding of the feature and a task list of child issues.
+
+**Spotting one:** during triage, if you can't specify the work in one brief, recommend `epic` instead of forcing a state.
+
+**Flow:**
+
+1. Label the parent issue `epic` (plus its category role). Epics never take `ready-for-agent` / `ready-for-human` — those states belong to the children.
+2. Reach shared understanding before breaking anything down. How is up to the maintainer — open-ended discovery of the user experience, exploring possibilities, `/prototype` sessions, technical research where the feature calls for it. No mandated artifact or skill chain. What matters is what lands on the epic body: the outcome we want, the decisions made, and the reasoning behind them — written for a fresh agent that has none of the conversation.
+3. Break it down with `/to-issues`. Each child references the epic in its `## Parent` section; add each child to a task list in the epic body (`- [ ] #NN`) so the tracker shows progress.
+4. Children move through the normal triage state machine individually.
+5. Close the epic when every child is done and the feature has been verified end-to-end. If the epic settled new vocabulary or durable decisions along the way, fold them into `CONTEXT.md` / ADRs before closing — a `/grill-me` session works well for this.
+
+Keep epics this light. No stage gates or per-epic checklists — the state machine lives on the children, and the epic body earns its keep by recording outcomes and decisions, not process.
 
 ## Quick state override
 
