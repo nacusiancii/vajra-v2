@@ -27,7 +27,7 @@ Two **category** roles:
 
 Five **state** roles:
 
-- `needs-triage` — maintainer needs to evaluate
+- `triage-done` — maintainer has finished evaluating (parked after review)
 - `needs-info` — waiting on reporter for more information
 - `ready-for-agent` — fully specified, ready for an AFK agent
 - `ready-for-human` — needs human implementation
@@ -37,9 +37,9 @@ Every triaged issue should carry exactly one category role and one state role. I
 
 One exception: an issue labeled `epic` carries a category role but no state role — see [Epics (big features)](#epics-big-features).
 
-These are canonical role names — the actual label strings used in the issue tracker may differ. The mapping should have been provided to you - run `/setup-matt-pocock-skills` if not.
+These are canonical role names — the actual label strings used in the issue tracker may differ. See `docs/agents/triage-labels.md` for this repo's mapping.
 
-State transitions: an unlabeled issue normally goes to `needs-triage` first; from there it moves to `needs-info`, `ready-for-agent`, `ready-for-human`, or `wontfix`. `needs-info` returns to `needs-triage` once the reporter replies. The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
+State transitions: **unlabeled issues need evaluation** — do not require a state label when creating tickets. From unlabeled, triage moves the issue to `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`, or `triage-done` (evaluated and parked). `needs-info` returns to unlabeled once the reporter replies (needs re-evaluation). The maintainer can override at any time — flag transitions that look unusual and ask before proceeding.
 
 ## Invocation
 
@@ -52,11 +52,10 @@ The maintainer invokes `/triage` and describes what they want in natural languag
 
 ## Show what needs attention
 
-Query the issue tracker and present three buckets, oldest first:
+Query the issue tracker and present two buckets, oldest first:
 
-1. **Unlabeled** — never triaged.
-2. **`needs-triage`** — evaluation in progress.
-3. **`needs-info` with reporter activity since the last triage notes** — needs re-evaluation.
+1. **Unlabeled** — never triaged / needs evaluation.
+2. **`needs-info` with reporter activity since the last triage notes** — needs re-evaluation.
 
 Show counts and a one-line summary per issue. Let the maintainer pick.
 
@@ -76,7 +75,7 @@ Show counts and a one-line summary per issue. Let the maintainer pick.
    - `needs-info` — post triage notes (template below).
    - `wontfix` (bug) — polite explanation, then close.
    - `wontfix` (enhancement) — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
-   - `needs-triage` — apply the role. Optional comment if there's partial progress.
+   - `triage-done` — apply the role when evaluation is finished but the issue is parked (not ready-for-*, not waiting on info, not wontfix). Optional comment with parking notes.
    - `epic` — the feature is too big for one brief; see below.
 
 ## Epics (big features)

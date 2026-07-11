@@ -30,7 +30,7 @@ GitHub Issues, via the `gh` CLI. Big features are tracked as `epic` parent issue
 
 ### Triage labels
 
-Defaults — `needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. See [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md).
+Defaults — `triage-done`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`. Unlabeled issues need evaluation (no label required at creation). See [`docs/agents/triage-labels.md`](./docs/agents/triage-labels.md).
 
 ### Domain docs
 
