@@ -90,6 +90,8 @@ const SCHEMA = `
     loading_charges     REAL    NOT NULL DEFAULT 0,
     total               REAL    NOT NULL DEFAULT 0,
     credit_amount       REAL    NOT NULL DEFAULT 0,
+    -- Settlement write-off in rupees for RE/PA; 0 for all other types.
+    discount_amount     REAL    NOT NULL DEFAULT 0,
     remarks             TEXT,
     voided              INTEGER NOT NULL DEFAULT 0,
     successor_id        TEXT    REFERENCES txn(id),
@@ -132,11 +134,16 @@ export function getDb(): Database.Database {
 
 /** Additive, idempotent migrations for databases created before a column existed. */
 function migrate(database: Database.Database): void {
-  const columns = database.prepare(`PRAGMA table_info(business_day)`).all() as Array<{
+  const dayColumns = database.prepare(`PRAGMA table_info(business_day)`).all() as Array<{
     name: string
   }>
-  if (!columns.some((c) => c.name === 'voucher_counter')) {
+  if (!dayColumns.some((c) => c.name === 'voucher_counter')) {
     database.exec(`ALTER TABLE business_day ADD COLUMN voucher_counter INTEGER NOT NULL DEFAULT 0`)
+  }
+
+  const txnColumns = database.prepare(`PRAGMA table_info(txn)`).all() as Array<{ name: string }>
+  if (!txnColumns.some((c) => c.name === 'discount_amount')) {
+    database.exec(`ALTER TABLE txn ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`)
   }
 }
 

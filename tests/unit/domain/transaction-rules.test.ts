@@ -4,10 +4,16 @@ import {
   grandTotal,
   lineKg,
   lineTotal,
+  MoneyTxnSchema,
   validateSale,
   type LineProductLookup
 } from '@domain/transaction-rules'
-import type { SaleLineInput } from '@domain/transaction'
+import {
+  moneyDiscountPercent,
+  moneyFace,
+  moneyRealized,
+  type SaleLineInput
+} from '@domain/transaction'
 
 describe('lineKg', () => {
   it('bulk kg is qty × bag size', () => {
@@ -141,5 +147,73 @@ describe('validateSale', () => {
         isWalkin: true
       })
     ).toBeNull()
+  })
+})
+
+describe('MoneyTxnSchema (RE/PA cash + UPI + discount ₹)', () => {
+  const base = {
+    customerId: 1,
+    label: null,
+    remarks: null
+  }
+
+  it('rejects all-zero cash, UPI, and discount', () => {
+    const result = MoneyTxnSchema.safeParse({
+      ...base,
+      cashCollected: 0,
+      upiCollected: 0,
+      discountAmount: 0
+    })
+    expect(result.success).toBe(false)
+    if (!result.success) {
+      expect(result.error.issues[0]?.message).toMatch(/cash, UPI, or a discount/i)
+    }
+  })
+
+  it('accepts a pure write-off (discount only)', () => {
+    const result = MoneyTxnSchema.safeParse({
+      ...base,
+      cashCollected: 0,
+      upiCollected: 0,
+      discountAmount: 250
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      expect(result.data.cashCollected).toBe(0)
+      expect(result.data.upiCollected).toBe(0)
+      expect(result.data.discountAmount).toBe(250)
+      // total stored by the repo is realized only
+      expect(moneyRealized(result.data.cashCollected, result.data.upiCollected)).toBe(0)
+      expect(
+        moneyFace(result.data.cashCollected, result.data.upiCollected, result.data.discountAmount)
+      ).toBe(250)
+    }
+  })
+
+  it('accepts cash + UPI + discount and derives realized / face / %', () => {
+    const result = MoneyTxnSchema.safeParse({
+      ...base,
+      cashCollected: 700,
+      upiCollected: 200,
+      discountAmount: 100
+    })
+    expect(result.success).toBe(true)
+    if (result.success) {
+      const { cashCollected: cash, upiCollected: upi, discountAmount: discount } = result.data
+      expect(moneyRealized(cash, upi)).toBe(900)
+      expect(moneyFace(cash, upi, discount)).toBe(1000)
+      expect(moneyDiscountPercent(cash, upi, discount)).toBe(10)
+    }
+  })
+
+  it('rejects negative money fields', () => {
+    expect(
+      MoneyTxnSchema.safeParse({
+        ...base,
+        cashCollected: -1,
+        upiCollected: 0,
+        discountAmount: 0
+      }).success
+    ).toBe(false)
   })
 })

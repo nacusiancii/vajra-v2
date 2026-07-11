@@ -8,7 +8,7 @@ import { Label } from '@/components/ui/label'
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
 import { MoneyTxnSchema } from '@domain/transaction-rules'
-import { moneyNetAmount } from '@domain/transaction'
+import { moneyFace, moneyRealized } from '@domain/transaction'
 import { formatRupees } from '@/lib/format'
 import type { MoneyTxnType } from '@shared/api'
 
@@ -22,8 +22,8 @@ const CONFIG: Record<
     route: string
     needsCustomer: boolean
     needsLabel: boolean
-    hasDiscount: boolean
-    direction: 'in' | 'out'
+    /** RE/PA: cash + UPI + discount ₹. EX/IN: amount with UPI typed, cash auto. */
+    settlementEntry: boolean
     icon: typeof HandCoins
   }
 > = {
@@ -32,8 +32,7 @@ const CONFIG: Record<
     route: 'receipt',
     needsCustomer: true,
     needsLabel: false,
-    hasDiscount: true,
-    direction: 'in',
+    settlementEntry: true,
     icon: HandCoins
   },
   PA: {
@@ -41,8 +40,7 @@ const CONFIG: Record<
     route: 'payment',
     needsCustomer: true,
     needsLabel: false,
-    hasDiscount: true,
-    direction: 'out',
+    settlementEntry: true,
     icon: Wallet
   },
   EX: {
@@ -50,8 +48,7 @@ const CONFIG: Record<
     route: 'expense',
     needsCustomer: false,
     needsLabel: true,
-    hasDiscount: false,
-    direction: 'out',
+    settlementEntry: false,
     icon: CircleDollarSign
   },
   IN: {
@@ -59,8 +56,7 @@ const CONFIG: Record<
     route: 'income',
     needsCustomer: false,
     needsLabel: true,
-    hasDiscount: false,
-    direction: 'in',
+    settlementEntry: false,
     icon: Banknote
   }
 }
@@ -79,32 +75,61 @@ const editMoney = useEditMoneyTxn()
 
 const customerId = ref<number | null>(null)
 const label = ref('')
+/** EX/IN only — face amount; cash is the remainder after UPI. */
 const amount = ref<number | null>(null)
-const discountPercent = ref<number | null>(null)
+const cashCollected = ref<number | null>(null)
 const upiCollected = ref<number | null>(null)
+const discountAmount = ref<number | null>(null)
 const remarks = ref('')
 const error = ref<string | null>(null)
 
-const discount = computed(() => (config.value.hasDiscount ? (discountPercent.value ?? 0) : 0))
-const net = computed(() => moneyNetAmount(amount.value ?? 0, discount.value))
-// Cashier types UPI; cash is the remainder of the net.
-const cashDue = computed(() => Math.max(net.value - (upiCollected.value ?? 0), 0))
+// EX/IN: cashier types UPI; cash is the remainder of the amount.
+const cashDue = computed(() => Math.max((amount.value ?? 0) - (upiCollected.value ?? 0), 0))
+
+// RE/PA live summary only (cash + UPI + optional write-off).
+const realized = computed(() => moneyRealized(cashCollected.value ?? 0, upiCollected.value ?? 0))
+const face = computed(() =>
+  moneyFace(cashCollected.value ?? 0, upiCollected.value ?? 0, discountAmount.value ?? 0)
+)
+
+function parseMoney(value: string | number): number | null {
+  return value === '' ? null : Number(value)
+}
+
+/** Drawer cash/UPI for a money txn (only one side is non-zero). */
+function drawerCash(txn: { cashIn: number; cashOut: number }): number {
+  return txn.cashIn || txn.cashOut
+}
+function drawerUpi(txn: { upiIn: number; upiOut: number }): number {
+  return txn.upiIn || txn.upiOut
+}
 
 function finish(): void {
   error.value = null
-  const parsed = MoneyTxnSchema.safeParse({
-    customerId: customerId.value,
-    label: label.value,
-    amount: amount.value ?? 0,
-    discountPercent: discount.value,
-    cashCollected: cashDue.value,
-    upiCollected: upiCollected.value ?? 0,
-    remarks: remarks.value
-  })
-  if (!parsed.success) {
-    error.value = parsed.error.issues[0]?.message ?? 'Invalid entry'
-    return
+
+  let cash: number
+  let upi: number
+  let discount: number
+
+  if (config.value.settlementEntry) {
+    cash = cashCollected.value ?? 0
+    upi = upiCollected.value ?? 0
+    discount = discountAmount.value ?? 0
+  } else {
+    const faceAmount = amount.value ?? 0
+    if (!(faceAmount > 0)) {
+      error.value = 'Amount must be greater than zero'
+      return
+    }
+    upi = upiCollected.value ?? 0
+    cash = cashDue.value
+    discount = 0
+    if (Math.abs(cash + upi - faceAmount) >= 0.01) {
+      error.value = 'UPI cannot exceed the amount'
+      return
+    }
   }
+
   if (config.value.needsCustomer && customerId.value == null) {
     error.value = `${config.value.title} needs a Customer`
     return
@@ -113,6 +138,20 @@ function finish(): void {
     error.value = `${config.value.title} needs a label`
     return
   }
+
+  const parsed = MoneyTxnSchema.safeParse({
+    customerId: customerId.value,
+    label: label.value,
+    cashCollected: cash,
+    upiCollected: upi,
+    discountAmount: discount,
+    remarks: remarks.value
+  })
+  if (!parsed.success) {
+    error.value = parsed.error.issues[0]?.message ?? 'Invalid entry'
+    return
+  }
+
   const input = parsed.data
   const onSuccess = (): void => void router.push('/transactions')
   if (editId.value) {
@@ -130,11 +169,22 @@ watch(
     if (!txn || txn.type !== type.value) return
     customerId.value = txn.customerId
     label.value = txn.label ?? ''
-    // Discount isn't persisted, so an edit starts from the net amount with 0% discount.
-    amount.value = txn.total || null
-    discountPercent.value = null
-    upiCollected.value = txn.upiIn || txn.upiOut || null
     remarks.value = txn.remarks ?? ''
+
+    const cash = drawerCash(txn)
+    const upi = drawerUpi(txn)
+    if (config.value.settlementEntry) {
+      cashCollected.value = cash || null
+      upiCollected.value = upi || null
+      discountAmount.value = txn.discountAmount || null
+      amount.value = null
+    } else {
+      // EX/IN: restore face as total (realized); cash auto-derives from UPI.
+      amount.value = txn.total || null
+      upiCollected.value = upi || null
+      cashCollected.value = null
+      discountAmount.value = null
+    }
   },
   { immediate: true }
 )
@@ -164,7 +214,8 @@ watch(
       />
     </div>
 
-    <div class="grid gap-4" :class="config.hasDiscount ? 'grid-cols-2' : 'grid-cols-1'">
+    <!-- EX / IN: amount + UPI typed, cash auto -->
+    <template v-if="!config.settlementEntry">
       <div class="grid gap-2">
         <Label>Amount</Label>
         <Input
@@ -173,44 +224,85 @@ watch(
           :model-value="amount ?? ''"
           placeholder="0"
           data-testid="money-amount"
-          @update:model-value="amount = $event === '' ? null : Number($event)"
+          @update:model-value="amount = parseMoney($event)"
         />
       </div>
-      <div v-if="config.hasDiscount" class="grid gap-2">
-        <Label>Discount %</Label>
+
+      <div class="grid grid-cols-2 gap-4">
+        <div class="grid gap-2">
+          <Label>UPI</Label>
+          <Input
+            type="number"
+            min="0"
+            :model-value="upiCollected ?? ''"
+            placeholder="0"
+            data-testid="money-upi"
+            @update:model-value="upiCollected = parseMoney($event)"
+          />
+        </div>
+        <div class="grid gap-2">
+          <Label>Cash (auto)</Label>
+          <Input :model-value="cashDue" type="number" disabled data-testid="money-cash" />
+        </div>
+      </div>
+    </template>
+
+    <!-- RE / PA: cash, UPI, and discount ₹ all editable -->
+    <template v-else>
+      <div class="grid grid-cols-2 gap-4">
+        <div class="grid gap-2">
+          <Label>Cash</Label>
+          <Input
+            type="number"
+            min="0"
+            :model-value="cashCollected ?? ''"
+            placeholder="0"
+            data-testid="money-cash"
+            @update:model-value="cashCollected = parseMoney($event)"
+          />
+        </div>
+        <div class="grid gap-2">
+          <Label>UPI</Label>
+          <Input
+            type="number"
+            min="0"
+            :model-value="upiCollected ?? ''"
+            placeholder="0"
+            data-testid="money-upi"
+            @update:model-value="upiCollected = parseMoney($event)"
+          />
+        </div>
+      </div>
+
+      <div class="grid gap-2">
+        <Label>Discount (₹)</Label>
         <Input
           type="number"
           min="0"
-          max="100"
-          :model-value="discountPercent ?? ''"
+          :model-value="discountAmount ?? ''"
           placeholder="0"
           data-testid="money-discount"
-          @update:model-value="discountPercent = $event === '' ? null : Number($event)"
+          @update:model-value="discountAmount = parseMoney($event)"
         />
       </div>
-    </div>
 
-    <div v-if="config.hasDiscount && discount > 0" class="text-sm text-muted-foreground">
-      Final amount: <span class="font-medium tabular-nums">{{ formatRupees(net) }}</span>
-    </div>
-
-    <div class="grid grid-cols-2 gap-4">
-      <div class="grid gap-2">
-        <Label>UPI</Label>
-        <Input
-          type="number"
-          min="0"
-          :model-value="upiCollected ?? ''"
-          placeholder="0"
-          data-testid="money-upi"
-          @update:model-value="upiCollected = $event === '' ? null : Number($event)"
-        />
+      <div
+        v-if="(discountAmount ?? 0) > 0 || realized > 0"
+        class="text-sm text-muted-foreground"
+        data-testid="money-summary"
+      >
+        <span v-if="(discountAmount ?? 0) > 0">
+          Realized
+          <span class="font-medium tabular-nums">{{ formatRupees(realized) }}</span>
+          · Face
+          <span class="font-medium tabular-nums">{{ formatRupees(face) }}</span>
+        </span>
+        <span v-else>
+          Total
+          <span class="font-medium tabular-nums">{{ formatRupees(realized) }}</span>
+        </span>
       </div>
-      <div class="grid gap-2">
-        <Label>Cash (auto)</Label>
-        <Input :model-value="cashDue" type="number" disabled data-testid="money-cash" />
-      </div>
-    </div>
+    </template>
 
     <div class="grid gap-2">
       <Label>Remarks</Label>

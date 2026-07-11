@@ -60,6 +60,11 @@ export interface Txn {
   loadingCharges: number
   total: number
   creditAmount: number
+  /**
+   * Settlement write-off in rupees (RE/PA). Always 0 for other types.
+   * Face amount is derived: cash + UPI + discount; `total` stays realized (cash + UPI).
+   */
+  discountAmount: number
   remarks: string | null
   voided: boolean
   successorId: string | null
@@ -131,26 +136,37 @@ export interface CreateStockTransferInput {
 
 /**
  * Receipt, Payment (customer-bound) and Expense, Income (labelled) share a shape.
- * Money is split across cash and UPI (the cashier types UPI; cash is the remainder).
- * Receipt/Payment may carry a settlement discount; Expense/Income never do.
+ *
+ * RE/PA: cashier enters cash, UPI, and discount amount (₹) independently.
+ * EX/IN: UI still collects a face amount with UPI typed and cash as remainder; discount is always 0.
+ *
+ * Stored: drawer cash/UPI columns, `discountAmount`, and `total` = cash + UPI (realized only).
+ * Face and discount % are derived when a view needs them — not stored.
  */
 export interface CreateMoneyTxnInput {
   customerId: number | null
   label: string | null
-  /** Gross amount before any discount. */
-  amount: number
-  /** Settlement discount as a percent of `amount` (0 for Expense/Income). */
-  discountPercent: number
-  /** Cash portion of the net (amount − discount). */
   cashCollected: number
-  /** UPI portion of the net (amount − discount). */
   upiCollected: number
+  /** Settlement write-off in rupees. RE/PA only; always 0 for Expense/Income. */
+  discountAmount: number
   remarks: string | null
 }
 
-/** Net money actually moved for a money transaction: amount less its discount. */
-export function moneyNetAmount(amount: number, discountPercent: number): number {
-  return amount * (1 - discountPercent / 100)
+/** Realized money moved through the drawer: cash + UPI (excludes discount write-off). */
+export function moneyRealized(cash: number, upi: number): number {
+  return cash + upi
+}
+
+/** Face amount: realized + discount write-off. */
+export function moneyFace(cash: number, upi: number, discountAmount: number): number {
+  return cash + upi + discountAmount
+}
+
+/** Discount as a percent of face (0 when face is 0). Derived only when a view needs it. */
+export function moneyDiscountPercent(cash: number, upi: number, discountAmount: number): number {
+  const face = moneyFace(cash, upi, discountAmount)
+  return face > 0 ? (discountAmount / face) * 100 : 0
 }
 
 // ── ID + date helpers (ADR-0009) ─────────────────────────────────────────────
