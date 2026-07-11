@@ -81,7 +81,11 @@ const counterparty = computed(() => {
             <span class="tabular-nums">{{ formatRupees(line.lineTotal) }}</span>
           </div>
           <Separator class="my-2" />
-          <div v-if="txn.loadingCharges" class="flex justify-between text-muted-foreground">
+          <div
+            v-if="txn.loadingCharges"
+            class="flex justify-between text-muted-foreground"
+            data-testid="slip-loading"
+          >
             <span>Loading</span
             ><span class="tabular-nums">{{ formatRupees(txn.loadingCharges) }}</span>
           </div>
