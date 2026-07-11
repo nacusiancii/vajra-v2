@@ -79,7 +79,7 @@ _Avoid_: Hamali, handling fee.
 ### Stock movements
 
 **Purchase**:
-A transactional entry for stock arriving at the shop. The cashier records per-quintal (Bulk) or per-unit (Packaged) rate plus any Additional Charges, and stock for the affected Products is bumped immediately. Like sales, Purchases are wiped at Rollover — only their stock impact survives, carried forward as the next day's Opening Stock. Cost is never stored on the Product Master.
+A transactional entry for stock arriving at the shop. Always either fully Cash or fully Credit — never partial — picked up front like a Sale. Cash mode pays the supplier now (cash and/or UPI at finish). Credit mode records goods received with nothing paid today; the face lands in **Credit received** for the day book. The cashier records per-quintal (Bulk) or per-unit (Packaged) rate plus any Additional Charges, and stock for the affected Products is bumped immediately. Like Sales, Purchases are wiped at Rollover — only their stock impact survives, carried forward as the next day's Opening Stock. Cost is never stored on the Product Master.
 _Avoid_: Stock-in, GRN.
 
 **Additional Charges**:
@@ -89,7 +89,7 @@ _Avoid_: Other charges, expenses, sundry.
 ### Sales and payment
 
 **Sale**:
-A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods. A new Sale starts by explicitly picking Cash or Credit before any customer or goods entry — nothing is chosen for the cashier, but Cash is pre-focused so the common case is a single key press — and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher.
+A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods, and the face lands in **Credit issued** for the day book. A new Sale starts by explicitly picking Cash or Credit before any customer or goods entry — nothing is chosen for the cashier, but Cash is pre-focused so the common case is a single key press — and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher.
 _Avoid_: Bill, transaction (as a synonym for Sale).
 
 **Sale Invoice**:
@@ -106,21 +106,35 @@ Two-sided layout:
   _Avoid_: IOU, credit note, due slip.
 
 **Receipt**:
-A payment a customer brings in _after_ a Credit Sale was finished — possibly that same day, possibly weeks later. Records amount, mode (cash or UPI), and Customer. Receipts do _not_ reference a specific Voucher ID because they may be paying against a voucher issued in a past Business Day, which Vajra no longer holds; matching is the shopkeeper's paper-side job. Receipts can be partial or full. Like all other transactional entries, Receipts are wiped at Rollover.
+Money a customer brings in _after_ a Credit Sale was finished — possibly that same day, possibly weeks later. The cashier enters **Cash**, **UPI**, and an optional **Settlement Discount** (rupees) independently against a Customer. Pure write-off (discount only, no cash or UPI) is allowed; all three zero is not. Drawer impact is cash/UPI in only — never **Credit received**. Receipts do _not_ reference a specific Voucher ID because they may be paying against a voucher issued in a past Business Day, which Vajra no longer holds; matching is the shopkeeper's paper-side job. Receipts can be partial or full. Like all other transactional entries, Receipts are wiped at Rollover.
 _Avoid_: Repayment, settlement, credit-in.
 
 **Payment**:
-Cash or UPI paid _out_ to a Customer — the shop settling a past Credit Purchase, or any other counterparty-bound outflow. The mirror of Receipt. References a Customer and optionally a Voucher ID. Payments are not validated against any past Credit Purchase inside Vajra; reconciliation is on paper.
+Money paid _out_ to a Customer — the shop settling a past Credit Purchase, or any other counterparty-bound outflow. The mirror of Receipt: Cash, UPI, and optional Settlement Discount (rupees) entered independently; pure write-off allowed. Drawer impact is cash/UPI out only. References a Customer and optionally a Voucher ID. Payments are not validated against any past Credit Purchase inside Vajra; reconciliation is on paper.
 _Avoid_: Payout, supplier payment, settlement, refund.
+
+**Settlement Discount**:
+A rupee write-off recorded on a Receipt or Payment only — never on Sale, Purchase, Expense, or Income. Cashier-entered as an amount (not a percent). Realized money moved is cash + UPI; face is cash + UPI + Settlement Discount (derived when a view needs it); discount percent is derived from face when needed for reports. Pure write-off (Settlement Discount with zero cash and UPI) is valid.
+_Avoid_: Discount % (as the stored entry), rebate, credit note.
+
+### Day-book credit (drawer summary)
+
+**Credit issued**:
+The face total of goods sold on credit today — sum of Credit Sale amounts. Customers owe us this face. Not money in the drawer.
+_Avoid_: Credit sales total (as a synonym that invites counting cash Sales).
+
+**Credit received**:
+The face total of goods bought on credit today — sum of Credit Purchase amounts. We owe suppliers this face. Not money in the drawer, and **not** money collected on Receipts (that is cash/UPI in).
+_Avoid_: Credit purchases total (as a synonym); do not use this phrase for Receipt inflows.
 
 ### Other money movements
 
 **Expense**:
-A cash or UPI outflow with no counterparty record — rent, electricity, wages, tea. Carries a free-form label so the shopkeeper can categorise on the End of Day Report. Touches no stock.
+A cash or UPI outflow with no counterparty record — rent, electricity, wages, tea. Carries a free-form label so the shopkeeper can categorise on the End of Day Report. Touches no stock. No Settlement Discount.
 _Avoid_: Misc payment, other expense.
 
 **Income**:
-A cash or UPI inflow with no counterparty record — commissions and similar one-off money in. The mirror of Expense. Touches no stock.
+A cash or UPI inflow with no counterparty record — commissions and similar one-off money in. The mirror of Expense. Touches no stock. No Settlement Discount.
 _Avoid_: Other income, misc income.
 
 ### Editing and audit
@@ -150,6 +164,8 @@ _Avoid_: Rebranding, repack, conversion.
 ## Flagged ambiguities
 
 **"Payment"**: The entity (cash/UPI out to a Customer) collides with the everyday meaning of "payment captured at the finish of a Cash Sale." When unambiguous in context, use Payment for the entity; for the cash/UPI a customer hands over during Sale finish, say _cash collected_ and _UPI collected_, not "payment."
+
+**"Credit received"**: In the day-book drawer summary this means **Credit Purchase** face (goods we took on credit). It must never mean money a customer paid on a **Receipt** — that money is cash/UPI in only. The everyday reading "credit money we received" is the trap; the pair is Credit issued (Sale) ↔ Credit received (Purchase).
 
 ## Example dialogue
 
