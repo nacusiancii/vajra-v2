@@ -131,4 +131,10 @@
   body {
     @apply bg-background text-foreground font-sans;
   }
+  /* Tailwind v4 Preflight uses cursor: default on buttons. Restore pointer
+     for interactive controls so the app feels clickable (e.g. header Back). */
+  button:not(:disabled),
+  [role='button']:not(:disabled) {
+    cursor: pointer;
+  }
 }
