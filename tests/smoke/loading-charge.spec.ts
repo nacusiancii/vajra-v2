@@ -185,7 +185,8 @@ test('loading charge zero band until weight exceeds 10 kg', async ({ page }) => 
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Loose 8 kg → ≤10 → ₹0 loading
-  await page.getByTestId('cart-loose').click()
+  await page.getByTestId('cart-bag').click()
+  await page.getByRole('option', { name: 'Loose' }).click()
   await page.getByTestId('cart-rate').fill('60')
   await page.getByTestId('cart-qty').fill('8')
 
@@ -216,7 +217,8 @@ test('edit keeps loading opt-in when stored charge is ₹0 (free band)', async (
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Loose 8 kg → free band → ₹0 loading when opted in
-  await page.getByTestId('cart-loose').click()
+  await page.getByTestId('cart-bag').click()
+  await page.getByRole('option', { name: 'Loose' }).click()
   await page.getByTestId('cart-rate').fill('60')
   await page.getByTestId('cart-qty').fill('8')
   await page.getByTestId('sale-apply-loading').click()
@@ -255,7 +257,8 @@ test('loose line: kg × price/kg total, stock delta, loading by total kg', async
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
-  await page.getByTestId('cart-loose').click()
+  await page.getByTestId('cart-bag').click()
+  await page.getByRole('option', { name: 'Loose' }).click()
   // 15 kg × ₹60/kg = ₹900; loading ≤30 → ₹10
   await page.getByTestId('cart-rate').fill('60')
   await page.getByTestId('cart-qty').fill('15')

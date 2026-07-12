@@ -3,7 +3,6 @@ import { computed, nextTick, ref } from 'vue'
 import { Plus, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -145,16 +144,25 @@ function onProductChange(line: CartLine, value: number | null, index: number): v
   if (value != null) focusQty(index)
 }
 
-function setLoose(line: CartLine, loose: boolean): void {
-  line.isLoose = loose
-  if (loose) {
+/** Select value for the Bag / Loose column: bag grams as string, or "loose". */
+const LOOSE_SELECT_VALUE = 'loose'
+
+function bagOrLooseValue(line: CartLine): string {
+  if (line.isLoose) return LOOSE_SELECT_VALUE
+  return line.bagSizeG == null ? '' : String(line.bagSizeG)
+}
+
+function onBagOrLooseChange(line: CartLine, value: unknown): void {
+  const v = String(value ?? '')
+  if (v === LOOSE_SELECT_VALUE) {
+    line.isLoose = true
     line.bagSizeG = null
     line.quintalRate = null
-  } else {
-    line.perKgRate = null
-    const p = productOf(line)
-    line.bagSizeG = p?.defaultBagSizeG ?? null
+    return
   }
+  line.isLoose = false
+  line.perKgRate = null
+  line.bagSizeG = v === '' ? null : Number(v)
 }
 
 defineExpose({ ensureLineAndFocusProduct })
@@ -193,31 +201,20 @@ defineExpose({ ensureLineAndFocusProduct })
             />
           </TableCell>
           <TableCell>
-            <div class="flex flex-col gap-1.5">
-              <label class="flex cursor-pointer items-center gap-1.5 text-xs">
-                <Checkbox
-                  :model-value="line.isLoose"
-                  data-testid="cart-loose"
-                  @update:model-value="setLoose(line, $event === true)"
-                />
-                Loose
-              </label>
-              <Select
-                v-if="!line.isLoose"
-                :model-value="line.bagSizeG == null ? '' : String(line.bagSizeG)"
-                @update:model-value="line.bagSizeG = Number($event)"
-              >
-                <SelectTrigger class="w-full" data-testid="cart-bag">
-                  <SelectValue placeholder="Bag" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)">{{
-                    formatBagKg(b)
-                  }}</SelectItem>
-                </SelectContent>
-              </Select>
-              <span v-else class="text-xs text-muted-foreground">kg</span>
-            </div>
+            <Select
+              :model-value="bagOrLooseValue(line)"
+              @update:model-value="onBagOrLooseChange(line, $event)"
+            >
+              <SelectTrigger class="w-full" data-testid="cart-bag">
+                <SelectValue placeholder="Bag / Loose" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)">{{
+                  formatBagKg(b)
+                }}</SelectItem>
+                <SelectItem :value="LOOSE_SELECT_VALUE" data-testid="cart-loose">Loose</SelectItem>
+              </SelectContent>
+            </Select>
           </TableCell>
           <TableCell>
             <Input
