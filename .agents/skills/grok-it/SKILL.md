@@ -24,7 +24,7 @@ grok -p "<BRIEF>" --cwd=<worktree> --check --max-turns 200 \
 
 - **Research?** Grok. Read-only brief: return findings as markdown, commit nothing.
 - **Implementation?** Grok. PRD/issue brief, docs duty included: "if vocabulary shifts, update CONTEXT.md to match."
-- **Testing?** A **new** grok in the same worktree, briefed to *break the previous grok's code*: aggressive smoke + unit tests hunting real cracks (money rounding, stock deltas, mode toggles, empty/boundary carts). Wrecking-ball tests are for finding bugs — they get reported, then deleted; only the few high-value ones earn a commit (AGENTS.md test philosophy).
+- **Testing?** A **new** grok in the same worktree, briefed to _break the previous grok's code_: aggressive smoke + unit tests hunting real cracks (money rounding, stock deltas, mode toggles, empty/boundary carts). Wrecking-ball tests are for finding bugs — they get reported, then deleted; only the few high-value ones earn a commit (AGENTS.md test philosophy).
 - Bugs found → written into a fresh brief for the next implementation grok. We do not fix them ourselves.
 
 Each grok is a fresh instance that never trusts the previous grok's claims. Add `--no-subagents` if one gets ideas about hiring its own interns — the buck stops somewhere. 🪿

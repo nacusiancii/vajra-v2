@@ -69,12 +69,16 @@ const counterparty = computed(() => {
           <div v-for="line in txn.lines" :key="line.id" class="flex justify-between gap-2 py-0.5">
             <span class="truncate">
               {{ line.productName }}
-              <span
-                v-if="line.productType === 'bulk' && line.bagSizeG"
-                class="text-muted-foreground"
-              >
+              <span v-if="line.isLoose" class="text-muted-foreground" data-testid="slip-line-loose">
+                ({{ formatQty(line.qty) }} kg × {{ formatRupees(line.perKgRate ?? 0) }}/kg)
+              </span>
+              <span v-else-if="line.bagSizeG" class="text-muted-foreground">
                 ({{ formatQty(line.qty) }} × {{ formatBagKg(line.bagSizeG) }} =
-                {{ formatKgFromG(lineMassGrams('bulk', line.qty, line.bagSizeG)) }})
+                {{
+                  formatKgFromG(
+                    lineMassGrams({ isLoose: false, qty: line.qty, bagSizeG: line.bagSizeG })
+                  )
+                }})
               </span>
               <span v-else class="text-muted-foreground">× {{ formatQty(line.qty) }}</span>
             </span>

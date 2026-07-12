@@ -54,8 +54,7 @@ const schema = toTypedSchema(
   z.object({
     name: z.string().trim().min(1, 'Name is required'),
     productGroupName: z.string().trim().min(1, 'Product Group is required'),
-    type: z.enum(['packaged', 'bulk']),
-    defaultBagSizeG: z.string().optional().default(''),
+    defaultBagSizeG: z.string().min(1, 'Default Bag Size is required'),
     nameTe: z.string().trim().optional().default(''),
     remarks: z.string().trim().optional().default('')
   })
@@ -74,7 +73,6 @@ watch(
         values: {
           name: p?.name ?? '',
           productGroupName: p?.productGroupName ?? '',
-          type: p?.type ?? 'bulk',
           defaultBagSizeG: p?.defaultBagSizeG?.toString() ?? '',
           nameTe: p?.nameTe ?? '',
           remarks: p?.remarks ?? ''
@@ -84,8 +82,6 @@ watch(
   }
 )
 
-const isBulk = computed(() => values.type === 'bulk')
-
 const nameConflict = computed(() => {
   const name = values.name?.trim()
   if (!name) return false
@@ -93,15 +89,15 @@ const nameConflict = computed(() => {
 })
 
 const bagSizeError = computed(() => {
-  if (isBulk.value && !values.defaultBagSizeG) {
-    return 'Default Bag Size is required for Bulk Products'
+  if (!isEditing.value && !values.defaultBagSizeG) {
+    return 'Default Bag Size is required'
   }
   return null
 })
 
 const onSubmit = handleSubmit((formValues) => {
   if (nameConflict.value) return
-  if (isBulk.value && !formValues.defaultBagSizeG) return
+  if (!isEditing.value && !formValues.defaultBagSizeG) return
 
   if (isEditing.value && props.product) {
     emit('update', props.product.id, {
@@ -114,8 +110,7 @@ const onSubmit = handleSubmit((formValues) => {
     emit('create', {
       name: formValues.name,
       productGroupName: formValues.productGroupName,
-      type: formValues.type,
-      defaultBagSizeG: isBulk.value ? (Number(formValues.defaultBagSizeG) as BagSizeG) : null,
+      defaultBagSizeG: Number(formValues.defaultBagSizeG) as BagSizeG,
       nameTe: formValues.nameTe || null,
       remarks: formValues.remarks || null
     })
@@ -162,35 +157,8 @@ const onSubmit = handleSubmit((formValues) => {
           </p>
         </div>
 
-        <!-- Type (immutable after creation) -->
+        <!-- Default Bag Size (immutable after creation) -->
         <div class="grid gap-2">
-          <Label>Type *</Label>
-          <div v-if="isEditing" class="flex items-center gap-2">
-            <Badge variant="secondary" class="capitalize">{{ product?.type }}</Badge>
-            <span class="text-xs text-muted-foreground">(cannot be changed)</span>
-          </div>
-          <Select
-            v-else
-            :model-value="values.type"
-            @update:model-value="
-              (v) => {
-                setFieldValue('type', v as 'packaged' | 'bulk')
-                if (v === 'packaged') setFieldValue('defaultBagSizeG', '')
-              }
-            "
-          >
-            <SelectTrigger data-testid="product-type-select">
-              <SelectValue placeholder="Select type" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="bulk">Bulk</SelectItem>
-              <SelectItem value="packaged">Packaged</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <!-- Default Bag Size (immutable after creation, only for Bulk) -->
-        <div v-if="isBulk || (isEditing && product?.type === 'bulk')" class="grid gap-2">
           <Label>Default Bag Size *</Label>
           <div v-if="isEditing" class="flex items-center gap-2">
             <Badge variant="secondary"

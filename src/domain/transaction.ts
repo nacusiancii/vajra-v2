@@ -5,11 +5,11 @@
  * the single source of truth for stock deltas and the Inventory projection (ADR-0005),
  * shared by the repository (write time), the live UI, and the End of Day Report.
  *
- * Money fields are integer **paise**. Bag sizes and bulk stock are integer **grams**.
+ * Money fields are integer **paise**. Bag sizes and stock are integer **grams**.
+ * Loose quantity is entered as kg and converted to grams for stock.
  */
 
-import type { ProductType } from './types'
-import { bulkStockDeltaG, roundHalfAway } from './units'
+import { bulkStockDeltaG, looseStockDeltaG, roundHalfAway } from './units'
 
 /** Two-letter transaction-type codes — a closed set (ADR-0009). */
 export type TxnType = 'SA' | 'PU' | 'RE' | 'PA' | 'EX' | 'IN' | 'ST'
@@ -33,18 +33,21 @@ export interface TxnLine {
   id: number
   productId: number
   productName: string
-  productType: ProductType
   side: TxnLineSide
-  /** Bag Type in grams; null for Packaged. */
+  /** True when this is a Loose line (no Bag Type; qty is kg; perKgRate set). */
+  isLoose: boolean
+  /** Bag Type in grams; null for Loose. */
   bagSizeG: number | null
-  /** Paise per quintal. */
+  /** Paise per quintal; null for Loose. */
   quintalRate: number | null
-  /** Paise per unit. */
-  unitRate: number | null
+  /** Paise per kg; null for bag lines. */
+  perKgRate: number | null
+  /**
+   * Bag count for bag lines; kilograms for Loose.
+   */
   qty: number
   /**
-   * Stock change: grams for Bulk, units for Packaged.
-   * Sign is the ledger direction (negative on Sale).
+   * Stock change in grams. Sign is the ledger direction (negative on Sale).
    */
   stockDelta: number
   /** Line total in paise. */
@@ -70,6 +73,11 @@ export interface Txn {
   upiOut: number
   additionalCharges: number
   loadingCharges: number
+  /**
+   * Whether the cashier opted into Loading Charge on this Sale.
+   * True even when the promised amount is ₹0 (free band). Always false for non-Sales.
+   */
+  loadingApplied: boolean
   total: number
   creditAmount: number
   /**
@@ -96,11 +104,13 @@ export interface BusinessDay {
 
 export interface SaleLineInput {
   productId: number
+  /** Loose: no Bag Type; qty is kg; rate is perKgRate. */
+  isLoose: boolean
   bagSizeG: number | null
   /** Paise per quintal. */
   quintalRate: number | null
-  /** Paise per unit. */
-  unitRate: number | null
+  /** Paise per kg (Loose only). */
+  perKgRate: number | null
   qty: number
 }
 
@@ -116,7 +126,16 @@ export interface CreateSaleInput {
   walkin: WalkinInput | null
   lines: SaleLineInput[]
   additionalCharges: number
+  /**
+   * Promised Loading Charge in paise (integer ≥ 0). Stored as-is on the finished
+   * Sale — never recomputed from settings at write time.
+   */
   loadingCharges: number
+  /**
+   * Cashier opted into Loading Charge. True even when loadingCharges is 0 (free band).
+   * Persisted so Edit rehydrates the toggle from the flag, not from the amount.
+   */
+  loadingApplied: boolean
   cashCollected: number
   upiCollected: number
   /** Credit Voucher number minted at print time (null for Cash Sales). */
@@ -195,19 +214,18 @@ export function formatTxnId(type: TxnType, seq: number, startDate: string): stri
 // ── Stock delta + Inventory projection (ADR-0005) ────────────────────────────
 
 /**
- * Signed change in stock for one line.
- * - Packaged: whole units (qty rounded to nearest integer count when fractional).
- * - Bulk: grams moved (qty bags × bag size g).
+ * Signed change in stock for one goods line (grams).
+ * - Bag line: qty bags × bag size g.
+ * - Loose: qty kg × 1000 g.
  */
 export function lineStockDelta(args: {
-  productType: ProductType
+  isLoose: boolean
   qty: number
   bagSizeG: number | null
-  defaultBagSizeG: number | null
   direction: 1 | -1
 }): number {
-  const { productType, qty, bagSizeG, direction } = args
-  if (productType === 'packaged') return direction * roundHalfAway(qty)
+  const { isLoose, qty, bagSizeG, direction } = args
+  if (isLoose) return looseStockDeltaG(qty, direction)
   if (!bagSizeG) return direction * roundHalfAway(qty)
   return bulkStockDeltaG(qty, bagSizeG, direction)
 }
@@ -216,8 +234,7 @@ export interface ProjectionProduct {
   id: number
   name: string
   productGroupName: string
-  type: ProductType
-  defaultBagSizeG: number | null
+  defaultBagSizeG: number
 }
 
 export interface ProjectionMovement {
@@ -230,9 +247,8 @@ export interface InventoryRow {
   productId: number
   productName: string
   productGroupName: string
-  productType: ProductType
-  defaultBagSizeG: number | null
-  /** Bulk: grams. Packaged: units. */
+  defaultBagSizeG: number
+  /** Grams. */
   opening: number
   purchased: number
   sold: number
@@ -246,7 +262,7 @@ export interface InventoryRow {
 /**
  * The Inventory projection: Opening Stock + replay of live (non-voided) movements.
  * Callers must pre-filter movements to voided = 0; this function trusts its inputs.
- * Quantities are grams (Bulk) or units (Packaged).
+ * Quantities are grams.
  */
 export function projectInventory(
   products: ProjectionProduct[],
@@ -259,7 +275,6 @@ export function projectInventory(
       productId: p.id,
       productName: p.name,
       productGroupName: p.productGroupName,
-      productType: p.type,
       defaultBagSizeG: p.defaultBagSizeG,
       opening: opening.get(p.id) ?? 0,
       purchased: 0,

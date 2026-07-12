@@ -51,14 +51,13 @@ export class BusinessDayRepo {
 
     const products = this.db
       .prepare(
-        `SELECT p.id, p.name, p.type, p.default_bag_size_g AS dbs, pg.name AS group_name
+        `SELECT p.id, p.name, p.default_bag_size_g AS dbs, pg.name AS group_name
          FROM product p JOIN product_group pg ON pg.id = p.product_group_id`
       )
       .all() as Array<{
       id: number
       name: string
-      type: 'packaged' | 'bulk'
-      dbs: number | null
+      dbs: number
       group_name: string
     }>
 
@@ -66,7 +65,6 @@ export class BusinessDayRepo {
       id: p.id,
       name: p.name,
       productGroupName: p.group_name,
-      type: p.type,
       defaultBagSizeG: p.dbs
     }))
 

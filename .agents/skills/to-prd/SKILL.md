@@ -27,32 +27,39 @@ The reader is an agent with zero conversation context. Every decision it would o
 > **Molehill:** <the original one-liner / issue text, verbatim>
 
 ## Problem
+
 2–4 sentences from the cashier's or shopkeeper's chair. No solution language.
 
 ## Vocabulary
+
 | Term | Status | Meaning |
 Statuses: existing (cite CONTEXT.md), **NEW**, **retired**. NEW and retired
 terms are flagged for `/grill-with-docs` promotion — the PRD does not edit
 the glossary itself.
 
 ## Decisions
+
 D1..Dn. Chosen path, strongest rejected alternative, why. Include data-shape
 and unit decisions (money in paise, mass in grams). This section is the
 mountain — a good PRD is mostly Decisions.
 
 ## Out of scope
+
 What a keen agent might reasonably do here but must not.
 
 ## Tests
+
 Few, high-value (per AGENTS.md): the domain invariants worth a unit test and
 the counter flow worth a smoke. Name prior-art specs to imitate. No tests
 that restate the implementation.
 
 ## Acceptance
+
 Checkboxes an agent can self-verify: `pnpm fix:headless` green plus the named
 behaviours observable in the named smokes.
 
 ## Vetoable defaults
+
 Decisions made without asking. Veto by commenting on the issue before or
 during implementation.
 ```

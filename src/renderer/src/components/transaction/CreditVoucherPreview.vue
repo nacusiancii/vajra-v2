@@ -11,15 +11,14 @@ import {
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
 import { formatQty, formatRupees } from '@/lib/format'
-import type { ProductType } from '@domain/types'
 
 export interface VoucherLine {
   productName: string
-  productType: ProductType
+  isLoose: boolean
   qty: number
   bagSizeG: number | null
   quintalRate: number | null
-  unitRate: number | null
+  perKgRate: number | null
   lineTotal: number
 }
 
@@ -50,28 +49,40 @@ const displayDate = computed(() => {
 })
 
 /**
- * Bulk lines price by quintal: qty bags × (bag kg / 100) × Quintal Rate.
- * Packaged lines use ratio 1: qty × 1 × unit rate.
+ * Bag lines: qty bags × (bag kg / 100) × Quintal Rate.
+ * Loose lines: kg × 1 × price/kg.
  */
 const breakdowns = computed(() =>
   props.lines.map((line) => {
     const qty = formatQty(line.qty)
-    if (line.productType === 'bulk' && line.bagSizeG) {
+    if (line.isLoose) {
+      return {
+        productName: line.productName,
+        qty,
+        ratio: '1',
+        price: formatRupees(line.perKgRate ?? 0),
+        total: formatRupees(line.lineTotal),
+        formula: `${qty} kg × ${formatRupees(line.perKgRate ?? 0)}/kg`
+      }
+    }
+    if (line.bagSizeG) {
       return {
         productName: line.productName,
         qty,
         // bag grams / quintal grams = bag kg / 100
         ratio: formatQty(line.bagSizeG / 100_000),
         price: formatRupees(line.quintalRate ?? 0),
-        total: formatRupees(line.lineTotal)
+        total: formatRupees(line.lineTotal),
+        formula: null as string | null
       }
     }
     return {
       productName: line.productName,
       qty,
       ratio: '1',
-      price: formatRupees(line.unitRate ?? 0),
-      total: formatRupees(line.lineTotal)
+      price: formatRupees(0),
+      total: formatRupees(line.lineTotal),
+      formula: null as string | null
     }
   })
 )
@@ -152,7 +163,9 @@ const breakdowns = computed(() =>
           </p>
           <div class="text-center">
             <p class="font-semibold">Chosen Products</p>
-            <p class="text-xs text-muted-foreground">qty × ratio × price = line total</p>
+            <p class="text-xs text-muted-foreground">
+              bags: qty × ratio × price; loose: kg × price/kg
+            </p>
           </div>
           <Separator class="my-2" />
 
@@ -164,7 +177,8 @@ const breakdowns = computed(() =>
           >
             <p class="truncate font-medium">{{ line.productName }}</p>
             <p class="flex flex-wrap justify-between gap-x-2 tabular-nums text-muted-foreground">
-              <span>{{ line.qty }} × {{ line.ratio }} × {{ line.price }}</span>
+              <span v-if="line.formula">{{ line.formula }}</span>
+              <span v-else>{{ line.qty }} × {{ line.ratio }} × {{ line.price }}</span>
               <span class="font-medium text-foreground">= {{ line.total }}</span>
             </p>
           </div>

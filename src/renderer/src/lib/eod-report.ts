@@ -19,7 +19,7 @@ function rupees(paise: number): string {
 }
 
 function stockQty(row: InventoryRow, qty: number): string {
-  return formatStockQty(qty, row.productType, row.defaultBagSizeG)
+  return formatStockQty(qty, row.defaultBagSizeG)
 }
 
 function esc(s: string): string {

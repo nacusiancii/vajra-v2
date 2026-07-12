@@ -29,13 +29,11 @@ const grouped = computed(() => {
 const hasNegative = computed(() => rows.value.some((r) => r.negative))
 
 function unit(row: InventoryRow): string {
-  return row.productType === 'bulk' && row.defaultBagSizeG
-    ? `bags of ${formatBagKg(row.defaultBagSizeG)}`
-    : 'units'
+  return `bags of ${formatBagKg(row.defaultBagSizeG)}`
 }
 
 function stock(row: InventoryRow, qty: number): string {
-  return formatStockQty(qty, row.productType, row.defaultBagSizeG)
+  return formatStockQty(qty, row.defaultBagSizeG)
 }
 </script>
 

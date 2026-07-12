@@ -3,27 +3,35 @@
  * Shared by the cart UIs (live totals) and the repository (authoritative write).
  *
  * Money arguments and return values are **integer paise**.
- * Bag sizes are **integer grams**.
+ * Bag sizes are **integer grams**. Loose qty is **kg**.
  */
 
 import { z } from 'zod'
-import type { ProductType } from './types'
+import { loadingChargeForKg, type LoadingChargeRules } from './settings'
 import type { SaleLineInput, TransferLegInput } from './transaction'
-import { bulkLineTotalPaise, loadingLinePaise, lineMassG, packagedLineTotalPaise } from './units'
+import {
+  bulkLineTotalPaise,
+  gToKg,
+  kgToG,
+  loadingLinePaise,
+  lineMassG,
+  looseLineTotalPaise
+} from './units'
 
-/** Mass in grams a single Bulk line moves. Packaged returns 0. */
-export function lineMassGrams(
-  productType: ProductType,
-  qty: number,
+/** Mass in grams a goods line moves (bag line or Loose). */
+export function lineMassGrams(args: {
+  isLoose: boolean
+  qty: number
   bagSizeG: number | null
-): number {
-  if (productType !== 'bulk' || !bagSizeG) return 0
-  return lineMassG(qty, bagSizeG)
+}): number {
+  if (args.isLoose) return kgToG(args.qty)
+  if (!args.bagSizeG) return 0
+  return lineMassG(args.qty, args.bagSizeG)
 }
 
-/** Kilograms for a bulk line (display / transfer yield UI). */
-export function lineKg(productType: ProductType, qty: number, bagSizeG: number | null): number {
-  return lineMassGrams(productType, qty, bagSizeG) / 1000
+/** Kilograms for a goods line (display / transfer yield UI). */
+export function lineKg(args: { isLoose: boolean; qty: number; bagSizeG: number | null }): number {
+  return lineMassGrams(args) / 1000
 }
 
 /**
@@ -42,21 +50,20 @@ export function suggestedTransferTargetQty(
 
 /**
  * Money total for one line, in paise.
- * Bulk: (mass_g / quintal_g) × Quintal Rate. Packaged: qty × unit rate.
+ * Bag: (mass_g / quintal_g) × Quintal Rate. Loose: kg × per-kg rate.
  */
 export function lineTotal(args: {
-  productType: ProductType
+  isLoose: boolean
   qty: number
   bagSizeG: number | null
   quintalRate: number | null
-  unitRate: number | null
+  perKgRate: number | null
 }): number {
-  const { productType, qty, bagSizeG, quintalRate, unitRate } = args
-  if (productType === 'bulk') {
-    const massG = lineMassGrams('bulk', qty, bagSizeG)
-    return bulkLineTotalPaise(massG, quintalRate ?? 0)
+  if (args.isLoose) {
+    return looseLineTotalPaise(args.qty, args.perKgRate ?? 0)
   }
-  return packagedLineTotalPaise(qty, unitRate ?? 0)
+  const massG = lineMassGrams({ isLoose: false, qty: args.qty, bagSizeG: args.bagSizeG })
+  return bulkLineTotalPaise(massG, args.quintalRate ?? 0)
 }
 
 /** Grand total in paise = sum of line totals + opt-in Loading Charge + Additional Charges. */
@@ -64,19 +71,30 @@ export function grandTotal(lineTotals: number[], loading: number, additional: nu
   return lineTotals.reduce((a, b) => a + b, 0) + loading + additional
 }
 
+export interface LoadingLineInput {
+  isLoose: boolean
+  bagSizeG: number | null
+  /** Bag count for bag lines; kg for Loose. */
+  qty: number
+}
+
 /**
- * Loading Charge for a cart from per-Bag-Type rules (paise per bag, keyed by grams).
- * Charged per bag of each Bulk line. Returns 0 when not opted in (empty rules).
+ * Loading Charge for a cart from weight-breakpoint rules.
+ * - Bag line: each bag is charged by its bag weight (kg); multiply by bag count.
+ * - Loose line: the whole quantity is one parcel charged by its total kg.
+ * Returns 0 when rules yield zero for every parcel.
  */
-export function computeLoadingCharge(
-  lines: Array<{ productType: ProductType; bagSizeG: number | null; qty: number }>,
-  ratePerBagBySizeG: Record<number, number>
-): number {
+export function computeLoadingCharge(lines: LoadingLineInput[], rules: LoadingChargeRules): number {
   let total = 0
   for (const l of lines) {
-    if (l.productType !== 'bulk' || !l.bagSizeG) continue
-    const rate = ratePerBagBySizeG[l.bagSizeG] ?? 0
-    total += loadingLinePaise(l.qty, rate)
+    if (!(l.qty > 0)) continue
+    if (l.isLoose) {
+      total += loadingChargeForKg(l.qty, rules)
+    } else if (l.bagSizeG) {
+      const bagKg = gToKg(l.bagSizeG)
+      const rate = loadingChargeForKg(bagKg, rules)
+      total += loadingLinePaise(l.qty, rate)
+    }
   }
   return total
 }
@@ -84,8 +102,11 @@ export function computeLoadingCharge(
 // ── Validation (returns a human-readable reason, or null when valid) ─────────
 
 export interface LineProductLookup {
-  type: ProductType
-  defaultBagSizeG: number | null
+  defaultBagSizeG: number
+}
+
+function isPositiveIntegerPaise(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n > 0
 }
 
 function validateGoodsLine(
@@ -94,13 +115,12 @@ function validateGoodsLine(
 ): string | null {
   if (!product) return 'Line references an unknown Product'
   if (!(line.qty > 0)) return 'Quantity must be greater than zero'
-  if (product.type === 'bulk') {
-    if (!line.bagSizeG) return 'Bulk lines need a Bag Type'
-    if (!(typeof line.quintalRate === 'number' && line.quintalRate > 0))
-      return 'Bulk lines need a Quintal Rate'
+  if (line.isLoose) {
+    if (!(line.qty >= 1 && line.qty <= 50)) return 'Loose quantity must be between 1 and 50 kg'
+    if (!isPositiveIntegerPaise(line.perKgRate)) return 'Loose lines need a price per kg'
   } else {
-    if (!(typeof line.unitRate === 'number' && line.unitRate > 0))
-      return 'Packaged lines need a unit rate'
+    if (!line.bagSizeG) return 'Bag lines need a Bag Type'
+    if (!isPositiveIntegerPaise(line.quintalRate)) return 'Bag lines need a Quintal Rate'
   }
   return null
 }
@@ -149,7 +169,7 @@ export function validateTransferLeg(
 ): string | null {
   if (!product) return 'Leg references an unknown Product'
   if (!(leg.qty > 0)) return 'Quantity must be greater than zero'
-  if (product.type === 'bulk' && !leg.bagSizeG) return 'Bulk legs need a Bag Type'
+  if (!leg.bagSizeG) return 'Transfer legs need a Bag Type'
   return null
 }
 
@@ -181,3 +201,70 @@ export const MoneyTxnSchema = z
     message: 'Enter cash, UPI, or a discount amount',
     path: ['cashCollected']
   })
+
+// ── Goods write schemas (Sale / Purchase) ────────────────────────────────────
+
+/**
+ * Integer paise ≥ 0. Shape only for money fields at the goods write boundary.
+ * Rate business rules (must be > 0 for the line type) live in validateGoodsLine.
+ */
+const integerPaiseNonNeg = z.number().int().min(0)
+
+/**
+ * One cart line at the write boundary. Rates are integer paise when present.
+ */
+const SaleLineWriteSchema = z.object({
+  productId: z.number().int(),
+  isLoose: z.boolean(),
+  bagSizeG: z.number().int().nullable(),
+  quintalRate: integerPaiseNonNeg.nullable(),
+  perKgRate: integerPaiseNonNeg.nullable(),
+  qty: z.number()
+})
+
+/**
+ * Authoritative write shape for Sales.
+ *
+ * Loading Charge (`loadingCharges`) is the amount **promised** to the customer and
+ * printed on the invoice. The write boundary validates shape only (integer paise ≥ 0)
+ * and does **not** recompute it from settings breakpoints. Settings are a suggestion
+ * engine for new carts and Edit successors (new promises with a reprinted invoice).
+ * `loadingApplied` records the cashier's opt-in even when the promised amount is ₹0.
+ */
+export const SaleWriteSchema = z.object({
+  mode: z.enum(['cash', 'credit']),
+  customerId: z.number().int().nullable(),
+  walkin: z
+    .object({
+      name: z.string(),
+      place: z.string(),
+      phone: z.string().nullable()
+    })
+    .nullable(),
+  lines: z.array(SaleLineWriteSchema),
+  additionalCharges: integerPaiseNonNeg,
+  loadingCharges: integerPaiseNonNeg,
+  loadingApplied: z.boolean(),
+  cashCollected: integerPaiseNonNeg,
+  upiCollected: integerPaiseNonNeg,
+  voucherSeq: z.number().int().nullable(),
+  remarks: z.string().nullable()
+})
+
+/** Authoritative write shape for Purchases (no Loading Charge). */
+export const PurchaseWriteSchema = z.object({
+  mode: z.enum(['cash', 'credit']),
+  customerId: z.number().int().nullable(),
+  walkin: z
+    .object({
+      name: z.string(),
+      place: z.string(),
+      phone: z.string().nullable()
+    })
+    .nullable(),
+  lines: z.array(SaleLineWriteSchema),
+  additionalCharges: integerPaiseNonNeg,
+  cashCollected: integerPaiseNonNeg,
+  upiCollected: integerPaiseNonNeg,
+  remarks: z.string().nullable()
+})

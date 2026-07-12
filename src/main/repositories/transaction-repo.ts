@@ -1,5 +1,4 @@
 import type { Database } from 'better-sqlite3'
-import type { ProductType } from '../../domain/types'
 import {
   formatTxnId,
   lineStockDelta,
@@ -13,7 +12,16 @@ import {
   type TxnLine,
   type TxnType
 } from '../../domain/transaction'
-import { grandTotal, lineTotal, MoneyTxnSchema } from '../../domain/transaction-rules'
+import {
+  grandTotal,
+  lineTotal,
+  MoneyTxnSchema,
+  PurchaseWriteSchema,
+  SaleWriteSchema,
+  validatePurchase,
+  validateSale,
+  type LineProductLookup
+} from '../../domain/transaction-rules'
 
 interface TxnRow {
   id: string
@@ -33,6 +41,7 @@ interface TxnRow {
   upi_out: number
   additional_charges: number
   loading_charges: number
+  loading_applied: number
   total: number
   credit_amount: number
   discount_amount: number
@@ -46,11 +55,11 @@ interface LineRow {
   id: number
   product_id: number
   product_name: string
-  product_type: ProductType
   side: 'single' | 'source' | 'target'
+  is_loose: number
   bag_size_g: number | null
   quintal_rate: number | null
-  unit_rate: number | null
+  per_kg_rate: number | null
   qty: number
   stock_delta: number
   line_total: number
@@ -58,17 +67,17 @@ interface LineRow {
 
 interface ProductMeta {
   id: number
-  type: ProductType
-  defaultBagSizeG: number | null
+  defaultBagSizeG: number
 }
 
 /** A computed line ready to insert: stock_delta and line_total already resolved. */
 interface ResolvedLine {
   side: 'single' | 'source' | 'target'
   productId: number
+  isLoose: boolean
   bagSizeG: number | null
   quintalRate: number | null
-  unitRate: number | null
+  perKgRate: number | null
   qty: number
   stockDelta: number
   lineTotal: number
@@ -87,7 +96,7 @@ const ZERO_DRAWER: DrawerColumns = { cashIn: 0, upiIn: 0, cashOut: 0, upiOut: 0 
  * Owns the transactional ledger: creating each transaction type, listing the open day's
  * transactions, and Edit-as-void-plus-successor (ADR-0007). Stock deltas are computed and
  * stored at write time so the Inventory projection stays a pure SUM (ADR-0005).
- * All money is integer paise; bulk stock is integer grams.
+ * All money is integer paise; stock is integer grams.
  */
 export class TransactionRepo {
   constructor(private db: Database) {}
@@ -121,29 +130,48 @@ export class TransactionRepo {
   // ── Creates ──────────────────────────────────────────────────────────────────
 
   createSale(input: CreateSaleInput): Txn {
+    const parsed = SaleWriteSchema.parse(input)
     const products = this.productMeta()
-    const resolved = input.lines.map((l) => this.resolveGoodsLine(l, products, -1))
+    const productLookup = this.toLineProductLookup(products)
+    const reason = validateSale(parsed.lines, productLookup, {
+      mode: parsed.mode,
+      hasCustomer: parsed.customerId != null,
+      customerHasPhone:
+        parsed.customerId != null ? this.customerHasPhone(parsed.customerId) : false,
+      isWalkin: parsed.walkin != null
+    })
+    if (reason) throw new Error(reason)
+
+    // Loading Charge on a finished Sale is the amount promised to the customer and
+    // printed on the invoice. It is NEVER recomputed from settings here — settings
+    // breakpoints only suggest amounts for new carts and Edit successors. This write
+    // validates shape only (integer paise ≥ 0 via SaleWriteSchema).
+    const loadingCharges = parsed.loadingCharges
+    const loadingApplied = parsed.loadingApplied
+
+    const resolved = parsed.lines.map((l) => this.resolveGoodsLine(l, products, -1))
     const total = grandTotal(
       resolved.map((r) => r.lineTotal),
-      input.loadingCharges,
-      input.additionalCharges
+      loadingCharges,
+      parsed.additionalCharges
     )
     const drawer: DrawerColumns =
-      input.mode === 'cash'
-        ? { cashIn: input.cashCollected, upiIn: input.upiCollected, cashOut: 0, upiOut: 0 }
+      parsed.mode === 'cash'
+        ? { cashIn: parsed.cashCollected, upiIn: parsed.upiCollected, cashOut: 0, upiOut: 0 }
         : ZERO_DRAWER
 
     return this.insert('SA', resolved, {
-      saleMode: input.mode,
-      customerId: input.customerId,
-      walkin: input.walkin,
-      additionalCharges: input.additionalCharges,
-      loadingCharges: input.loadingCharges,
+      saleMode: parsed.mode,
+      customerId: parsed.customerId,
+      walkin: parsed.walkin,
+      additionalCharges: parsed.additionalCharges,
+      loadingCharges,
+      loadingApplied,
       total,
-      creditAmount: input.mode === 'credit' ? total : 0,
+      creditAmount: parsed.mode === 'credit' ? total : 0,
       drawer,
-      voucherSeq: input.mode === 'credit' ? input.voucherSeq : null,
-      remarks: input.remarks
+      voucherSeq: parsed.mode === 'credit' ? parsed.voucherSeq : null,
+      remarks: parsed.remarks
     })
   }
 
@@ -166,26 +194,31 @@ export class TransactionRepo {
   }
 
   createPurchase(input: CreatePurchaseInput): Txn {
+    const parsed = PurchaseWriteSchema.parse(input)
     const products = this.productMeta()
-    const resolved = input.lines.map((l) => this.resolveGoodsLine(l, products, 1))
+    const productLookup = this.toLineProductLookup(products)
+    const reason = validatePurchase(parsed.lines, productLookup)
+    if (reason) throw new Error(reason)
+
+    const resolved = parsed.lines.map((l) => this.resolveGoodsLine(l, products, 1))
     const total = grandTotal(
       resolved.map((r) => r.lineTotal),
       0,
-      input.additionalCharges
+      parsed.additionalCharges
     )
     const drawer: DrawerColumns =
-      input.mode === 'cash'
-        ? { cashIn: 0, upiIn: 0, cashOut: input.cashCollected, upiOut: input.upiCollected }
+      parsed.mode === 'cash'
+        ? { cashIn: 0, upiIn: 0, cashOut: parsed.cashCollected, upiOut: parsed.upiCollected }
         : ZERO_DRAWER
     return this.insert('PU', resolved, {
-      saleMode: input.mode,
-      customerId: input.customerId,
-      walkin: input.walkin,
-      additionalCharges: input.additionalCharges,
+      saleMode: parsed.mode,
+      customerId: parsed.customerId,
+      walkin: parsed.walkin,
+      additionalCharges: parsed.additionalCharges,
       total,
-      creditAmount: input.mode === 'credit' ? total : 0,
+      creditAmount: parsed.mode === 'credit' ? total : 0,
       drawer,
-      remarks: input.remarks
+      remarks: parsed.remarks
     })
   }
 
@@ -277,6 +310,8 @@ export class TransactionRepo {
       label?: string | null
       additionalCharges?: number
       loadingCharges?: number
+      /** Sale opt-in flag; always 0 for non-Sales. */
+      loadingApplied?: boolean
       total: number
       creditAmount?: number
       discountAmount?: number
@@ -295,8 +330,9 @@ export class TransactionRepo {
              id, business_day_id, type, seq, voucher_seq, sale_mode, customer_id,
              walkin_name, walkin_place, walkin_phone, label,
              cash_in, upi_in, cash_out, upi_out,
-             additional_charges, loading_charges, total, credit_amount, discount_amount, remarks
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+             additional_charges, loading_charges, loading_applied,
+             total, credit_amount, discount_amount, remarks
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           id,
@@ -316,6 +352,7 @@ export class TransactionRepo {
           fields.drawer.upiOut,
           fields.additionalCharges ?? 0,
           fields.loadingCharges ?? 0,
+          fields.loadingApplied ? 1 : 0,
           fields.total,
           fields.creditAmount ?? 0,
           fields.discountAmount ?? 0,
@@ -323,17 +360,20 @@ export class TransactionRepo {
         )
 
       const insertLine = this.db.prepare(
-        `INSERT INTO txn_line (txn_id, side, product_id, bag_size_g, quintal_rate, unit_rate, qty, stock_delta, line_total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO txn_line (
+           txn_id, side, product_id, is_loose, bag_size_g, quintal_rate, per_kg_rate,
+           qty, stock_delta, line_total
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       for (const l of lines) {
         insertLine.run(
           id,
           l.side,
           l.productId,
+          l.isLoose ? 1 : 0,
           l.bagSizeG,
           l.quintalRate,
-          l.unitRate,
+          l.perKgRate,
           l.qty,
           l.stockDelta,
           l.lineTotal
@@ -353,26 +393,27 @@ export class TransactionRepo {
   ): ResolvedLine {
     const product = products.get(line.productId)
     if (!product) throw new Error(`Unknown product ${line.productId}`)
+    const isLoose = !!line.isLoose
     const stockDelta = lineStockDelta({
-      productType: product.type,
+      isLoose,
       qty: line.qty,
       bagSizeG: line.bagSizeG,
-      defaultBagSizeG: product.defaultBagSizeG,
       direction
     })
     const total = lineTotal({
-      productType: product.type,
+      isLoose,
       qty: line.qty,
       bagSizeG: line.bagSizeG,
       quintalRate: line.quintalRate,
-      unitRate: line.unitRate
+      perKgRate: line.perKgRate
     })
     return {
       side: 'single',
       productId: line.productId,
-      bagSizeG: line.bagSizeG,
-      quintalRate: line.quintalRate,
-      unitRate: line.unitRate,
+      isLoose,
+      bagSizeG: isLoose ? null : line.bagSizeG,
+      quintalRate: isLoose ? null : line.quintalRate,
+      perKgRate: isLoose ? line.perKgRate : null,
       qty: line.qty,
       stockDelta,
       lineTotal: total
@@ -388,18 +429,18 @@ export class TransactionRepo {
     const product = products.get(leg.productId)
     if (!product) throw new Error(`Unknown product ${leg.productId}`)
     const stockDelta = lineStockDelta({
-      productType: product.type,
+      isLoose: false,
       qty: leg.qty,
       bagSizeG: leg.bagSizeG,
-      defaultBagSizeG: product.defaultBagSizeG,
       direction
     })
     return {
       side,
       productId: leg.productId,
+      isLoose: false,
       bagSizeG: leg.bagSizeG,
       quintalRate: null,
-      unitRate: null,
+      perKgRate: null,
       qty: leg.qty,
       stockDelta,
       lineTotal: 0
@@ -408,9 +449,24 @@ export class TransactionRepo {
 
   private productMeta(): Map<number, ProductMeta> {
     const rows = this.db
-      .prepare(`SELECT id, type, default_bag_size_g AS dbs FROM product`)
-      .all() as Array<{ id: number; type: ProductType; dbs: number | null }>
-    return new Map(rows.map((r) => [r.id, { id: r.id, type: r.type, defaultBagSizeG: r.dbs }]))
+      .prepare(`SELECT id, default_bag_size_g AS dbs FROM product`)
+      .all() as Array<{ id: number; dbs: number }>
+    return new Map(rows.map((r) => [r.id, { id: r.id, defaultBagSizeG: r.dbs }]))
+  }
+
+  private toLineProductLookup(products: Map<number, ProductMeta>): Map<number, LineProductLookup> {
+    const out = new Map<number, LineProductLookup>()
+    for (const [id, p] of products) {
+      out.set(id, { defaultBagSizeG: p.defaultBagSizeG })
+    }
+    return out
+  }
+
+  private customerHasPhone(customerId: number): boolean {
+    const row = this.db.prepare(`SELECT phone FROM customer WHERE id = ?`).get(customerId) as
+      | { phone: string | null }
+      | undefined
+    return !!(row?.phone && row.phone.trim() !== '')
   }
 
   private currentDay(): { id: number; startDate: string } {
@@ -438,7 +494,7 @@ export class TransactionRepo {
   private hydrate(row: TxnRow): Txn {
     const lineRows = this.db
       .prepare(
-        `SELECT l.*, p.name AS product_name, p.type AS product_type
+        `SELECT l.*, p.name AS product_name
          FROM txn_line l JOIN product p ON p.id = l.product_id
          WHERE l.txn_id = ? ORDER BY l.id`
       )
@@ -447,11 +503,11 @@ export class TransactionRepo {
       id: l.id,
       productId: l.product_id,
       productName: l.product_name,
-      productType: l.product_type,
       side: l.side,
+      isLoose: l.is_loose === 1,
       bagSizeG: l.bag_size_g,
       quintalRate: l.quintal_rate,
-      unitRate: l.unit_rate,
+      perKgRate: l.per_kg_rate,
       qty: l.qty,
       stockDelta: l.stock_delta,
       lineTotal: l.line_total
@@ -474,6 +530,7 @@ export class TransactionRepo {
       upiOut: row.upi_out,
       additionalCharges: row.additional_charges,
       loadingCharges: row.loading_charges,
+      loadingApplied: row.loading_applied === 1,
       total: row.total,
       creditAmount: row.credit_amount,
       discountAmount: row.discount_amount ?? 0,

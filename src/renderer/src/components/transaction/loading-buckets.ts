@@ -1,31 +1,53 @@
-import type { ProductType } from '@domain/types'
+import { loadingChargeForKg, type LoadingChargeRules } from '@domain/settings'
+import { gToKg } from '@domain/units'
 
-/** One Bag Type's contribution to the cart's Loading Charge (for display). */
-export interface LoadingBagBucket {
-  bagSizeG: number
-  bagCount: number
-  ratePerBag: number
+/** One weight class's contribution to the cart's Loading Charge (for display). */
+export interface LoadingWeightBucket {
+  /** Parcel weight in kg (bag size for bag lines; total kg for Loose). */
+  weightKg: number
+  /** Bag count, or 1 for each Loose parcel. */
+  count: number
+  /** Charge paise per parcel of this weight. */
+  chargePerParcel: number
+  isLoose: boolean
 }
 
-/** Group bulk cart lines by Bag Type for the Settle receipt breakdown. */
+/**
+ * Group cart lines for the Settle receipt Loading Charge breakdown.
+ * Bag lines group by bag weight; each Loose line is its own parcel by total kg.
+ */
 export function loadingChargeBuckets(
-  lines: Array<{ productType: ProductType; bagSizeG: number | null; qty: number }>,
-  ratePerBagBySize: Record<number, number>
-): LoadingBagBucket[] {
-  const map = new Map<number, LoadingBagBucket>()
+  lines: Array<{ isLoose: boolean; bagSizeG: number | null; qty: number }>,
+  rules: LoadingChargeRules
+): LoadingWeightBucket[] {
+  const bagMap = new Map<number, LoadingWeightBucket>()
+  const loose: LoadingWeightBucket[] = []
+
   for (const l of lines) {
-    if (l.productType !== 'bulk' || !l.bagSizeG || !(l.qty > 0)) continue
-    const rate = ratePerBagBySize[l.bagSizeG] ?? 0
-    const existing = map.get(l.bagSizeG)
-    if (existing) {
-      existing.bagCount += l.qty
-    } else {
-      map.set(l.bagSizeG, {
-        bagSizeG: l.bagSizeG,
-        bagCount: l.qty,
-        ratePerBag: rate
+    if (!(l.qty > 0)) continue
+    if (l.isLoose) {
+      const weightKg = l.qty
+      loose.push({
+        weightKg,
+        count: 1,
+        chargePerParcel: loadingChargeForKg(weightKg, rules),
+        isLoose: true
       })
+    } else if (l.bagSizeG) {
+      const weightKg = gToKg(l.bagSizeG)
+      const existing = bagMap.get(weightKg)
+      if (existing) {
+        existing.count += l.qty
+      } else {
+        bagMap.set(weightKg, {
+          weightKg,
+          count: l.qty,
+          chargePerParcel: loadingChargeForKg(weightKg, rules),
+          isLoose: false
+        })
+      }
     }
   }
-  return [...map.values()].sort((a, b) => a.bagSizeG - b.bagSizeG)
+
+  return [...bagMap.values()].sort((a, b) => a.weightKg - b.weightKg).concat(loose)
 }

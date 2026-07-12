@@ -5,6 +5,7 @@ import {
   lineKg,
   lineTotal,
   MoneyTxnSchema,
+  SaleWriteSchema,
   suggestedTransferTargetQty,
   validateSale,
   type LineProductLookup
@@ -15,13 +16,14 @@ import {
   moneyRealized,
   type SaleLineInput
 } from '@domain/transaction'
+import { DEFAULT_SETTINGS } from '@domain/settings'
 
 describe('lineKg (display helper from grams)', () => {
-  it('bulk kg is qty × bag size', () => {
-    expect(lineKg('bulk', 2, 50_000)).toBe(100)
+  it('bag line kg is qty × bag size', () => {
+    expect(lineKg({ isLoose: false, qty: 2, bagSizeG: 50_000 })).toBe(100)
   })
-  it('packaged has no kg', () => {
-    expect(lineKg('packaged', 5, null)).toBe(0)
+  it('loose line kg is the entered qty', () => {
+    expect(lineKg({ isLoose: true, qty: 12.5, bagSizeG: null })).toBe(12.5)
   })
 })
 
@@ -46,78 +48,76 @@ describe('suggestedTransferTargetQty', () => {
 })
 
 describe('lineTotal (paise)', () => {
-  it('bulk priced per quintal (100kg)', () => {
+  it('bag priced per quintal (100kg)', () => {
     // 2 × 50kg = 100kg = 1 quintal × ₹6000 = 600_000 paise
     expect(
       lineTotal({
-        productType: 'bulk',
+        isLoose: false,
         qty: 2,
         bagSizeG: 50_000,
         quintalRate: 600_000,
-        unitRate: null
+        perKgRate: null
       })
     ).toBe(600_000)
   })
-  it('packaged priced per unit', () => {
+
+  it('loose priced per kg with half-away rounding', () => {
+    // 2.5 kg × ₹60.005/kg → intermediate may need rounding; use clean numbers
     expect(
       lineTotal({
-        productType: 'packaged',
-        qty: 4,
+        isLoose: true,
+        qty: 2.5,
         bagSizeG: null,
         quintalRate: null,
-        unitRate: 4_500
+        perKgRate: 6_000
       })
-    ).toBe(18_000)
+    ).toBe(15_000)
   })
 })
 
 describe('grandTotal (paise)', () => {
   it('sums lines plus loading plus additional', () => {
-    expect(grandTotal([600_000, 18_000], 10_000, 5_000)).toBe(633_000)
+    expect(grandTotal([600_000, 15_000], 10_000, 5_000)).toBe(630_000)
   })
 })
 
-describe('computeLoadingCharge (paise)', () => {
-  it('charges per bag of each bulk line by bag type', () => {
+describe('computeLoadingCharge (weight breakpoints)', () => {
+  const rules = DEFAULT_SETTINGS.loadingCharge
+
+  it('charges bags by weight and loose by total kg', () => {
     const charge = computeLoadingCharge(
       [
-        { productType: 'bulk', bagSizeG: 50_000, qty: 2 },
-        { productType: 'bulk', bagSizeG: 25_000, qty: 4 },
-        { productType: 'packaged', bagSizeG: null, qty: 10 }
+        { isLoose: false, bagSizeG: 50_000, qty: 2 }, // 2 × ₹12
+        { isLoose: false, bagSizeG: 25_000, qty: 4 }, // 4 × ₹10
+        { isLoose: true, bagSizeG: null, qty: 8 } // ≤10 → ₹0
       ],
-      { 50_000: 2_000, 25_000: 1_000 }
+      rules
     )
-    expect(charge).toBe(2 * 2_000 + 4 * 1_000)
+    expect(charge).toBe(2 * 1_200 + 4 * 1_000 + 0)
   })
 
-  it('returns 0 when not opted in / empty rates', () => {
-    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeG: 50_000, qty: 2 }], {})).toBe(0)
-  })
-
-  it('missing bag-type rate contributes 0 for that line only', () => {
-    expect(
-      computeLoadingCharge(
-        [
-          { productType: 'bulk', bagSizeG: 50_000, qty: 1 },
-          { productType: 'bulk', bagSizeG: 30_000, qty: 2 }
-        ],
-        { 50_000: 2_000 }
-      )
-    ).toBe(2_000)
+  it('returns 0 when all parcels fall in zero-charge band', () => {
+    expect(computeLoadingCharge([{ isLoose: true, bagSizeG: null, qty: 5 }], rules)).toBe(0)
   })
 })
 
 describe('validateSale', () => {
-  const products = new Map<number, LineProductLookup>([
-    [1, { type: 'bulk', defaultBagSizeG: 50_000 }],
-    [2, { type: 'packaged', defaultBagSizeG: null }]
-  ])
-  const bulkLine: SaleLineInput = {
+  const products = new Map<number, LineProductLookup>([[1, { defaultBagSizeG: 50_000 }]])
+  const bagLine: SaleLineInput = {
     productId: 1,
+    isLoose: false,
     bagSizeG: 50_000,
     quintalRate: 600_000,
-    unitRate: null,
+    perKgRate: null,
     qty: 1
+  }
+  const looseLine: SaleLineInput = {
+    productId: 1,
+    isLoose: true,
+    bagSizeG: null,
+    quintalRate: null,
+    perKgRate: 6_000,
+    qty: 12.5
   }
 
   it('rejects an empty cart', () => {
@@ -131,8 +131,8 @@ describe('validateSale', () => {
     ).toMatch(/at least one line/)
   })
 
-  it('rejects a bulk line without a quintal rate', () => {
-    const bad: SaleLineInput = { ...bulkLine, quintalRate: null }
+  it('rejects a bag line without a quintal rate', () => {
+    const bad: SaleLineInput = { ...bagLine, quintalRate: null }
     expect(
       validateSale([bad], products, {
         mode: 'cash',
@@ -143,9 +143,50 @@ describe('validateSale', () => {
     ).toMatch(/Quintal Rate/)
   })
 
+  it('rejects loose qty outside 1–50 kg', () => {
+    expect(
+      validateSale([{ ...looseLine, qty: 0.5 }], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toMatch(/1 and 50/)
+    expect(
+      validateSale([{ ...looseLine, qty: 51 }], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toMatch(/1 and 50/)
+  })
+
+  it('rejects loose without positive per-kg rate', () => {
+    expect(
+      validateSale([{ ...looseLine, perKgRate: null }], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toMatch(/price per kg/)
+  })
+
+  it('accepts a valid loose line', () => {
+    expect(
+      validateSale([looseLine], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toBeNull()
+  })
+
   it('rejects a credit sale to a walk-in', () => {
     expect(
-      validateSale([bulkLine], products, {
+      validateSale([bagLine], products, {
         mode: 'credit',
         hasCustomer: false,
         customerHasPhone: false,
@@ -156,7 +197,7 @@ describe('validateSale', () => {
 
   it('rejects a credit sale to a customer with no phone', () => {
     expect(
-      validateSale([bulkLine], products, {
+      validateSale([bagLine], products, {
         mode: 'credit',
         hasCustomer: true,
         customerHasPhone: false,
@@ -167,7 +208,7 @@ describe('validateSale', () => {
 
   it('accepts a valid cash sale', () => {
     expect(
-      validateSale([bulkLine], products, {
+      validateSale([bagLine], products, {
         mode: 'cash',
         hasCustomer: false,
         customerHasPhone: false,
@@ -239,5 +280,96 @@ describe('MoneyTxnSchema (RE/PA cash + UPI + discount paise)', () => {
         discountAmount: 0
       }).success
     ).toBe(false)
+  })
+})
+
+describe('SaleWriteSchema (goods write boundary — integer paise)', () => {
+  const validLine: SaleLineInput = {
+    productId: 1,
+    isLoose: true,
+    bagSizeG: null,
+    quintalRate: null,
+    perKgRate: 6_000,
+    qty: 8
+  }
+
+  const validSale = {
+    mode: 'cash' as const,
+    customerId: null,
+    walkin: { name: 'A', place: 'B', phone: null },
+    lines: [validLine],
+    additionalCharges: 0,
+    loadingCharges: 0,
+    loadingApplied: true,
+    cashCollected: 48_000,
+    upiCollected: 0,
+    voucherSeq: null,
+    remarks: null
+  }
+
+  it('accepts a valid free-band opt-in sale (loading ₹0, applied true)', () => {
+    expect(SaleWriteSchema.safeParse(validSale).success).toBe(true)
+  })
+
+  it('rejects float paise loading charge', () => {
+    const result = SaleWriteSchema.safeParse({
+      ...validSale,
+      loadingCharges: 12.5
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects float paise per-kg rate on a line', () => {
+    const result = SaleWriteSchema.safeParse({
+      ...validSale,
+      lines: [{ ...validLine, perKgRate: 60.5 }]
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects negative additional charges', () => {
+    expect(SaleWriteSchema.safeParse({ ...validSale, additionalCharges: -1 }).success).toBe(false)
+  })
+})
+
+describe('validateSale — integer rates at write', () => {
+  const products = new Map<number, LineProductLookup>([[1, { defaultBagSizeG: 50_000 }]])
+
+  it('rejects non-integer per-kg rate', () => {
+    expect(
+      validateSale(
+        [
+          {
+            productId: 1,
+            isLoose: true,
+            bagSizeG: null,
+            quintalRate: null,
+            perKgRate: 6000.5,
+            qty: 5
+          }
+        ],
+        products,
+        { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true }
+      )
+    ).toMatch(/price per kg/)
+  })
+
+  it('rejects out-of-range loose qty at the same path the write boundary uses', () => {
+    expect(
+      validateSale(
+        [
+          {
+            productId: 1,
+            isLoose: true,
+            bagSizeG: null,
+            quintalRate: null,
+            perKgRate: 6_000,
+            qty: 0.5
+          }
+        ],
+        products,
+        { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true }
+      )
+    ).toMatch(/1 and 50/)
   })
 })
