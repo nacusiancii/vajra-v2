@@ -35,5 +35,7 @@ jobs:
           path-to-signatures: .github/cla-signatures/v1/cla.json
           path-to-document: https://github.com/nacusiancii/vajra-v2/blob/main/CLA.md
           branch: main
-          allowlist: nacusiancii,dependabot[bot],bot*
+          # Maintainer only for now. Add entries (e.g. dependabot[bot], or
+          # *[bot] for GitHub App bots) when an external bot actually opens PRs.
+          allowlist: nacusiancii
           lock-pullrequest-aftermerge: false
