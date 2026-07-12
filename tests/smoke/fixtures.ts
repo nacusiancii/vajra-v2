@@ -36,9 +36,26 @@ export const test = base.extend<Fixtures>({
     // it makes the app boot as plain Node and every launch fails.
     delete env.ELECTRON_RUN_AS_NODE
 
+    // Headless smoke (VAJRA_SMOKE_HEADLESS=1 from scripts/run-playwright-headless.sh):
+    // Xvfb only provides X11. On Wayland sessions Electron still opens real windows
+    // unless Wayland is stripped and the X11 ozone/GDK backend is forced.
+    const headless = process.env.VAJRA_SMOKE_HEADLESS === '1'
+    if (headless) {
+      delete env.WAYLAND_DISPLAY
+      delete env.WAYLAND_SOCKET
+      env.XDG_SESSION_TYPE = 'x11'
+      env.GDK_BACKEND = 'x11'
+      env.QT_QPA_PLATFORM = 'xcb'
+      env.ELECTRON_OZONE_PLATFORM_HINT = 'x11'
+    }
+
     const app = await electron.launch({
       executablePath: electronBinary,
-      args: [path.join(__dirname, '../../out/main/index.js')],
+      // Chromium switches must precede the app entry path.
+      args: [
+        ...(headless ? ['--ozone-platform=x11'] : []),
+        path.join(__dirname, '../../out/main/index.js')
+      ],
       env
     })
 

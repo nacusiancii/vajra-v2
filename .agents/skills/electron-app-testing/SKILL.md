@@ -53,7 +53,7 @@ The fixture provides `electronApp` and `page`. You write assertions against `pag
 5. **Few tests, high signal.** Smoke tests should cover "the app starts and navigates" — not every edge case. Keep the suite under 30 seconds.
 6. **Collect artifacts on failure.** Playwright config enables screenshots on failure and traces on retry. Check `test-results/artifacts/` after a red run.
 7. **Handle Linux sandbox.** The fixture sets `ELECTRON_DISABLE_SANDBOX=1` so tests run on Linux without `--no-sandbox` flags leaking into production code.
-8. **Prefer headless.** Agents and day-to-day runs use `:headless` scripts so Electron windows do not flash on the desktop. Use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows.
+8. **Prefer headless.** Agents and day-to-day runs use `:headless` scripts so Electron windows do not flash on the desktop. Use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows. On Wayland desktops, headless must unset `WAYLAND_DISPLAY` and force X11 (`GDK_BACKEND` / `--ozone-platform=x11`); Xvfb alone is not enough.
 
 ## Adding a new smoke test
 
