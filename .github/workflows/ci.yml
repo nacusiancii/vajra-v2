@@ -1,0 +1,58 @@
+# Single source of truth for "green": run the full verification suite once per
+# commit on every PR and every push to main, so agents and humans do not need
+# to re-run `pnpm verify` locally on the same commit.
+#
+# ELECTRON_DISABLE_SANDBOX=1 is required on ubuntu-latest (Ubuntu 24.04): the
+# runner restricts unprivileged user namespaces, so Electron's Chromium sandbox
+# fails to launch without it. GitHub's image ships xvfb-run, so the headless
+# smoke script works as-is.
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        # Rebuilds native modules (better-sqlite3) for the Electron ABI via postinstall.
+        run: pnpm install --frozen-lockfile
+
+      - name: Verify
+        run: pnpm verify:headless
+        env:
+          ELECTRON_DISABLE_SANDBOX: '1'
+
+      - name: Upload Playwright artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts
+          path: |
+            playwright-report/
+            test-results/
+          if-no-files-found: ignore
+          retention-days: 7
