@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest'
-import { CreateProductSchema, isValidBagSize } from '@domain/product'
+import {
+  CreateProductSchema,
+  isDefaultBagSizeInCatalog,
+  isValidBagSize,
+  validateBulkDefaultBagSize
+} from '@domain/product'
+import { SEED_BAG_SIZES } from '@domain/types'
 
 describe('CreateProductSchema', () => {
   it('accepts valid bulk product', () => {
@@ -73,44 +79,62 @@ describe('CreateProductSchema', () => {
     })
     expect(result.success).toBe(false)
   })
-})
 
-describe('isValidBagSize', () => {
-  it('accepts 25, 30, 50', () => {
-    expect(isValidBagSize(25)).toBe(true)
-    expect(isValidBagSize(30)).toBe(true)
-    expect(isValidBagSize(50)).toBe(true)
-  })
-
-  it('rejects other values', () => {
-    expect(isValidBagSize(10)).toBe(false)
-    expect(isValidBagSize(100)).toBe(false)
-  })
-
-  it('rejects sizes Settings UI can still add (configurability split)', () => {
-    expect(isValidBagSize(40)).toBe(false)
-    expect(isValidBagSize(20)).toBe(false)
-    expect(isValidBagSize(1)).toBe(false)
-  })
-})
-
-describe('CreateProductSchema bag size membership (current gap)', () => {
-  it('accepts all shipped bag sizes for bulk', () => {
-    for (const kg of [25, 30, 50]) {
+  it('rejects non-positive Default Bag Size shape', () => {
+    for (const kg of [0, -25, 25.5]) {
       const result = CreateProductSchema.safeParse({
-        name: `Dal ${kg}`,
+        name: 'Odd Dal',
         productGroupName: 'Dal',
         type: 'bulk',
         defaultBagSizeKg: kg,
         nameTe: null,
         remarks: null
       })
-      expect(result.success).toBe(true)
+      expect(result.success).toBe(false)
+    }
+  })
+})
+
+describe('isValidBagSize', () => {
+  it('accepts any positive integer kg (catalog membership is separate)', () => {
+    expect(isValidBagSize(25)).toBe(true)
+    expect(isValidBagSize(30)).toBe(true)
+    expect(isValidBagSize(50)).toBe(true)
+    expect(isValidBagSize(40)).toBe(true)
+    expect(isValidBagSize(1)).toBe(true)
+  })
+
+  it('rejects non-positive and non-integer values', () => {
+    expect(isValidBagSize(0)).toBe(false)
+    expect(isValidBagSize(-25)).toBe(false)
+    expect(isValidBagSize(10.5)).toBe(false)
+  })
+})
+
+describe('catalog membership on product create', () => {
+  const seed = [...SEED_BAG_SIZES]
+  const with40 = [25, 30, 40, 50]
+
+  it('accepts all seed bag sizes for bulk against the seed catalog', () => {
+    for (const kg of seed) {
+      expect(validateBulkDefaultBagSize('bulk', kg, seed)).toBeNull()
+      expect(isDefaultBagSizeInCatalog(kg, seed)).toBe(true)
     }
   })
 
-  it('does not reject non-shipped bag sizes at schema layer', () => {
-    // Documents: domain schema is looser than DB CHECK (25,30,50) and isValidBagSize
+  it('rejects Default Bag Size 40 when 40 is not in the catalog', () => {
+    expect(validateBulkDefaultBagSize('bulk', 40, seed)).toMatch(
+      /not in the Default Bag Types catalog/
+    )
+    expect(isDefaultBagSizeInCatalog(40, seed)).toBe(false)
+  })
+
+  it('accepts Default Bag Size 40 when 40 is in the catalog', () => {
+    expect(validateBulkDefaultBagSize('bulk', 40, with40)).toBeNull()
+    expect(isDefaultBagSizeInCatalog(40, with40)).toBe(true)
+  })
+
+  it('CreateProductSchema still accepts 40 at shape layer (membership checked with catalog)', () => {
     const result = CreateProductSchema.safeParse({
       name: 'Odd Dal',
       productGroupName: 'Dal',
@@ -120,5 +144,7 @@ describe('CreateProductSchema bag size membership (current gap)', () => {
       remarks: null
     })
     expect(result.success).toBe(true)
+    // Membership is enforced via validateBulkDefaultBagSize / ProductRepo
+    expect(validateBulkDefaultBagSize('bulk', 40, seed)).not.toBeNull()
   })
 })

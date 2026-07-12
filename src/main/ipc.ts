@@ -14,13 +14,13 @@ export function registerIpcHandlers(): void {
     hasCustomerReferences: (id) => customerHasReferences(db, id),
     hasProductReferences: () => false
   })
-  const products = new ProductRepo(db, {
+  const settings = new SettingsRepo(db)
+  const products = new ProductRepo(db, settings, {
     hasCustomerReferences: () => false,
     hasProductReferences: (id) => productHasReferences(db, id)
   })
   const transactions = new TransactionRepo(db)
   const businessDay = new BusinessDayRepo(db)
-  const settings = new SettingsRepo(db)
   const drafts = new DraftRepo(db, settings)
 
   // ── Customers ──────────────────────────────────────────────

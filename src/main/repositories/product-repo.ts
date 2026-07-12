@@ -7,6 +7,8 @@ import type {
   DeleteCheck
 } from '../../domain/types'
 import { nullReferenceChecker, type ReferenceChecker } from '../../domain/types'
+import { validateBulkDefaultBagSize } from '../../domain/product'
+import type { SettingsRepo } from './settings-repo'
 
 interface ProductRow {
   id: number
@@ -28,7 +30,7 @@ function rowToProduct(row: ProductRow): Product {
     productGroupId: row.product_group_id,
     productGroupName: row.product_group_name,
     type: row.type,
-    defaultBagSizeKg: row.default_bag_size_kg as Product['defaultBagSizeKg'],
+    defaultBagSizeKg: row.default_bag_size_kg,
     nameTe: row.name_te,
     remarks: row.remarks,
     createdAt: row.created_at,
@@ -41,6 +43,7 @@ export class ProductRepo {
 
   constructor(
     private db: Database,
+    private settings: SettingsRepo,
     refChecker?: ReferenceChecker
   ) {
     this.refChecker = refChecker ?? nullReferenceChecker
@@ -71,6 +74,10 @@ export class ProductRepo {
   }
 
   create(input: CreateProductInput): Product {
+    const catalog = this.settings.get().bagTypes
+    const reason = validateBulkDefaultBagSize(input.type, input.defaultBagSizeKg, catalog)
+    if (reason) throw new Error(reason)
+
     const groupId = this.resolveProductGroup(input.productGroupName)
     const result = this.db
       .prepare(

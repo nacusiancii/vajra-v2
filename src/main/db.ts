@@ -41,8 +41,10 @@ const SCHEMA = `
     name                 TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     product_group_id     INTEGER NOT NULL REFERENCES product_group(id),
     type                 TEXT    NOT NULL CHECK (type IN ('packaged', 'bulk')),
+    -- Default Bag Size: positive integer kg from Settings Default Bag Types catalog
+    -- (not a closed 25/30/50 set — membership enforced in domain/repo layer).
     default_bag_size_kg  INTEGER CHECK (
-      (type = 'bulk'     AND default_bag_size_kg IS NOT NULL AND default_bag_size_kg IN (25, 30, 50))
+      (type = 'bulk'     AND default_bag_size_kg IS NOT NULL AND default_bag_size_kg > 0)
       OR
       (type = 'packaged' AND default_bag_size_kg IS NULL)
     ),
@@ -158,6 +160,52 @@ function migrate(database: Database.Database): void {
   if (!txnColumns.some((c) => c.name === 'discount_amount')) {
     database.exec(`ALTER TABLE txn ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`)
   }
+
+  // #63: Default Bag Size is any positive integer kg from the Settings catalog,
+  // not the old closed CHECK (25, 30, 50). SQLite cannot ALTER CHECK — rebuild.
+  migrateProductDefaultBagSizeCheck(database)
+}
+
+/**
+ * Rebuild `product` when the table still has the closed bag-size CHECK.
+ * Detected via sqlite_master SQL text; no-op once already migrated / fresh schema.
+ */
+function migrateProductDefaultBagSizeCheck(database: Database.Database): void {
+  const row = database
+    .prepare(`SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'product'`)
+    .get() as { sql: string } | undefined
+  if (!row?.sql) return
+  // Old schema only: default_bag_size_kg IN (25, 30, 50)
+  if (!row.sql.includes('default_bag_size_kg IN (25, 30, 50)')) return
+
+  database.pragma('foreign_keys = OFF')
+  const rebuild = database.transaction(() => {
+    database.exec(`
+      CREATE TABLE product__new (
+        id                   INTEGER PRIMARY KEY AUTOINCREMENT,
+        name                 TEXT    NOT NULL UNIQUE COLLATE NOCASE,
+        product_group_id     INTEGER NOT NULL REFERENCES product_group(id),
+        type                 TEXT    NOT NULL CHECK (type IN ('packaged', 'bulk')),
+        default_bag_size_kg  INTEGER CHECK (
+          (type = 'bulk'     AND default_bag_size_kg IS NOT NULL AND default_bag_size_kg > 0)
+          OR
+          (type = 'packaged' AND default_bag_size_kg IS NULL)
+        ),
+        name_te              TEXT,
+        remarks              TEXT,
+        created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
+        updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO product__new
+        (id, name, product_group_id, type, default_bag_size_kg, name_te, remarks, created_at, updated_at)
+      SELECT id, name, product_group_id, type, default_bag_size_kg, name_te, remarks, created_at, updated_at
+      FROM product;
+      DROP TABLE product;
+      ALTER TABLE product__new RENAME TO product;
+    `)
+  })
+  rebuild()
+  database.pragma('foreign_keys = ON')
 }
 
 /**

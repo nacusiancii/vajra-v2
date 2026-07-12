@@ -1,19 +1,28 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Plus, Settings as SettingsIcon, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSettingsQuery, useUpdateSettings } from '@/queries/operations'
-import type { AppSettings } from '@domain/settings'
-import type { BagSizeKg } from '@domain/types'
+import { useProductsQuery } from '@/queries/products'
+import {
+  addDefaultBagType,
+  isPositiveIntegerKg,
+  removeDefaultBagType,
+  setDefaultBagTypeLoading,
+  type AppSettings
+} from '@domain/settings'
 
 const { data: settings } = useSettingsQuery()
+const { data: products } = useProductsQuery()
 const updateSettings = useUpdateSettings()
 
 const draft = ref<AppSettings | null>(null)
-const newBagSize = ref<number | null>(null)
+const newBagSize = ref<string>('')
+const newLoading = ref<string>('0')
+const bagTypeError = ref<string | null>(null)
 const saved = ref(false)
 
 watch(
@@ -24,25 +33,63 @@ watch(
   { immediate: true }
 )
 
+/** How many Products use each Default Bag Size (for remove guardrails in the UI). */
+const productCountBySize = computed(() => {
+  const map = new Map<number, number>()
+  for (const p of products.value ?? []) {
+    if (p.type === 'bulk' && p.defaultBagSizeKg != null) {
+      map.set(p.defaultBagSizeKg, (map.get(p.defaultBagSizeKg) ?? 0) + 1)
+    }
+  }
+  return map
+})
+
 function loadingRate(size: number): number {
   return draft.value?.loadingChargePerBag[size] ?? 0
 }
+
 function setLoadingRate(size: number, value: number): void {
-  if (draft.value) draft.value.loadingChargePerBag[size] = value
+  if (!draft.value) return
+  const result = setDefaultBagTypeLoading(draft.value, size, value)
+  if ('error' in result) {
+    bagTypeError.value = result.error
+    return
+  }
+  bagTypeError.value = null
+  draft.value = result.settings
 }
 
 function addBagType(): void {
-  const size = newBagSize.value
-  if (!draft.value || !size || size <= 0) return
-  if (!draft.value.bagTypes.includes(size as BagSizeKg)) {
-    draft.value.bagTypes = [...draft.value.bagTypes, size as BagSizeKg].sort((a, b) => a - b)
-    draft.value.loadingChargePerBag[size] = draft.value.loadingChargePerBag[size] ?? 0
+  if (!draft.value) return
+  const raw = newBagSize.value.trim()
+  const size = Number(raw)
+  if (raw === '' || !Number.isFinite(size) || !isPositiveIntegerKg(size)) {
+    bagTypeError.value = 'Default Bag Type kg must be a positive integer'
+    return
   }
-  newBagSize.value = null
+  const loading = Number(newLoading.value)
+  const rate = Number.isFinite(loading) ? loading : 0
+  const result = addDefaultBagType(draft.value, size, rate)
+  if ('error' in result) {
+    bagTypeError.value = result.error
+    return
+  }
+  bagTypeError.value = null
+  draft.value = result.settings
+  newBagSize.value = ''
+  newLoading.value = '0'
 }
 
 function removeBagType(size: number): void {
-  if (draft.value) draft.value.bagTypes = draft.value.bagTypes.filter((b) => b !== size)
+  if (!draft.value) return
+  const inUse = productCountBySize.value.get(size) ?? 0
+  const result = removeDefaultBagType(draft.value, size, inUse)
+  if ('error' in result) {
+    bagTypeError.value = result.error
+    return
+  }
+  bagTypeError.value = null
+  draft.value = result.settings
 }
 
 function save(): void {
@@ -50,10 +97,15 @@ function save(): void {
   // Clone to a plain object — Vue reactive proxies are not structured-cloneable
   // and ipcRenderer.invoke would fail silently from the mutation's perspective.
   const payload = JSON.parse(JSON.stringify(draft.value)) as AppSettings
+  bagTypeError.value = null
   updateSettings.mutate(payload, {
-    onSuccess: () => {
+    onSuccess: (savedSettings) => {
+      draft.value = JSON.parse(JSON.stringify(savedSettings)) as AppSettings
       saved.value = true
       setTimeout(() => (saved.value = false), 2000)
+    },
+    onError: (err) => {
+      bagTypeError.value = err instanceof Error ? err.message : 'Failed to save settings'
     }
   })
 }
@@ -127,11 +179,13 @@ function save(): void {
       </div>
     </section>
 
-    <!-- Bag Types + Loading Charges -->
+    <!-- Default Bag Types + Loading Charges -->
     <section class="space-y-3">
-      <h2 class="font-semibold">Bag Types &amp; Loading Charges</h2>
+      <h2 class="font-semibold">Default Bag Types &amp; Loading Charges</h2>
       <p class="text-sm text-muted-foreground">
-        Loading Charge is a rupee rate per bag, applied per Bag Type when opted in on a Sale.
+        Shop-managed catalog of standard pack weights. Used as Product Default Bag Size and as
+        one-tap bag choices on Sale and Purchase. Loading Charge is ₹ per bag when opted in on a
+        Sale. kg cannot be changed after add — only the loading rate is editable.
       </p>
       <div class="space-y-2">
         <div
@@ -157,26 +211,58 @@ function save(): void {
             variant="ghost"
             size="icon"
             :data-testid="`bag-type-remove-${size}`"
+            :title="
+              (productCountBySize.get(size) ?? 0) > 0
+                ? 'In use as a Product Default Bag Size'
+                : draft.bagTypes.length <= 1
+                  ? 'Cannot remove the last Default Bag Type'
+                  : 'Remove Default Bag Type'
+            "
             @click="removeBagType(size)"
           >
             <Trash2 class="size-4 text-destructive" />
           </Button>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <Input
-          type="number"
-          min="0"
-          class="w-32"
-          :model-value="newBagSize ?? ''"
-          placeholder="New kg"
-          data-testid="new-bag-size"
-          @update:model-value="newBagSize = $event === '' ? null : Number($event)"
-        />
+      <div class="flex flex-wrap items-end gap-2">
+        <div class="grid gap-1">
+          <Label class="text-xs text-muted-foreground" for="new-bag-size">kg</Label>
+          <Input
+            id="new-bag-size"
+            type="number"
+            min="1"
+            step="1"
+            class="w-28"
+            :model-value="newBagSize"
+            placeholder="e.g. 40"
+            data-testid="new-bag-size"
+            @update:model-value="newBagSize = String($event)"
+          />
+        </div>
+        <div class="grid gap-1">
+          <Label class="text-xs text-muted-foreground" for="new-bag-loading">₹/bag</Label>
+          <Input
+            id="new-bag-loading"
+            type="number"
+            min="0"
+            class="w-28"
+            :model-value="newLoading"
+            data-testid="new-bag-loading"
+            @update:model-value="newLoading = String($event)"
+          />
+        </div>
         <Button variant="outline" size="sm" data-testid="add-bag-type" @click="addBagType">
-          <Plus class="mr-2 size-4" /> Add Bag Type
+          <Plus class="mr-2 size-4" /> Add Default Bag Type
         </Button>
       </div>
+      <p
+        v-if="bagTypeError"
+        class="text-sm text-destructive"
+        data-testid="bag-type-error"
+        role="alert"
+      >
+        {{ bagTypeError }}
+      </p>
     </section>
 
     <div class="flex items-center gap-3 border-t pt-4">
