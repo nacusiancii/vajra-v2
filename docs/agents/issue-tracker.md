@@ -25,6 +25,4 @@ Run `gh issue view <number> --comments`.
 
 A big feature is tracked as an **epic**: a parent issue labeled `epic` whose body holds the shared understanding of the feature (the outcome we want, the decisions made, the reasoning) and a task list of child issues (`- [ ] #NN`) so GitHub tracks progress. Child issues reference the parent in a `## Parent` section. The workflow — when to declare an epic, how it moves — lives in the triage skill.
 
-## Legacy `.scratch/` tracker
 
-Before moving to GitHub Issues, issues and PRDs for this repo lived as markdown files under `.scratch/`. Anything still there is historical reference — don't add new issues or PRDs to it. If work resumes on an open `.scratch/issues/` file, move its content to a GitHub issue first.
