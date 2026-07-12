@@ -3,8 +3,8 @@
  *
  * These types use the glossary from CONTEXT.md exactly.
  * "Product type" = Packaged | Bulk.
- * "Bag Type" = a standard pack weight (stored as grams; 25/30/50 kg in v2).
- * "Default Bag Size" = the Bag Type a Bulk Product's stock is measured against.
+ * "Default Bag Size" = the pack weight (grams) a bagged Bulk line uses;
+ * Loose Lines carry raw kg with no bag size.
  */
 
 import type { BagSizeG } from './units'
