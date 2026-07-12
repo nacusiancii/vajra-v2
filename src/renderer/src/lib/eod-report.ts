@@ -11,18 +11,15 @@ import {
   type InventoryRow,
   type Txn
 } from '@domain/transaction'
-import { paiseToRupees, stockGToDefaultBags } from '@domain/units'
+import { paiseToRupees } from '@domain/units'
+import { formatStockQty } from '@/lib/format'
 
 function rupees(paise: number): string {
   return `₹${paiseToRupees(paise).toFixed(2)}`
 }
 
 function stockQty(row: InventoryRow, qty: number): string {
-  if (row.productType === 'bulk' && row.defaultBagSizeG) {
-    const bags = stockGToDefaultBags(qty, row.defaultBagSizeG)
-    return Number.isInteger(bags) ? String(bags) : bags.toFixed(2).replace(/\.?0+$/, '')
-  }
-  return Number.isInteger(qty) ? String(qty) : qty.toFixed(2).replace(/\.?0+$/, '')
+  return formatStockQty(qty, row.productType, row.defaultBagSizeG)
 }
 
 function esc(s: string): string {

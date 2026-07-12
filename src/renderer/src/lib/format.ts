@@ -18,9 +18,13 @@ export function formatRupees(paise: number): string {
   return RUPEE.format(paiseToRupees(paise))
 }
 
-/** Quantities print without trailing zeros: 1.5, 2, 0.5. */
+/**
+ * Quantities: at most two decimal places, no trailing zeros.
+ * 2 → "2", 1.5 → "1.5", 0.30000000004 → "0.3"
+ */
 export function formatQty(qty: number): string {
-  return Number.isInteger(qty) ? String(qty) : qty.toFixed(2).replace(/\.?0+$/, '')
+  if (!Number.isFinite(qty)) return '0'
+  return qty.toFixed(2).replace(/\.?0+$/, '')
 }
 
 /** Bag Type grams → "25 kg" label. */
@@ -28,7 +32,10 @@ export function formatBagKg(bagSizeG: number): string {
   return `${formatQty(gToKg(bagSizeG))} kg`
 }
 
-/** Inventory / stock: bulk grams → default-bag units; packaged units as-is. */
+/**
+ * Inventory / stock display.
+ * Bulk: grams → default-bag units. Packaged: unit count as-is.
+ */
 export function formatStockQty(
   qty: number,
   productType: 'bulk' | 'packaged',
