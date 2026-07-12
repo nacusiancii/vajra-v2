@@ -71,9 +71,12 @@ pnpm verify
 - `pnpm test` — unit tests (pure domain logic, no Electron, fast)
 - `pnpm test:smoke` — build + Playwright smoke (visible Electron windows)
 - `pnpm test:smoke:headless` — same, under Xvfb (no window flash)
-- `pnpm verify` / `pnpm verify:headless` — lint → typecheck → unit → smoke
+- `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
+- `pnpm verify` / `pnpm verify:headless` — static then smoke
 - `pnpm fix` / `pnpm fix:headless` — lint:fix → format → verify
 ```
+
+CI runs `static` and `smoke` as parallel jobs (eslint cache + Playwright workers).
 
 Agents default to the `:headless` variants. Refer to @package.json for the complete list; use pnpm, avoid npm and npx.
 
