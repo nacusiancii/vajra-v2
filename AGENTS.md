@@ -21,7 +21,7 @@ v1 became prototype-as-architecture. v2 rebuilds the foundation:
 
 And most importantly, if you do end up touching code, leave it in a better state than what you started with 😄.
 
-Before considering a change done, run `pnpm fix` — it fixes lint issues, formats, then runs the full verification suite (`pnpm verify`).
+Before considering a change done, run **`pnpm fix:headless`** — it fixes lint issues, formats, then runs the full verification suite without flashing Electron windows (`pnpm verify:headless`). Prefer `:headless` variants by default. Use `pnpm fix` / `pnpm verify` / `pnpm test:smoke` only when you intentionally want a visible UI (debugging a smoke failure).
 
 ## Agent skills
 
