@@ -48,7 +48,7 @@ interface LineRow {
   product_name: string
   product_type: ProductType
   side: 'single' | 'source' | 'target'
-  bag_size_kg: number | null
+  bag_size_g: number | null
   quintal_rate: number | null
   unit_rate: number | null
   qty: number
@@ -59,14 +59,14 @@ interface LineRow {
 interface ProductMeta {
   id: number
   type: ProductType
-  defaultBagSizeKg: number | null
+  defaultBagSizeG: number | null
 }
 
 /** A computed line ready to insert: stock_delta and line_total already resolved. */
 interface ResolvedLine {
   side: 'single' | 'source' | 'target'
   productId: number
-  bagSizeKg: number | null
+  bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
   qty: number
@@ -87,6 +87,7 @@ const ZERO_DRAWER: DrawerColumns = { cashIn: 0, upiIn: 0, cashOut: 0, upiOut: 0 
  * Owns the transactional ledger: creating each transaction type, listing the open day's
  * transactions, and Edit-as-void-plus-successor (ADR-0007). Stock deltas are computed and
  * stored at write time so the Inventory projection stays a pure SUM (ADR-0005).
+ * All money is integer paise; bulk stock is integer grams.
  */
 export class TransactionRepo {
   constructor(private db: Database) {}
@@ -141,8 +142,6 @@ export class TransactionRepo {
       total,
       creditAmount: input.mode === 'credit' ? total : 0,
       drawer,
-      // The voucher number was minted at print time (reserveVoucherSeq); a Credit Sale
-      // records the last one printed at the final price.
       voucherSeq: input.mode === 'credit' ? input.voucherSeq : null,
       remarks: input.remarks
     })
@@ -174,7 +173,6 @@ export class TransactionRepo {
       0,
       input.additionalCharges
     )
-    // Cash Purchases pay the supplier (money out); Credit Purchases record goods owed.
     const drawer: DrawerColumns =
       input.mode === 'cash'
         ? { cashIn: 0, upiIn: 0, cashOut: input.cashCollected, upiOut: input.upiCollected }
@@ -209,7 +207,6 @@ export class TransactionRepo {
     input: CreateMoneyTxnInput
   ): Txn {
     const parsed = MoneyTxnSchema.parse(input)
-    // Settlement write-off is RE/PA only — reject it on labelled money movements.
     if ((type === 'EX' || type === 'IN') && parsed.discountAmount > 0) {
       throw new Error('Expense and Income cannot carry a discount')
     }
@@ -223,7 +220,6 @@ export class TransactionRepo {
     return this.insert(type, [], {
       customerId: parsed.customerId,
       label: parsed.label,
-      // total is always realized (cash + UPI); discount is stored separately.
       total: moneyRealized(parsed.cashCollected, parsed.upiCollected),
       discountAmount: type === 'RE' || type === 'PA' ? parsed.discountAmount : 0,
       drawer,
@@ -327,7 +323,7 @@ export class TransactionRepo {
         )
 
       const insertLine = this.db.prepare(
-        `INSERT INTO txn_line (txn_id, side, product_id, bag_size_kg, quintal_rate, unit_rate, qty, stock_delta, line_total)
+        `INSERT INTO txn_line (txn_id, side, product_id, bag_size_g, quintal_rate, unit_rate, qty, stock_delta, line_total)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       for (const l of lines) {
@@ -335,7 +331,7 @@ export class TransactionRepo {
           id,
           l.side,
           l.productId,
-          l.bagSizeKg,
+          l.bagSizeG,
           l.quintalRate,
           l.unitRate,
           l.qty,
@@ -360,21 +356,21 @@ export class TransactionRepo {
     const stockDelta = lineStockDelta({
       productType: product.type,
       qty: line.qty,
-      bagSizeKg: line.bagSizeKg,
-      defaultBagSizeKg: product.defaultBagSizeKg,
+      bagSizeG: line.bagSizeG,
+      defaultBagSizeG: product.defaultBagSizeG,
       direction
     })
     const total = lineTotal({
       productType: product.type,
       qty: line.qty,
-      bagSizeKg: line.bagSizeKg,
+      bagSizeG: line.bagSizeG,
       quintalRate: line.quintalRate,
       unitRate: line.unitRate
     })
     return {
       side: 'single',
       productId: line.productId,
-      bagSizeKg: line.bagSizeKg,
+      bagSizeG: line.bagSizeG,
       quintalRate: line.quintalRate,
       unitRate: line.unitRate,
       qty: line.qty,
@@ -384,7 +380,7 @@ export class TransactionRepo {
   }
 
   private resolveTransferLeg(
-    leg: { productId: number; bagSizeKg: number | null; qty: number },
+    leg: { productId: number; bagSizeG: number | null; qty: number },
     products: Map<number, ProductMeta>,
     side: 'source' | 'target',
     direction: 1 | -1
@@ -394,14 +390,14 @@ export class TransactionRepo {
     const stockDelta = lineStockDelta({
       productType: product.type,
       qty: leg.qty,
-      bagSizeKg: leg.bagSizeKg,
-      defaultBagSizeKg: product.defaultBagSizeKg,
+      bagSizeG: leg.bagSizeG,
+      defaultBagSizeG: product.defaultBagSizeG,
       direction
     })
     return {
       side,
       productId: leg.productId,
-      bagSizeKg: leg.bagSizeKg,
+      bagSizeG: leg.bagSizeG,
       quintalRate: null,
       unitRate: null,
       qty: leg.qty,
@@ -412,9 +408,9 @@ export class TransactionRepo {
 
   private productMeta(): Map<number, ProductMeta> {
     const rows = this.db
-      .prepare(`SELECT id, type, default_bag_size_kg AS dbs FROM product`)
+      .prepare(`SELECT id, type, default_bag_size_g AS dbs FROM product`)
       .all() as Array<{ id: number; type: ProductType; dbs: number | null }>
-    return new Map(rows.map((r) => [r.id, { id: r.id, type: r.type, defaultBagSizeKg: r.dbs }]))
+    return new Map(rows.map((r) => [r.id, { id: r.id, type: r.type, defaultBagSizeG: r.dbs }]))
   }
 
   private currentDay(): { id: number; startDate: string } {
@@ -453,7 +449,7 @@ export class TransactionRepo {
       productName: l.product_name,
       productType: l.product_type,
       side: l.side,
-      bagSizeKg: l.bag_size_kg,
+      bagSizeG: l.bag_size_g,
       quintalRate: l.quintal_rate,
       unitRate: l.unit_rate,
       qty: l.qty,

@@ -11,9 +11,15 @@ import {
   type InventoryRow,
   type Txn
 } from '@domain/transaction'
+import { paiseToRupees } from '@domain/units'
+import { formatStockQty } from '@/lib/format'
 
-function rupees(n: number): string {
-  return `₹${n.toFixed(2)}`
+function rupees(paise: number): string {
+  return `₹${paiseToRupees(paise).toFixed(2)}`
+}
+
+function stockQty(row: InventoryRow, qty: number): string {
+  return formatStockQty(qty, row.productType, row.defaultBagSizeG)
 }
 
 function esc(s: string): string {
@@ -60,9 +66,9 @@ export function buildEodReportHtml(
     .map(
       (r) =>
         `<tr><td>${esc(r.productGroupName)}</td><td>${esc(r.productName)}</td>` +
-        `<td class="num">${r.opening}</td><td class="num">${r.purchased}</td>` +
-        `<td class="num">${r.sold}</td><td class="num">${r.transferIn - r.transferOut}</td>` +
-        `<td class="num">${r.closing}</td><td></td><td></td></tr>`
+        `<td class="num">${stockQty(r, r.opening)}</td><td class="num">${stockQty(r, r.purchased)}</td>` +
+        `<td class="num">${stockQty(r, r.sold)}</td><td class="num">${stockQty(r, r.transferIn - r.transferOut)}</td>` +
+        `<td class="num">${stockQty(r, r.closing)}</td><td></td><td></td></tr>`
     )
     .join('')
 

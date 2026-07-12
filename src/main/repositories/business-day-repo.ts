@@ -45,13 +45,13 @@ export class BusinessDayRepo {
     return rowToDay(row)
   }
 
-  /** The live Inventory projection for the open Business Day. */
+  /** The live Inventory projection for the open Business Day (grams / units). */
   inventory(): InventoryRow[] {
     const day = this.current()
 
     const products = this.db
       .prepare(
-        `SELECT p.id, p.name, p.type, p.default_bag_size_kg AS dbs, pg.name AS group_name
+        `SELECT p.id, p.name, p.type, p.default_bag_size_g AS dbs, pg.name AS group_name
          FROM product p JOIN product_group pg ON pg.id = p.product_group_id`
       )
       .all() as Array<{
@@ -67,7 +67,7 @@ export class BusinessDayRepo {
       name: p.name,
       productGroupName: p.group_name,
       type: p.type,
-      defaultBagSizeKg: p.dbs
+      defaultBagSizeG: p.dbs
     }))
 
     const opening = new Map<number, number>()

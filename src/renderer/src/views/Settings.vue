@@ -7,13 +7,15 @@ import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSettingsQuery, useUpdateSettings } from '@/queries/operations'
 import type { AppSettings } from '@domain/settings'
-import type { BagSizeKg } from '@domain/types'
+import { gToKg, kgToG, paiseToRupees, rupeesToPaise, type BagSizeG } from '@domain/units'
+import { formatBagKg } from '@/lib/format'
 
 const { data: settings } = useSettingsQuery()
 const updateSettings = useUpdateSettings()
 
 const draft = ref<AppSettings | null>(null)
-const newBagSize = ref<number | null>(null)
+/** New bag size typed in kg (cashier unit). */
+const newBagSizeKg = ref<number | null>(null)
 const saved = ref(false)
 
 watch(
@@ -24,33 +26,31 @@ watch(
   { immediate: true }
 )
 
-function loadingRate(size: number): number {
-  return draft.value?.loadingChargePerBag[size] ?? 0
+function loadingRateRupees(sizeG: number): number {
+  return paiseToRupees(draft.value?.loadingChargePerBag[sizeG] ?? 0)
 }
-function setLoadingRate(size: number, value: number): void {
-  if (draft.value) draft.value.loadingChargePerBag[size] = value
+function setLoadingRateRupees(sizeG: number, rupees: number): void {
+  if (draft.value) draft.value.loadingChargePerBag[sizeG] = rupeesToPaise(rupees)
 }
 
 function addBagType(): void {
-  const size = newBagSize.value
-  if (!draft.value || !size || size <= 0) return
-  if (!draft.value.bagTypes.includes(size as BagSizeKg)) {
-    draft.value.bagTypes = [...draft.value.bagTypes, size as BagSizeKg].sort((a, b) => a - b)
-    draft.value.loadingChargePerBag[size] = draft.value.loadingChargePerBag[size] ?? 0
+  const kg = newBagSizeKg.value
+  if (!draft.value || !kg || kg <= 0) return
+  const sizeG = kgToG(kg) as BagSizeG
+  if (!draft.value.bagTypes.includes(sizeG)) {
+    draft.value.bagTypes = [...draft.value.bagTypes, sizeG].sort((a, b) => a - b)
+    draft.value.loadingChargePerBag[sizeG] = draft.value.loadingChargePerBag[sizeG] ?? 0
   }
-  newBagSize.value = null
+  newBagSizeKg.value = null
 }
 
-function removeBagType(size: number): void {
-  if (draft.value) draft.value.bagTypes = draft.value.bagTypes.filter((b) => b !== size)
+function removeBagType(sizeG: number): void {
+  if (draft.value) draft.value.bagTypes = draft.value.bagTypes.filter((b) => b !== sizeG)
 }
 
 function save(): void {
   if (!draft.value) return
-  // Clone to a plain object — Vue reactive proxies are not structured-cloneable
-  // and ipcRenderer.invoke would fail silently from the mutation's perspective.
   const payload = JSON.parse(JSON.stringify(draft.value)) as AppSettings
-  // Toggle is disabled; keep payload aligned with the forced server-side lock (#22).
   payload.printerlessMode = true
   updateSettings.mutate(payload, {
     onSuccess: () => {
@@ -72,7 +72,6 @@ function save(): void {
       <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
     </div>
 
-    <!-- Shop identity -->
     <section class="space-y-2">
       <h2 class="font-semibold">Shop</h2>
       <div class="grid gap-2">
@@ -90,7 +89,6 @@ function save(): void {
       </div>
     </section>
 
-    <!-- Printerless Mode: locked until #28 (thermal print) -->
     <section class="space-y-2">
       <h2 class="font-semibold">Printing</h2>
       <label
@@ -106,7 +104,6 @@ function save(): void {
       </label>
     </section>
 
-    <!-- Draft capacity (ADR-0010) -->
     <section class="space-y-2">
       <h2 class="font-semibold">Drafts</h2>
       <div class="grid gap-2">
@@ -126,7 +123,6 @@ function save(): void {
       </div>
     </section>
 
-    <!-- Bag Types + Loading Charges -->
     <section class="space-y-3">
       <h2 class="font-semibold">Bag Types &amp; Loading Charges</h2>
       <p class="text-sm text-muted-foreground">
@@ -134,29 +130,29 @@ function save(): void {
       </p>
       <div class="space-y-2">
         <div
-          v-for="size in draft.bagTypes"
-          :key="size"
+          v-for="sizeG in draft.bagTypes"
+          :key="sizeG"
           class="flex items-center gap-3 rounded-md border p-2"
           data-testid="bag-type-row"
-          :data-bag-size="size"
+          :data-bag-size="gToKg(sizeG)"
         >
-          <span class="w-20 font-medium tabular-nums">{{ size }} kg</span>
+          <span class="w-20 font-medium tabular-nums">{{ formatBagKg(sizeG) }}</span>
           <div class="flex flex-1 items-center gap-2">
             <Label class="text-xs text-muted-foreground">₹/bag</Label>
             <Input
               type="number"
               min="0"
               class="w-28"
-              :model-value="loadingRate(size)"
-              :data-testid="`bag-type-rate-${size}`"
-              @update:model-value="setLoadingRate(size, Number($event) || 0)"
+              :model-value="loadingRateRupees(sizeG)"
+              :data-testid="`bag-type-rate-${gToKg(sizeG)}`"
+              @update:model-value="setLoadingRateRupees(sizeG, Number($event) || 0)"
             />
           </div>
           <Button
             variant="ghost"
             size="icon"
-            :data-testid="`bag-type-remove-${size}`"
-            @click="removeBagType(size)"
+            :data-testid="`bag-type-remove-${gToKg(sizeG)}`"
+            @click="removeBagType(sizeG)"
           >
             <Trash2 class="size-4 text-destructive" />
           </Button>
@@ -167,10 +163,10 @@ function save(): void {
           type="number"
           min="0"
           class="w-32"
-          :model-value="newBagSize ?? ''"
+          :model-value="newBagSizeKg ?? ''"
           placeholder="New kg"
           data-testid="new-bag-size"
-          @update:model-value="newBagSize = $event === '' ? null : Number($event)"
+          @update:model-value="newBagSizeKg = $event === '' ? null : Number($event)"
         />
         <Button variant="outline" size="sm" data-testid="add-bag-type" @click="addBagType">
           <Plus class="mr-2 size-4" /> Add Bag Type

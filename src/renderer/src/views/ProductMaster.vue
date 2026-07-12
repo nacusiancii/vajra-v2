@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import ProductDialog from '@/components/product/ProductDialog.vue'
+import { formatBagKg } from '@/lib/format'
 import { useProductMasterStore } from '@/stores/product-master'
 import {
   useProductsQuery,
@@ -185,7 +186,7 @@ function handleDelete(id: number): void {
               <Badge variant="secondary" class="capitalize">{{ product.type }}</Badge>
             </TableCell>
             <TableCell>
-              {{ product.defaultBagSizeKg ? `${product.defaultBagSizeKg} kg` : '—' }}
+              {{ product.defaultBagSizeG ? formatBagKg(product.defaultBagSizeG) : '—' }}
             </TableCell>
             <TableCell>
               <TooltipProvider v-if="!product.nameTe">

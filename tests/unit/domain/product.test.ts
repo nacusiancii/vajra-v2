@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { CreateProductSchema, isValidBagSize } from '@domain/product'
+import { CreateProductSchema, isValidBagSizeG } from '@domain/product'
 
 describe('CreateProductSchema', () => {
   it('accepts valid bulk product', () => {
@@ -7,7 +7,7 @@ describe('CreateProductSchema', () => {
       name: 'Toor Dal Premium',
       productGroupName: 'Toor Dal',
       type: 'bulk',
-      defaultBagSizeKg: 50,
+      defaultBagSizeG: 50_000,
       nameTe: null,
       remarks: null
     })
@@ -19,7 +19,7 @@ describe('CreateProductSchema', () => {
       name: 'Atta 1kg',
       productGroupName: 'Flour',
       type: 'packaged',
-      defaultBagSizeKg: null,
+      defaultBagSizeG: null,
       nameTe: null,
       remarks: null
     })
@@ -31,7 +31,7 @@ describe('CreateProductSchema', () => {
       name: 'Toor Dal',
       productGroupName: 'Toor Dal',
       type: 'bulk',
-      defaultBagSizeKg: null,
+      defaultBagSizeG: null,
       nameTe: null,
       remarks: null
     })
@@ -43,7 +43,7 @@ describe('CreateProductSchema', () => {
       name: 'Atta 1kg',
       productGroupName: 'Flour',
       type: 'packaged',
-      defaultBagSizeKg: 25,
+      defaultBagSizeG: 25_000,
       nameTe: null,
       remarks: null
     })
@@ -55,7 +55,7 @@ describe('CreateProductSchema', () => {
       name: '',
       productGroupName: 'Toor Dal',
       type: 'bulk',
-      defaultBagSizeKg: 50,
+      defaultBagSizeG: 50_000,
       nameTe: null,
       remarks: null
     })
@@ -67,7 +67,19 @@ describe('CreateProductSchema', () => {
       name: 'Toor Dal',
       productGroupName: '',
       type: 'bulk',
-      defaultBagSizeKg: 50,
+      defaultBagSizeG: 50_000,
+      nameTe: null,
+      remarks: null
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects bulk with non-shipped bag size', () => {
+    const result = CreateProductSchema.safeParse({
+      name: 'Toor Dal',
+      productGroupName: 'Toor Dal',
+      type: 'bulk',
+      defaultBagSizeG: 40_000,
       nameTe: null,
       remarks: null
     })
@@ -75,50 +87,15 @@ describe('CreateProductSchema', () => {
   })
 })
 
-describe('isValidBagSize', () => {
-  it('accepts 25, 30, 50', () => {
-    expect(isValidBagSize(25)).toBe(true)
-    expect(isValidBagSize(30)).toBe(true)
-    expect(isValidBagSize(50)).toBe(true)
+describe('isValidBagSizeG', () => {
+  it('accepts 25/30/50 kg as grams', () => {
+    expect(isValidBagSizeG(25_000)).toBe(true)
+    expect(isValidBagSizeG(30_000)).toBe(true)
+    expect(isValidBagSizeG(50_000)).toBe(true)
   })
 
-  it('rejects other values', () => {
-    expect(isValidBagSize(10)).toBe(false)
-    expect(isValidBagSize(100)).toBe(false)
-  })
-
-  it('rejects sizes Settings UI can still add (configurability split)', () => {
-    expect(isValidBagSize(40)).toBe(false)
-    expect(isValidBagSize(20)).toBe(false)
-    expect(isValidBagSize(1)).toBe(false)
-  })
-})
-
-describe('CreateProductSchema bag size membership (current gap)', () => {
-  it('accepts all shipped bag sizes for bulk', () => {
-    for (const kg of [25, 30, 50]) {
-      const result = CreateProductSchema.safeParse({
-        name: `Dal ${kg}`,
-        productGroupName: 'Dal',
-        type: 'bulk',
-        defaultBagSizeKg: kg,
-        nameTe: null,
-        remarks: null
-      })
-      expect(result.success).toBe(true)
-    }
-  })
-
-  it('does not reject non-shipped bag sizes at schema layer', () => {
-    // Documents: domain schema is looser than DB CHECK (25,30,50) and isValidBagSize
-    const result = CreateProductSchema.safeParse({
-      name: 'Odd Dal',
-      productGroupName: 'Dal',
-      type: 'bulk',
-      defaultBagSizeKg: 40,
-      nameTe: null,
-      remarks: null
-    })
-    expect(result.success).toBe(true)
+  it('rejects other sizes', () => {
+    expect(isValidBagSizeG(40_000)).toBe(false)
+    expect(isValidBagSizeG(50)).toBe(false)
   })
 })

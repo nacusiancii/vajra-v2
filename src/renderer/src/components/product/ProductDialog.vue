@@ -24,12 +24,13 @@ import {
 import ComboboxField from '@/components/ComboboxField.vue'
 import { isNameTaken } from '@domain/product'
 import {
-  BAG_SIZES,
-  type BagSizeKg,
+  BAG_SIZES_G,
+  type BagSizeG,
   type CreateProductInput,
   type UpdateProductInput,
   type Product
 } from '@domain/types'
+import { gToKg } from '@domain/units'
 import { useProductsQuery, useProductGroupsQuery } from '@/queries/products'
 
 const props = defineProps<{
@@ -54,7 +55,7 @@ const schema = toTypedSchema(
     name: z.string().trim().min(1, 'Name is required'),
     productGroupName: z.string().trim().min(1, 'Product Group is required'),
     type: z.enum(['packaged', 'bulk']),
-    defaultBagSizeKg: z.string().optional().default(''),
+    defaultBagSizeG: z.string().optional().default(''),
     nameTe: z.string().trim().optional().default(''),
     remarks: z.string().trim().optional().default('')
   })
@@ -74,7 +75,7 @@ watch(
           name: p?.name ?? '',
           productGroupName: p?.productGroupName ?? '',
           type: p?.type ?? 'bulk',
-          defaultBagSizeKg: p?.defaultBagSizeKg?.toString() ?? '',
+          defaultBagSizeG: p?.defaultBagSizeG?.toString() ?? '',
           nameTe: p?.nameTe ?? '',
           remarks: p?.remarks ?? ''
         }
@@ -92,7 +93,7 @@ const nameConflict = computed(() => {
 })
 
 const bagSizeError = computed(() => {
-  if (isBulk.value && !values.defaultBagSizeKg) {
+  if (isBulk.value && !values.defaultBagSizeG) {
     return 'Default Bag Size is required for Bulk Products'
   }
   return null
@@ -100,7 +101,7 @@ const bagSizeError = computed(() => {
 
 const onSubmit = handleSubmit((formValues) => {
   if (nameConflict.value) return
-  if (isBulk.value && !formValues.defaultBagSizeKg) return
+  if (isBulk.value && !formValues.defaultBagSizeG) return
 
   if (isEditing.value && props.product) {
     emit('update', props.product.id, {
@@ -114,7 +115,7 @@ const onSubmit = handleSubmit((formValues) => {
       name: formValues.name,
       productGroupName: formValues.productGroupName,
       type: formValues.type,
-      defaultBagSizeKg: isBulk.value ? (Number(formValues.defaultBagSizeKg) as BagSizeKg) : null,
+      defaultBagSizeG: isBulk.value ? (Number(formValues.defaultBagSizeG) as BagSizeG) : null,
       nameTe: formValues.nameTe || null,
       remarks: formValues.remarks || null
     })
@@ -174,7 +175,7 @@ const onSubmit = handleSubmit((formValues) => {
             @update:model-value="
               (v) => {
                 setFieldValue('type', v as 'packaged' | 'bulk')
-                if (v === 'packaged') setFieldValue('defaultBagSizeKg', '')
+                if (v === 'packaged') setFieldValue('defaultBagSizeG', '')
               }
             "
           >
@@ -192,20 +193,22 @@ const onSubmit = handleSubmit((formValues) => {
         <div v-if="isBulk || (isEditing && product?.type === 'bulk')" class="grid gap-2">
           <Label>Default Bag Size *</Label>
           <div v-if="isEditing" class="flex items-center gap-2">
-            <Badge variant="secondary">{{ product?.defaultBagSizeKg }} kg</Badge>
+            <Badge variant="secondary"
+              >{{ product?.defaultBagSizeG ? gToKg(product.defaultBagSizeG) : '' }} kg</Badge
+            >
             <span class="text-xs text-muted-foreground">(cannot be changed)</span>
           </div>
           <Select
             v-else
-            :model-value="values.defaultBagSizeKg"
-            @update:model-value="setFieldValue('defaultBagSizeKg', $event as string)"
+            :model-value="values.defaultBagSizeG"
+            @update:model-value="setFieldValue('defaultBagSizeG', $event as string)"
           >
             <SelectTrigger data-testid="product-bag-size-select">
               <SelectValue placeholder="Select bag size" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem v-for="size in BAG_SIZES" :key="size" :value="String(size)">
-                {{ size }} kg
+              <SelectItem v-for="size in BAG_SIZES_G" :key="size" :value="String(size)">
+                {{ gToKg(size) }} kg
               </SelectItem>
             </SelectContent>
           </Select>

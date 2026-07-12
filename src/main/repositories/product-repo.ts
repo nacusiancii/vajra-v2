@@ -7,6 +7,7 @@ import type {
   DeleteCheck
 } from '../../domain/types'
 import { nullReferenceChecker, type ReferenceChecker } from '../../domain/types'
+import type { BagSizeG } from '../../domain/units'
 
 interface ProductRow {
   id: number
@@ -14,7 +15,7 @@ interface ProductRow {
   product_group_id: number
   product_group_name: string
   type: 'packaged' | 'bulk'
-  default_bag_size_kg: number | null
+  default_bag_size_g: number | null
   name_te: string | null
   remarks: string | null
   created_at: string
@@ -28,7 +29,7 @@ function rowToProduct(row: ProductRow): Product {
     productGroupId: row.product_group_id,
     productGroupName: row.product_group_name,
     type: row.type,
-    defaultBagSizeKg: row.default_bag_size_kg as Product['defaultBagSizeKg'],
+    defaultBagSizeG: row.default_bag_size_g as BagSizeG | null,
     nameTe: row.name_te,
     remarks: row.remarks,
     createdAt: row.created_at,
@@ -74,14 +75,14 @@ export class ProductRepo {
     const groupId = this.resolveProductGroup(input.productGroupName)
     const result = this.db
       .prepare(
-        `INSERT INTO product (name, product_group_id, type, default_bag_size_kg, name_te, remarks)
+        `INSERT INTO product (name, product_group_id, type, default_bag_size_g, name_te, remarks)
          VALUES (?, ?, ?, ?, ?, ?)`
       )
       .run(
         input.name.trim(),
         groupId,
         input.type,
-        input.defaultBagSizeKg,
+        input.defaultBagSizeG,
         input.nameTe,
         input.remarks
       )

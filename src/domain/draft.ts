@@ -5,6 +5,8 @@
  * or Voucher Number, never enters Inventory or drawer totals, and is free to
  * overwrite or delete. Finish goes through the normal create path, then the
  * Draft is dropped.
+ *
+ * Payload money fields are **paise**; bag sizes are **grams** (same as the ledger).
  */
 
 import type { SaleMode } from './transaction'
@@ -15,7 +17,7 @@ export type DraftType = 'SA' | 'PU'
 /** Cart line while parked — rates/qty may still be empty. */
 export interface DraftCartLine {
   productId: number | null
-  bagSizeKg: number | null
+  bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
   qty: number | null

@@ -21,12 +21,12 @@ When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the 
 
 Priority is orthogonal to state. A triaged issue may carry at most one priority label.
 
-| Role (skill)    | Label in our tracker | Meaning                                      |
-| --------------- | -------------------- | -------------------------------------------- |
-| `prio-highest`  | `prio-highest`       | Blocks first demo / ship-critical            |
-| `prio-high`     | `prio-high`          | High priority for the next milestone         |
-| `prio-medium`   | `prio-medium`        | Medium priority                              |
-| `prio-low`      | `prio-low`           | Low priority / parkable until higher work    |
+| Role (skill)   | Label in our tracker | Meaning                                   |
+| -------------- | -------------------- | ----------------------------------------- |
+| `prio-highest` | `prio-highest`       | Blocks first demo / ship-critical         |
+| `prio-high`    | `prio-high`          | High priority for the next milestone      |
+| `prio-medium`  | `prio-medium`        | Medium priority                           |
+| `prio-low`     | `prio-low`           | Low priority / parkable until higher work |
 
 When changing priority, remove the previous `prio-*` label in the same edit so only one remains.
 

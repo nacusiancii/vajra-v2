@@ -9,21 +9,21 @@ import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox
 import { useProductsQuery } from '@/queries/products'
 import { useCreateStockTransfer, useEditStockTransfer } from '@/queries/transactions'
 import {
-  lineKg,
+  lineMassGrams,
   suggestedTransferTargetQty,
   validateTransferLeg,
   type LineProductLookup
 } from '@domain/transaction-rules'
-import { formatQty } from '@/lib/format'
+import { formatBagKg, formatKgFromG } from '@/lib/format'
 import type { CreateStockTransferInput, TransferLegInput } from '@domain/transaction'
 
 interface LegRow {
   productId: number | null
-  bagSizeKg: number | null
+  bagSizeG: number | null
   qty: number | null
 }
 
-const emptyLeg = (): LegRow => ({ productId: null, bagSizeKg: null, qty: null })
+const emptyLeg = (): LegRow => ({ productId: null, bagSizeG: null, qty: null })
 
 const route = useRoute()
 const router = useRouter()
@@ -51,7 +51,7 @@ const productOptions = computed<ComboboxOption[]>(() =>
 const productLookup = computed(() => {
   const map = new Map<number, LineProductLookup>()
   for (const p of productList.value)
-    map.set(p.id, { type: p.type, defaultBagSizeKg: p.defaultBagSizeKg })
+    map.set(p.id, { type: p.type, defaultBagSizeG: p.defaultBagSizeG })
   return map
 })
 
@@ -59,21 +59,21 @@ function isBulk(leg: LegRow): boolean {
   return leg.productId != null && productMap.value.get(leg.productId)?.type === 'bulk'
 }
 
-function rowKg(leg: LegRow): number {
+function rowMassG(leg: LegRow): number {
   const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
   if (!p || !leg.qty) return 0
-  return lineKg(p.type, leg.qty, leg.bagSizeKg)
+  return lineMassGrams(p.type, leg.qty, leg.bagSizeG)
 }
 
-const sourceKg = computed(() => rowKg(source.value))
-const targetKg = computed(() => rowKg(target.value))
+const sourceMassG = computed(() => rowMassG(source.value))
+const targetMassG = computed(() => rowMassG(target.value))
 
-/** Suggested target bags from current source kg, if computable. */
+/** Suggested target bags from current source mass, if computable. */
 const suggestedTargetQty = computed(() => {
   const p =
     target.value.productId == null ? undefined : productMap.value.get(target.value.productId)
   if (!p || p.type !== 'bulk') return null
-  return suggestedTransferTargetQty(sourceKg.value, p.defaultBagSizeKg)
+  return suggestedTransferTargetQty(sourceMassG.value, p.defaultBagSizeG)
 })
 
 /** Show re-suggest when a suggestion exists and target qty is not already that value. */
@@ -101,7 +101,7 @@ function onProduct(leg: LegRow, value: number | null, side: 'source' | 'target')
   leg.productId = value
   const p = value == null ? undefined : productMap.value.get(value)
   // Stock Transfers always move Default-Bag-Size bags — no per-leg bag choice.
-  leg.bagSizeKg = p?.type === 'bulk' ? (p.defaultBagSizeKg ?? null) : null
+  leg.bagSizeG = p?.type === 'bulk' ? (p.defaultBagSizeG ?? null) : null
   if (side === 'target') resumeTargetQtySuggestion()
 }
 
@@ -130,7 +130,7 @@ function applySuggestedTargetQty(): void {
 
 function toLegInput(leg: LegRow): TransferLegInput | null {
   if (leg.productId == null) return null
-  return { productId: leg.productId, bagSizeKg: leg.bagSizeKg, qty: leg.qty ?? 0 }
+  return { productId: leg.productId, bagSizeG: leg.bagSizeG, qty: leg.qty ?? 0 }
 }
 
 function buildInput(): CreateStockTransferInput {
@@ -162,7 +162,7 @@ function finish(): void {
   else createTransfer.mutate(input, { onSuccess })
 }
 
-watch(sourceKg, () => applySuggestedTargetQty())
+watch(sourceMassG, () => applySuggestedTargetQty())
 
 watch(
   editId,
@@ -175,7 +175,7 @@ watch(
     const first = (side: 'source' | 'target'): LegRow => {
       const line = txn.lines.find((l) => l.side === side)
       return line
-        ? { productId: line.productId, bagSizeKg: line.bagSizeKg, qty: line.qty }
+        ? { productId: line.productId, bagSizeG: line.bagSizeG, qty: line.qty }
         : emptyLeg()
     }
     source.value = first('source')
@@ -201,8 +201,8 @@ watch(
     <div class="grid gap-6 md:grid-cols-2">
       <div
         v-for="side in [
-          { key: 'source' as const, label: 'From (removed)', leg: source, kg: sourceKg },
-          { key: 'target' as const, label: 'To (added)', leg: target, kg: targetKg }
+          { key: 'source' as const, label: 'From (removed)', leg: source, massG: sourceMassG },
+          { key: 'target' as const, label: 'To (added)', leg: target, massG: targetMassG }
         ]"
         :key="side.key"
         class="space-y-3 rounded-md border p-4"
@@ -210,9 +210,9 @@ watch(
       >
         <div class="flex items-center justify-between">
           <h2 class="font-semibold">{{ side.label }}</h2>
-          <span class="text-sm text-muted-foreground tabular-nums"
-            >{{ formatQty(side.kg) }} kg</span
-          >
+          <span class="text-sm text-muted-foreground tabular-nums">{{
+            formatKgFromG(side.massG)
+          }}</span>
         </div>
         <div class="flex flex-wrap items-center gap-2" data-testid="transfer-leg">
           <div class="min-w-[12rem] flex-1">
@@ -227,11 +227,11 @@ watch(
             />
           </div>
           <span
-            v-if="isBulk(side.leg)"
+            v-if="isBulk(side.leg) && side.leg.bagSizeG"
             class="w-16 shrink-0 text-center text-sm text-muted-foreground"
             data-testid="transfer-bag"
           >
-            {{ side.leg.bagSizeKg }}kg
+            {{ formatBagKg(side.leg.bagSizeG) }}
           </span>
           <Input
             type="number"
@@ -247,7 +247,7 @@ watch(
             class="w-24 shrink-0 text-right text-sm text-muted-foreground tabular-nums"
             data-testid="transfer-leg-kg"
           >
-            {{ rowKg(side.leg) > 0 ? `${formatQty(rowKg(side.leg))} kg` : '' }}
+            {{ rowMassG(side.leg) > 0 ? formatKgFromG(rowMassG(side.leg)) : '' }}
           </span>
         </div>
       </div>
@@ -255,11 +255,14 @@ watch(
 
     <div class="flex flex-col items-center gap-1 text-sm text-muted-foreground">
       <div class="flex items-center justify-center gap-2">
-        <span class="tabular-nums">{{ formatQty(sourceKg) }} kg</span>
+        <span class="tabular-nums">{{ formatKgFromG(sourceMassG) }}</span>
         <ArrowRight class="size-4" />
-        <span class="tabular-nums">{{ formatQty(targetKg) }} kg</span>
-        <span v-if="sourceKg !== targetKg && (sourceKg || targetKg)" class="text-amber-600">
-          (yield difference {{ formatQty(targetKg - sourceKg) }} kg)
+        <span class="tabular-nums">{{ formatKgFromG(targetMassG) }}</span>
+        <span
+          v-if="sourceMassG !== targetMassG && (sourceMassG || targetMassG)"
+          class="text-amber-600"
+        >
+          (yield difference {{ formatKgFromG(targetMassG - sourceMassG) }})
         </span>
         <TooltipProvider v-if="canResuggestTargetQty" :delay-duration="300">
           <Tooltip>

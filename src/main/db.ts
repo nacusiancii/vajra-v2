@@ -1,14 +1,32 @@
 import Database from 'better-sqlite3'
+import fs from 'node:fs'
 import path from 'node:path'
 import { app } from 'electron'
 
 let db: Database.Database | null = null
+
+/**
+ * Schema version, stored in SQLite's \`PRAGMA user_version\`. Bump when the schema
+ * changes and add a step to MIGRATIONS that upgrades from the previous version.
+ */
+const SCHEMA_VERSION = 1
+
+/**
+ * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
+ * Each step runs inside a transaction together with its user_version bump.
+ * None exist yet — v1 is the first versioned schema.
+ */
+const MIGRATIONS: Record<number, (database: Database.Database) => void> = {}
 
 function getDbPath(): string {
   const dir = process.env.VAJRA_USER_DATA || app.getPath('userData')
   return path.join(dir, 'vajra.db')
 }
 
+/**
+ * Integer ledger schema (paise + grams).
+ * Money columns and rates are INTEGER paise; bag sizes and bulk stock are INTEGER grams.
+ */
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS place (
     id          INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -41,10 +59,10 @@ const SCHEMA = `
     name                 TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     product_group_id     INTEGER NOT NULL REFERENCES product_group(id),
     type                 TEXT    NOT NULL CHECK (type IN ('packaged', 'bulk')),
-    default_bag_size_kg  INTEGER CHECK (
-      (type = 'bulk'     AND default_bag_size_kg IS NOT NULL AND default_bag_size_kg IN (25, 30, 50))
+    default_bag_size_g   INTEGER CHECK (
+      (type = 'bulk'     AND default_bag_size_g IS NOT NULL AND default_bag_size_g IN (25000, 30000, 50000))
       OR
-      (type = 'packaged' AND default_bag_size_kg IS NULL)
+      (type = 'packaged' AND default_bag_size_g IS NULL)
     ),
     name_te              TEXT,
     remarks              TEXT,
@@ -66,7 +84,8 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS opening_stock (
     business_day_id  INTEGER NOT NULL REFERENCES business_day(id),
     product_id       INTEGER NOT NULL REFERENCES product(id),
-    qty              REAL    NOT NULL,
+    -- Bulk: grams. Packaged: unit count.
+    qty              INTEGER NOT NULL,
     PRIMARY KEY (business_day_id, product_id)
   );
 
@@ -82,16 +101,16 @@ const SCHEMA = `
     walkin_place        TEXT,
     walkin_phone        TEXT,
     label               TEXT,
-    cash_in             REAL    NOT NULL DEFAULT 0,
-    upi_in              REAL    NOT NULL DEFAULT 0,
-    cash_out            REAL    NOT NULL DEFAULT 0,
-    upi_out             REAL    NOT NULL DEFAULT 0,
-    additional_charges  REAL    NOT NULL DEFAULT 0,
-    loading_charges     REAL    NOT NULL DEFAULT 0,
-    total               REAL    NOT NULL DEFAULT 0,
-    credit_amount       REAL    NOT NULL DEFAULT 0,
-    -- Settlement write-off in rupees for RE/PA; 0 for all other types.
-    discount_amount     REAL    NOT NULL DEFAULT 0,
+    cash_in             INTEGER NOT NULL DEFAULT 0,
+    upi_in              INTEGER NOT NULL DEFAULT 0,
+    cash_out            INTEGER NOT NULL DEFAULT 0,
+    upi_out             INTEGER NOT NULL DEFAULT 0,
+    additional_charges  INTEGER NOT NULL DEFAULT 0,
+    loading_charges     INTEGER NOT NULL DEFAULT 0,
+    total               INTEGER NOT NULL DEFAULT 0,
+    credit_amount       INTEGER NOT NULL DEFAULT 0,
+    -- Settlement write-off in paise for RE/PA; 0 for all other types.
+    discount_amount     INTEGER NOT NULL DEFAULT 0,
     remarks             TEXT,
     voided              INTEGER NOT NULL DEFAULT 0,
     successor_id        TEXT    REFERENCES txn(id),
@@ -103,12 +122,13 @@ const SCHEMA = `
     txn_id        TEXT    NOT NULL REFERENCES txn(id) ON DELETE CASCADE,
     side          TEXT    NOT NULL DEFAULT 'single' CHECK (side IN ('single','source','target')),
     product_id    INTEGER NOT NULL REFERENCES product(id),
-    bag_size_kg   INTEGER,
-    quintal_rate  REAL,
-    unit_rate     REAL,
+    bag_size_g    INTEGER,
+    quintal_rate  INTEGER,
+    unit_rate     INTEGER,
     qty           REAL    NOT NULL,
-    stock_delta   REAL    NOT NULL,
-    line_total    REAL    NOT NULL DEFAULT 0
+    -- Bulk: grams. Packaged: units.
+    stock_delta   INTEGER NOT NULL,
+    line_total    INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE INDEX IF NOT EXISTS idx_txn_day      ON txn(business_day_id);
@@ -133,31 +153,88 @@ const SCHEMA = `
   CREATE INDEX IF NOT EXISTS idx_draft_day ON draft(business_day_id);
 `
 
+/**
+ * Delete the DB and its WAL/SHM siblings. Throws on failure — a half-wiped DB
+ * must never be silently reopened and stamped with the current version.
+ */
+function wipeDbFiles(dbPath: string): void {
+  for (const suffix of ['', '-wal', '-shm']) {
+    fs.rmSync(`${dbPath}${suffix}`, { force: true })
+  }
+}
+
+function userVersion(database: Database.Database): number {
+  return database.pragma('user_version', { simple: true }) as number
+}
+
+function hasTables(database: Database.Database): boolean {
+  const row = database.prepare(`SELECT count(*) AS n FROM sqlite_master`).get() as { n: number }
+  return row.n > 0
+}
+
+function open(dbPath: string): Database.Database {
+  const database = new Database(dbPath)
+  database.pragma('journal_mode = WAL')
+  database.pragma('foreign_keys = ON')
+  return database
+}
+
+/**
+ * Open the database at SCHEMA_VERSION.
+ *
+ * - Fresh (no tables): create the current schema, stamp the version.
+ * - Pre-version (tables but user_version 0): wipe and start fresh. This is a
+ *   development-phase decision to move fast, not a migration strategy — it fires
+ *   only on this positive determination, never on open/read errors.
+ * - Older version: run MIGRATIONS stepwise; a missing step fails loudly.
+ * - Newer version (file from a newer app): fail loudly. Never wipe versioned data.
+ */
+function openAtCurrentVersion(dbPath: string): Database.Database {
+  fs.mkdirSync(path.dirname(dbPath), { recursive: true })
+
+  let database = open(dbPath)
+  if (userVersion(database) === 0 && hasTables(database)) {
+    database.close()
+    wipeDbFiles(dbPath)
+    database = open(dbPath)
+  }
+
+  const version = userVersion(database)
+  if (version > SCHEMA_VERSION) {
+    database.close()
+    throw new Error(
+      `Database is schema v${version}, newer than this app's v${SCHEMA_VERSION} — update the app`
+    )
+  }
+
+  if (version === 0) {
+    database.transaction(() => {
+      database.exec(SCHEMA)
+      database.pragma(`user_version = ${SCHEMA_VERSION}`)
+    })()
+    return database
+  }
+
+  for (let v = version; v < SCHEMA_VERSION; v++) {
+    const step = MIGRATIONS[v]
+    if (!step) {
+      database.close()
+      throw new Error(`No migration from schema v${v} to v${v + 1}`)
+    }
+    database.transaction(() => {
+      step(database)
+      database.pragma(`user_version = ${v + 1}`)
+    })()
+  }
+  return database
+}
+
 export function getDb(): Database.Database {
   if (!db) {
-    db = new Database(getDbPath())
-    db.pragma('journal_mode = WAL')
-    db.pragma('foreign_keys = ON')
-    db.exec(SCHEMA)
-    migrate(db)
+    db = openAtCurrentVersion(getDbPath())
     ensureOpenBusinessDay(db)
   }
   return db
-}
-
-/** Additive, idempotent migrations for databases created before a column existed. */
-function migrate(database: Database.Database): void {
-  const dayColumns = database.prepare(`PRAGMA table_info(business_day)`).all() as Array<{
-    name: string
-  }>
-  if (!dayColumns.some((c) => c.name === 'voucher_counter')) {
-    database.exec(`ALTER TABLE business_day ADD COLUMN voucher_counter INTEGER NOT NULL DEFAULT 0`)
-  }
-
-  const txnColumns = database.prepare(`PRAGMA table_info(txn)`).all() as Array<{ name: string }>
-  if (!txnColumns.some((c) => c.name === 'discount_amount')) {
-    database.exec(`ALTER TABLE txn ADD COLUMN discount_amount REAL NOT NULL DEFAULT 0`)
-  }
 }
 
 /**

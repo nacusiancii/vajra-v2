@@ -1,72 +1,82 @@
 /**
  * Pure pricing and validation rules for the transactional core.
  * Shared by the cart UIs (live totals) and the repository (authoritative write).
+ *
+ * Money arguments and return values are **integer paise**.
+ * Bag sizes are **integer grams**.
  */
 
 import { z } from 'zod'
 import type { ProductType } from './types'
 import type { SaleLineInput, TransferLegInput } from './transaction'
+import { bulkLineTotalPaise, loadingLinePaise, lineMassG, packagedLineTotalPaise } from './units'
 
-const QUINTAL_KG = 100
+/** Mass in grams a single Bulk line moves. Packaged returns 0. */
+export function lineMassGrams(
+  productType: ProductType,
+  qty: number,
+  bagSizeG: number | null
+): number {
+  if (productType !== 'bulk' || !bagSizeG) return 0
+  return lineMassG(qty, bagSizeG)
+}
 
-/** Kilograms a single Bulk line moves: qty bags × bag size. Packaged returns 0 (counted in units). */
-export function lineKg(productType: ProductType, qty: number, bagSizeKg: number | null): number {
-  if (productType !== 'bulk' || !bagSizeKg) return 0
-  return qty * bagSizeKg
+/** Kilograms for a bulk line (display / transfer yield UI). */
+export function lineKg(productType: ProductType, qty: number, bagSizeG: number | null): number {
+  return lineMassGrams(productType, qty, bagSizeG) / 1000
 }
 
 /**
- * Suggested target bag count so source kg lands on the target Product's Default Bag Size.
- * Used by Stock Transfer UI auto-fill; cashier may still override for yield differences.
- * Returns null when not computable (no kg, missing/invalid default bag).
+ * Suggested target bag count so source mass lands on the target Product's Default Bag Size.
+ * sourceMassG and targetDefaultBagSizeG are grams. Returns bag count (may be fractional).
  */
 export function suggestedTransferTargetQty(
-  sourceKg: number,
-  targetDefaultBagSizeKg: number | null
+  sourceMassG: number,
+  targetDefaultBagSizeG: number | null
 ): number | null {
-  if (!(sourceKg > 0) || targetDefaultBagSizeKg == null || !(targetDefaultBagSizeKg > 0)) {
+  if (!(sourceMassG > 0) || targetDefaultBagSizeG == null || !(targetDefaultBagSizeG > 0)) {
     return null
   }
-  return sourceKg / targetDefaultBagSizeKg
+  return sourceMassG / targetDefaultBagSizeG
 }
 
 /**
- * Money total for one line.
- * Bulk: (kg / 100) × Quintal Rate. Packaged: qty × unit rate.
+ * Money total for one line, in paise.
+ * Bulk: (mass_g / quintal_g) × Quintal Rate. Packaged: qty × unit rate.
  */
 export function lineTotal(args: {
   productType: ProductType
   qty: number
-  bagSizeKg: number | null
+  bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
 }): number {
-  const { productType, qty, bagSizeKg, quintalRate, unitRate } = args
+  const { productType, qty, bagSizeG, quintalRate, unitRate } = args
   if (productType === 'bulk') {
-    const kg = lineKg('bulk', qty, bagSizeKg)
-    return (kg / QUINTAL_KG) * (quintalRate ?? 0)
+    const massG = lineMassGrams('bulk', qty, bagSizeG)
+    return bulkLineTotalPaise(massG, quintalRate ?? 0)
   }
-  return qty * (unitRate ?? 0)
+  return packagedLineTotalPaise(qty, unitRate ?? 0)
 }
 
-/** Grand total = sum of line totals + opt-in Loading Charge + Additional Charges. */
+/** Grand total in paise = sum of line totals + opt-in Loading Charge + Additional Charges. */
 export function grandTotal(lineTotals: number[], loading: number, additional: number): number {
   return lineTotals.reduce((a, b) => a + b, 0) + loading + additional
 }
 
 /**
- * Loading Charge for a cart from per-Bag-Type rules. Charged per bag of each Bulk line.
- * Returns 0 when not opted in (empty rules).
+ * Loading Charge for a cart from per-Bag-Type rules (paise per bag, keyed by grams).
+ * Charged per bag of each Bulk line. Returns 0 when not opted in (empty rules).
  */
 export function computeLoadingCharge(
-  lines: Array<{ productType: ProductType; bagSizeKg: number | null; qty: number }>,
-  ratePerBagBySize: Record<number, number>
+  lines: Array<{ productType: ProductType; bagSizeG: number | null; qty: number }>,
+  ratePerBagBySizeG: Record<number, number>
 ): number {
   let total = 0
   for (const l of lines) {
-    if (l.productType !== 'bulk' || !l.bagSizeKg) continue
-    const rate = ratePerBagBySize[l.bagSizeKg] ?? 0
-    total += rate * l.qty
+    if (l.productType !== 'bulk' || !l.bagSizeG) continue
+    const rate = ratePerBagBySizeG[l.bagSizeG] ?? 0
+    total += loadingLinePaise(l.qty, rate)
   }
   return total
 }
@@ -75,7 +85,7 @@ export function computeLoadingCharge(
 
 export interface LineProductLookup {
   type: ProductType
-  defaultBagSizeKg: number | null
+  defaultBagSizeG: number | null
 }
 
 function validateGoodsLine(
@@ -85,7 +95,7 @@ function validateGoodsLine(
   if (!product) return 'Line references an unknown Product'
   if (!(line.qty > 0)) return 'Quantity must be greater than zero'
   if (product.type === 'bulk') {
-    if (!line.bagSizeKg) return 'Bulk lines need a Bag Type'
+    if (!line.bagSizeG) return 'Bulk lines need a Bag Type'
     if (!(typeof line.quintalRate === 'number' && line.quintalRate > 0))
       return 'Bulk lines need a Quintal Rate'
   } else {
@@ -139,15 +149,15 @@ export function validateTransferLeg(
 ): string | null {
   if (!product) return 'Leg references an unknown Product'
   if (!(leg.qty > 0)) return 'Quantity must be greater than zero'
-  if (product.type === 'bulk' && !leg.bagSizeKg) return 'Bulk legs need a Bag Type'
+  if (product.type === 'bulk' && !leg.bagSizeG) return 'Bulk legs need a Bag Type'
   return null
 }
 
 // ── Money movement schema (Receipt / Payment / Expense / Income) ─────────────
 
 /**
- * Authoritative shape for money movements. Cashier enters cash, UPI, and (for RE/PA)
- * discount amount; pure write-off (cash=0, UPI=0, discount>0) is allowed; all-zero is not.
+ * Authoritative shape for money movements. Amounts are integer **paise**.
+ * Pure write-off (cash=0, UPI=0, discount>0) is allowed; all-zero is not.
  * `total` is always derived as cash + UPI — never taken from the client.
  */
 export const MoneyTxnSchema = z
@@ -158,9 +168,9 @@ export const MoneyTxnSchema = z
       .trim()
       .transform((v) => (v === '' ? null : v))
       .nullable(),
-    cashCollected: z.coerce.number().min(0, 'Cash cannot be negative').default(0),
-    upiCollected: z.coerce.number().min(0, 'UPI cannot be negative').default(0),
-    discountAmount: z.coerce.number().min(0, 'Discount cannot be negative').default(0),
+    cashCollected: z.coerce.number().int().min(0, 'Cash cannot be negative').default(0),
+    upiCollected: z.coerce.number().int().min(0, 'UPI cannot be negative').default(0),
+    discountAmount: z.coerce.number().int().min(0, 'Discount cannot be negative').default(0),
     remarks: z
       .string()
       .trim()
