@@ -74,8 +74,27 @@ export const test = base.extend<Fixtures>({
 
 export { expect } from '@playwright/test'
 
-/** Dismiss an auto-opened EntityCombobox filter and wait until its layer is gone. */
+/**
+ * Dismiss an auto-opened EntityCombobox filter and wait until its layer is gone.
+ *
+ * Two races to close:
+ * 1. Auto-focus open is scheduled on nextTick. Escaping before the portal mounts
+ *    is a no-op; openFilter then opens after this helper returns, so a follow-up
+ *    trigger click toggles the picker shut and option clicks race an exit
+ *    animation ("element is not stable" / detached).
+ * 2. Escape starts reka-ui's close animation; the filter placeholder can leave
+ *    the DOM before the portal content finishes animating out. Waiting only on
+ *    the placeholder lets a follow-up click reopen while the old overlay is
+ *    still detaching.
+ *
+ * Wait for the layer to appear, Escape, then for full detach of
+ * `[data-slot="popover-content"]` (preferred settle signal — not a sleep).
+ */
 export async function dismissAutoPicker(page: Page): Promise<void> {
+  const content = page.locator('[data-slot="popover-content"]')
+  // Auto-open must finish before Escape is meaningful.
+  await expect(content).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByPlaceholder(/Type a (customer|product) name/i)).toHaveCount(0)
+  await expect(content).toHaveCount(0)
 }
