@@ -73,7 +73,7 @@ A cart-line option on Sales and Purchases as an alternative to picking a Bag Typ
 _Avoid_: open sale, by-weight line (as a synonym), unpackaged.
 
 **Loading Charge**:
-An opt-in surcharge applied at the cart level on Sales only. Computed from configurable weight breakpoints: an ordered list of { upToKg → charge } plus a charge for anything above the last breakpoint. Default: ≤ 10 kg → ₹0, ≤ 30 kg → ₹10, above → ₹12. Applies **per bag** (each bag of a bag line is charged by its bag weight) and **per Loose line** (the whole loose quantity is one parcel charged by its total kg). Not applied to Purchases.
+An opt-in surcharge applied at the cart level on Sales only. Computed from configurable weight breakpoints: a list of { upToKg → charge } plus a charge for anything above the last breakpoint. Default: ≤ 10 kg → ₹0, ≤ 30 kg → ₹10, above → ₹12. Applies **per bag** (each bag of a bag line is charged by its bag weight) and **per Loose line** (the whole loose quantity is one parcel charged by its total kg). Not applied to Purchases. On a finished transaction the stored Loading Charge is the promised amount printed on the invoice — never recomputed from settings; settings breakpoints only drive suggestions for new carts and Edit successors.
 _Avoid_: Hamali, handling fee.
 
 ### Stock movements

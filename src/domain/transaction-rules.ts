@@ -105,6 +105,10 @@ export interface LineProductLookup {
   defaultBagSizeG: number
 }
 
+function isPositiveIntegerPaise(n: unknown): n is number {
+  return typeof n === 'number' && Number.isInteger(n) && n > 0
+}
+
 function validateGoodsLine(
   line: SaleLineInput,
   product: LineProductLookup | undefined
@@ -113,12 +117,10 @@ function validateGoodsLine(
   if (!(line.qty > 0)) return 'Quantity must be greater than zero'
   if (line.isLoose) {
     if (!(line.qty >= 1 && line.qty <= 50)) return 'Loose quantity must be between 1 and 50 kg'
-    if (!(typeof line.perKgRate === 'number' && line.perKgRate > 0))
-      return 'Loose lines need a price per kg'
+    if (!isPositiveIntegerPaise(line.perKgRate)) return 'Loose lines need a price per kg'
   } else {
     if (!line.bagSizeG) return 'Bag lines need a Bag Type'
-    if (!(typeof line.quintalRate === 'number' && line.quintalRate > 0))
-      return 'Bag lines need a Quintal Rate'
+    if (!isPositiveIntegerPaise(line.quintalRate)) return 'Bag lines need a Quintal Rate'
   }
   return null
 }
@@ -199,3 +201,70 @@ export const MoneyTxnSchema = z
     message: 'Enter cash, UPI, or a discount amount',
     path: ['cashCollected']
   })
+
+// ── Goods write schemas (Sale / Purchase) ────────────────────────────────────
+
+/**
+ * Integer paise ≥ 0. Shape only for money fields at the goods write boundary.
+ * Rate business rules (must be > 0 for the line type) live in validateGoodsLine.
+ */
+const integerPaiseNonNeg = z.number().int().min(0)
+
+/**
+ * One cart line at the write boundary. Rates are integer paise when present.
+ */
+const SaleLineWriteSchema = z.object({
+  productId: z.number().int(),
+  isLoose: z.boolean(),
+  bagSizeG: z.number().int().nullable(),
+  quintalRate: integerPaiseNonNeg.nullable(),
+  perKgRate: integerPaiseNonNeg.nullable(),
+  qty: z.number()
+})
+
+/**
+ * Authoritative write shape for Sales.
+ *
+ * Loading Charge (`loadingCharges`) is the amount **promised** to the customer and
+ * printed on the invoice. The write boundary validates shape only (integer paise ≥ 0)
+ * and does **not** recompute it from settings breakpoints. Settings are a suggestion
+ * engine for new carts and Edit successors (new promises with a reprinted invoice).
+ * `loadingApplied` records the cashier's opt-in even when the promised amount is ₹0.
+ */
+export const SaleWriteSchema = z.object({
+  mode: z.enum(['cash', 'credit']),
+  customerId: z.number().int().nullable(),
+  walkin: z
+    .object({
+      name: z.string(),
+      place: z.string(),
+      phone: z.string().nullable()
+    })
+    .nullable(),
+  lines: z.array(SaleLineWriteSchema),
+  additionalCharges: integerPaiseNonNeg,
+  loadingCharges: integerPaiseNonNeg,
+  loadingApplied: z.boolean(),
+  cashCollected: integerPaiseNonNeg,
+  upiCollected: integerPaiseNonNeg,
+  voucherSeq: z.number().int().nullable(),
+  remarks: z.string().nullable()
+})
+
+/** Authoritative write shape for Purchases (no Loading Charge). */
+export const PurchaseWriteSchema = z.object({
+  mode: z.enum(['cash', 'credit']),
+  customerId: z.number().int().nullable(),
+  walkin: z
+    .object({
+      name: z.string(),
+      place: z.string(),
+      phone: z.string().nullable()
+    })
+    .nullable(),
+  lines: z.array(SaleLineWriteSchema),
+  additionalCharges: integerPaiseNonNeg,
+  cashCollected: integerPaiseNonNeg,
+  upiCollected: integerPaiseNonNeg,
+  remarks: z.string().nullable()
+})

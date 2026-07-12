@@ -136,6 +136,7 @@ describe('summariseDrawer (paise)', () => {
       upiOut: 0,
       additionalCharges: 0,
       loadingCharges: 0,
+      loadingApplied: false,
       total: 0,
       creditAmount: 0,
       discountAmount: 0,

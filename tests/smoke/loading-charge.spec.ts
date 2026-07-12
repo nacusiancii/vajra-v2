@@ -202,6 +202,48 @@ test('loading charge zero band until weight exceeds 10 kg', async ({ page }) => 
   await page.getByTestId('slip-done').click()
 })
 
+test('edit keeps loading opt-in when stored charge is ₹0 (free band)', async ({ page }) => {
+  // Finding: rehydrate from amount (> 0) dropped opt-in on free-band Sales.
+  // Fix: persist loading_applied; Edit must restore the toggle from the flag.
+  test.setTimeout(90_000)
+
+  await configureLoadingDefaults(page)
+  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  await purchaseBulk(page, 'Toor Dal', '6000', '10')
+
+  await startWalkinSale(page, 'Free Band Edit', 'Guntur')
+  await page.getByTestId('cart-add-line').click()
+  await page.getByTestId('cart-product').click()
+  await page.getByRole('option', { name: 'Toor Dal' }).click()
+  // Loose 8 kg → free band → ₹0 loading when opted in
+  await page.getByTestId('cart-loose').click()
+  await page.getByTestId('cart-rate').fill('60')
+  await page.getByTestId('cart-qty').fill('8')
+  await page.getByTestId('sale-apply-loading').click()
+  await expect(page.getByTestId('sale-loading-amount')).toContainText('0.00')
+  await page.getByTestId('sale-finish').click()
+  await expect(page.getByTestId('slip-preview')).toBeVisible()
+  await page.getByTestId('slip-done').click()
+  await expect(page.getByTestId('home-page')).toBeVisible()
+
+  // Edit the live Sale from Home recent list
+  await page.getByTestId('home-txn-row').first().getByTestId('txn-edit').click()
+  await expect(page.getByTestId('sale-page')).toBeVisible()
+  // Toggle must still be on (amount is still ₹0 free band)
+  await expect(page.getByTestId('sale-apply-loading')).toHaveAttribute('data-state', 'checked')
+  await expect(page.getByTestId('sale-loading-amount')).toContainText('0.00')
+
+  // Adding a 50 kg bag under opt-in must now charge loading (successor recomputes)
+  await page.getByTestId('cart-add-line').click()
+  // Second line: product combobox — use last cart-product
+  await page.getByTestId('cart-product').last().click()
+  await page.getByRole('option', { name: 'Toor Dal' }).click()
+  await page.getByTestId('cart-rate').last().fill('6000')
+  await page.getByTestId('cart-qty').last().fill('1')
+  // 50 kg bag → above → ₹12 loading
+  await expect(page.getByTestId('sale-loading-amount')).toContainText('12')
+})
+
 test('loose line: kg × price/kg total, stock delta, loading by total kg', async ({ page }) => {
   test.setTimeout(90_000)
 

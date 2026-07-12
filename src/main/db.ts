@@ -10,7 +10,7 @@ let db: Database.Database | null = null
  * changes. During development (issue #75), older versions are wiped rather than
  * migrated — see openAtCurrentVersion.
  */
-const SCHEMA_VERSION = 2
+const SCHEMA_VERSION = 3
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
@@ -105,6 +105,9 @@ const SCHEMA = `
     upi_out             INTEGER NOT NULL DEFAULT 0,
     additional_charges  INTEGER NOT NULL DEFAULT 0,
     loading_charges     INTEGER NOT NULL DEFAULT 0,
+    -- 1 when cashier opted into Loading Charge on a Sale (even if computed amount is ₹0).
+    -- 0 for Purchases and all other types. Used to rehydrate the cart toggle on Edit.
+    loading_applied     INTEGER NOT NULL DEFAULT 0 CHECK (loading_applied IN (0, 1)),
     total               INTEGER NOT NULL DEFAULT 0,
     credit_amount       INTEGER NOT NULL DEFAULT 0,
     -- Settlement write-off in paise for RE/PA; 0 for all other types.

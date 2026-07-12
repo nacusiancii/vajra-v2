@@ -276,6 +276,7 @@ function buildInput(m: SaleMode): CreateSaleInput {
       })),
     additionalCharges: additionalCharges.value ?? 0,
     loadingCharges: loadingCharge.value,
+    loadingApplied: applyLoading.value,
     cashCollected: m === 'cash' ? cashDue.value : 0,
     upiCollected: m === 'cash' ? (upiCollected.value ?? 0) : 0,
     voucherSeq: m === 'credit' ? printedVoucherSeq.value : null,
@@ -444,7 +445,8 @@ watch(
     walkinPlace.value = txn.walkinPlace ?? ''
     walkinPhone.value = txn.walkinPhone ?? ''
     additionalCharges.value = txn.additionalCharges || null
-    applyLoading.value = txn.loadingCharges > 0
+    // Rehydrate opt-in from the persisted flag — not from amount (₹0 free-band stays on).
+    applyLoading.value = txn.loadingApplied
     upiCollected.value = txn.upiIn || null
     // Keep the existing voucher valid at its recorded price; a price change forces a reprint.
     printedVoucherSeq.value = txn.voucherSeq
