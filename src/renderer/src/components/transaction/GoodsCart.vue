@@ -19,14 +19,15 @@ import {
   TableRow
 } from '@/components/ui/table'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
-import { formatRupees } from '@/lib/format'
-import { lineKg, lineTotal } from '@domain/transaction-rules'
+import { formatBagKg, formatKgFromG, formatRupees } from '@/lib/format'
+import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
+import { lineMassGrams, lineTotal } from '@domain/transaction-rules'
 import type { Product } from '@domain/types'
 
-/** A cart line while being edited — rates may be empty until typed. */
+/** A cart line while being edited — rates may be empty until typed. Rates are paise; bag sizes grams. */
 export interface CartLine {
   productId: number | null
-  bagSizeKg: number | null
+  bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
   qty: number | null
@@ -36,6 +37,7 @@ type Focusable = { focus: () => void }
 
 const props = defineProps<{
   products: Product[]
+  /** Bag Types in grams. */
   bagTypes: number[]
 }>()
 
@@ -82,22 +84,22 @@ function rowTotal(line: CartLine): number {
   return lineTotal({
     productType: p.type,
     qty: line.qty,
-    bagSizeKg: line.bagSizeKg,
+    bagSizeG: line.bagSizeG,
     quintalRate: line.quintalRate,
     unitRate: line.unitRate
   })
 }
 
-function rowKg(line: CartLine): number {
+function rowMassG(line: CartLine): number {
   const p = productOf(line)
   if (!p || !line.qty) return 0
-  return lineKg(p.type, line.qty, line.bagSizeKg)
+  return lineMassGrams(p.type, line.qty, line.bagSizeG)
 }
 
 function addLine(): void {
   lines.value = [
     ...lines.value,
-    { productId: null, bagSizeKg: null, quintalRate: null, unitRate: null, qty: null }
+    { productId: null, bagSizeG: null, quintalRate: null, unitRate: null, qty: null }
   ]
 }
 
@@ -126,7 +128,7 @@ function onProductChange(line: CartLine, value: number | null, index: number): v
   line.productId = value
   const p = productOf(line)
   // Default a Bulk line's bag size to the Product's Default Bag Size; clear for Packaged.
-  line.bagSizeKg = p?.type === 'bulk' ? (p.defaultBagSizeKg ?? null) : null
+  line.bagSizeG = p?.type === 'bulk' ? (p.defaultBagSizeG ?? null) : null
   if (value != null) focusQty(index)
 }
 
@@ -168,16 +170,16 @@ defineExpose({ ensureLineAndFocusProduct })
           <TableCell>
             <Select
               v-if="isBulk(line)"
-              :model-value="line.bagSizeKg == null ? '' : String(line.bagSizeKg)"
-              @update:model-value="line.bagSizeKg = Number($event)"
+              :model-value="line.bagSizeG == null ? '' : String(line.bagSizeG)"
+              @update:model-value="line.bagSizeG = Number($event)"
             >
               <SelectTrigger class="w-full" data-testid="cart-bag">
                 <SelectValue placeholder="Bag" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)"
-                  >{{ b }} kg</SelectItem
-                >
+                <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)">{{
+                  formatBagKg(b)
+                }}</SelectItem>
               </SelectContent>
             </Select>
             <span v-else class="text-sm text-muted-foreground">unit</span>
@@ -198,25 +200,25 @@ defineExpose({ ensureLineAndFocusProduct })
               v-if="isBulk(line)"
               type="number"
               min="0"
-              :model-value="line.quintalRate ?? ''"
+              :model-value="paiseInputValue(line.quintalRate)"
               placeholder="₹/quintal"
               data-testid="cart-rate"
-              @update:model-value="line.quintalRate = $event === '' ? null : Number($event)"
+              @update:model-value="line.quintalRate = parseRupeesInput($event)"
             />
             <Input
               v-else
               type="number"
               min="0"
-              :model-value="line.unitRate ?? ''"
+              :model-value="paiseInputValue(line.unitRate)"
               placeholder="₹/unit"
               data-testid="cart-rate"
-              @update:model-value="line.unitRate = $event === '' ? null : Number($event)"
+              @update:model-value="line.unitRate = parseRupeesInput($event)"
             />
           </TableCell>
           <TableCell class="text-right tabular-nums">
             <div>{{ formatRupees(rowTotal(line)) }}</div>
-            <div v-if="rowKg(line) > 0" class="text-xs text-muted-foreground">
-              {{ rowKg(line) }} kg
+            <div v-if="rowMassG(line) > 0" class="text-xs text-muted-foreground">
+              {{ formatKgFromG(rowMassG(line)) }}
             </div>
           </TableCell>
           <TableCell>

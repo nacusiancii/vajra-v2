@@ -3,14 +3,15 @@
  *
  * These types use the glossary from CONTEXT.md exactly.
  * "Product type" = Packaged | Bulk.
- * "Bag Type" = a standard pack weight (25, 30, 50 kg in v2).
+ * "Bag Type" = a standard pack weight (stored as grams; 25/30/50 kg in v2).
  * "Default Bag Size" = the Bag Type a Bulk Product's stock is measured against.
  */
 
-export type ProductType = 'packaged' | 'bulk'
+import type { BagSizeG } from './units'
+export type { BagSizeG } from './units'
+export { BAG_SIZES_G, isValidBagSizeG } from './units'
 
-export type BagSizeKg = 25 | 30 | 50
-export const BAG_SIZES: readonly BagSizeKg[] = [25, 30, 50] as const
+export type ProductType = 'packaged' | 'bulk'
 
 export interface Place {
   id: number
@@ -41,7 +42,8 @@ export interface Product {
   productGroupId: number
   productGroupName: string
   type: ProductType
-  defaultBagSizeKg: BagSizeKg | null
+  /** Default Bag Size in grams; null for Packaged. */
+  defaultBagSizeG: BagSizeG | null
   nameTe: string | null
   remarks: string | null
   createdAt: string
@@ -63,7 +65,7 @@ export interface CreateProductInput {
   name: string
   productGroupName: string
   type: ProductType
-  defaultBagSizeKg: BagSizeKg | null
+  defaultBagSizeG: BagSizeG | null
   nameTe: string | null
   remarks: string | null
 }

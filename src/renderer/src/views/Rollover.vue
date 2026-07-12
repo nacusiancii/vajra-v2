@@ -22,7 +22,7 @@ import {
 import { useTransactionsQuery } from '@/queries/transactions'
 import { useInventoryQuery, useBusinessDayQuery, useApproveRollover } from '@/queries/operations'
 import { downloadEodReport } from '@/lib/eod-report'
-import { formatQty, formatRupees } from '@/lib/format'
+import { formatRupees, formatStockQty } from '@/lib/format'
 import { summariseDrawer } from '@domain/transaction'
 
 const router = useRouter()
@@ -109,9 +109,11 @@ function approve(): void {
             </TableRow>
             <TableRow v-for="row in inv" :key="row.productId">
               <TableCell>{{ row.productName }}</TableCell>
-              <TableCell class="text-right tabular-nums">{{ formatQty(row.opening) }}</TableCell>
+              <TableCell class="text-right tabular-nums">{{
+                formatStockQty(row.opening, row.productType, row.defaultBagSizeG)
+              }}</TableCell>
               <TableCell class="text-right font-semibold tabular-nums">
-                {{ formatQty(Math.max(0, row.closing)) }}
+                {{ formatStockQty(Math.max(0, row.closing), row.productType, row.defaultBagSizeG) }}
               </TableCell>
             </TableRow>
           </TableBody>

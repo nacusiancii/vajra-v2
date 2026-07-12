@@ -11,7 +11,7 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { useInventoryQuery } from '@/queries/operations'
-import { formatQty } from '@/lib/format'
+import { formatBagKg, formatStockQty } from '@/lib/format'
 import type { InventoryRow } from '@domain/transaction'
 
 const { data: inventory, isLoading } = useInventoryQuery()
@@ -29,7 +29,13 @@ const grouped = computed(() => {
 const hasNegative = computed(() => rows.value.some((r) => r.negative))
 
 function unit(row: InventoryRow): string {
-  return row.productType === 'bulk' ? `bags of ${row.defaultBagSizeKg}kg` : 'units'
+  return row.productType === 'bulk' && row.defaultBagSizeG
+    ? `bags of ${formatBagKg(row.defaultBagSizeG)}`
+    : 'units'
+}
+
+function stock(row: InventoryRow, qty: number): string {
+  return formatStockQty(qty, row.productType, row.defaultBagSizeG)
 }
 </script>
 
@@ -82,15 +88,15 @@ function unit(row: InventoryRow): string {
                 {{ row.productName }}
                 <span class="text-xs text-muted-foreground">({{ unit(row) }})</span>
               </TableCell>
-              <TableCell class="text-right tabular-nums">{{ formatQty(row.opening) }}</TableCell>
-              <TableCell class="text-right tabular-nums">{{ formatQty(row.purchased) }}</TableCell>
-              <TableCell class="text-right tabular-nums">{{ formatQty(row.sold) }}</TableCell>
+              <TableCell class="text-right tabular-nums">{{ stock(row, row.opening) }}</TableCell>
+              <TableCell class="text-right tabular-nums">{{ stock(row, row.purchased) }}</TableCell>
+              <TableCell class="text-right tabular-nums">{{ stock(row, row.sold) }}</TableCell>
               <TableCell class="text-right tabular-nums">
-                {{ formatQty(row.transferIn - row.transferOut) }}
+                {{ stock(row, row.transferIn - row.transferOut) }}
               </TableCell>
               <TableCell class="text-right font-semibold tabular-nums">
                 <span :class="row.negative ? 'text-destructive' : ''">{{
-                  formatQty(row.closing)
+                  stock(row, row.closing)
                 }}</span>
                 <Badge v-if="row.negative" variant="secondary" class="ml-1 text-xs">negative</Badge>
               </TableCell>

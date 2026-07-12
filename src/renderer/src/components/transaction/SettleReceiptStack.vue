@@ -6,7 +6,8 @@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatQty, formatRupees } from '@/lib/format'
+import { formatBagKg, formatQty, formatRupees } from '@/lib/format'
+import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
 import type { LoadingBagBucket } from './loading-buckets'
 
 const props = defineProps<{
@@ -57,8 +58,10 @@ const emit = defineEmits<{
               class="mt-0.5 block space-y-0.5 text-xs text-muted-foreground"
               data-testid="sale-loading-formula"
             >
-              <span v-for="b in props.buckets" :key="b.bagSizeKg" class="block tabular-nums">
-                {{ b.bagSizeKg }}kg:{{ formatQty(b.bagCount) }}×₹{{ formatQty(b.ratePerBag) }}
+              <span v-for="b in props.buckets" :key="b.bagSizeG" class="block tabular-nums">
+                {{ formatBagKg(b.bagSizeG) }}:{{ formatQty(b.bagCount) }}×{{
+                  formatRupees(b.ratePerBag)
+                }}
               </span>
             </span>
           </span>
@@ -79,12 +82,10 @@ const emit = defineEmits<{
         type="number"
         min="0"
         class="h-8 w-28 text-right tabular-nums"
-        :model-value="props.additionalCharges ?? ''"
+        :model-value="paiseInputValue(props.additionalCharges)"
         placeholder="0"
         data-testid="sale-additional"
-        @update:model-value="
-          emit('update:additionalCharges', $event === '' ? null : Number($event))
-        "
+        @update:model-value="emit('update:additionalCharges', parseRupeesInput($event))"
       />
     </div>
   </div>

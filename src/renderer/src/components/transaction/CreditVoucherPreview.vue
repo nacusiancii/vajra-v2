@@ -17,7 +17,7 @@ export interface VoucherLine {
   productName: string
   productType: ProductType
   qty: number
-  bagSizeKg: number | null
+  bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
   lineTotal: number
@@ -56,11 +56,12 @@ const displayDate = computed(() => {
 const breakdowns = computed(() =>
   props.lines.map((line) => {
     const qty = formatQty(line.qty)
-    if (line.productType === 'bulk' && line.bagSizeKg) {
+    if (line.productType === 'bulk' && line.bagSizeG) {
       return {
         productName: line.productName,
         qty,
-        ratio: formatQty(line.bagSizeKg / 100),
+        // bag grams / quintal grams = bag kg / 100
+        ratio: formatQty(line.bagSizeG / 100_000),
         price: formatRupees(line.quintalRate ?? 0),
         total: formatRupees(line.lineTotal)
       }

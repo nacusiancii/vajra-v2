@@ -56,6 +56,7 @@ import {
 } from '@domain/transaction-rules'
 import { validateSaleDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
+import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
 import { userFacingError } from '@/lib/utils'
 import type { CreateSaleInput, SaleMode, Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
@@ -115,7 +116,7 @@ const printGateOpen = ref(false)
 
 const productList = computed(() => products.value ?? [])
 const customerList = computed(() => customers.value ?? [])
-const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
+const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_000])
 
 const isCredit = computed(() => mode.value === 'credit')
 
@@ -164,7 +165,7 @@ const selectedCustomer = computed(() =>
 const productLookup = computed(() => {
   const map = new Map<number, LineProductLookup>()
   for (const p of productList.value)
-    map.set(p.id, { type: p.type, defaultBagSizeKg: p.defaultBagSizeKg })
+    map.set(p.id, { type: p.type, defaultBagSizeG: p.defaultBagSizeG })
   return map
 })
 
@@ -175,7 +176,7 @@ const lineTotals = computed(() =>
     return lineTotal({
       productType: p.type,
       qty: l.qty,
-      bagSizeKg: l.bagSizeKg,
+      bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate
     })
@@ -187,7 +188,7 @@ const bulkLineInputs = computed(() =>
     const p = l.productId == null ? undefined : productLookup.value.get(l.productId)
     return {
       productType: p?.type ?? ('packaged' as const),
-      bagSizeKg: l.bagSizeKg,
+      bagSizeG: l.bagSizeG,
       qty: l.qty ?? 0
     }
   })
@@ -217,10 +218,10 @@ const selectedCustomerName = computed(() => selectedCustomer.value?.name ?? 'Cus
 const selectedCustomerPlace = computed(() => selectedCustomer.value?.placeName ?? '')
 const selectedCustomerPhone = computed(() => selectedCustomer.value?.phone ?? '')
 const voucherPrinted = computed(
-  () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) < 0.01
+  () => printedAtTotal.value !== null && printedAtTotal.value === total.value
 )
 const priceChangedSincePrint = computed(
-  () => printedAtTotal.value !== null && Math.abs(printedAtTotal.value - total.value) >= 0.01
+  () => printedAtTotal.value !== null && printedAtTotal.value !== total.value
 )
 
 /** Snapshot of cart lines for the Credit Voucher back side. */
@@ -234,7 +235,7 @@ const voucherLines = computed<VoucherLine[]>(() =>
         productName: p.name,
         productType: p.type,
         qty: l.qty,
-        bagSizeKg: l.bagSizeKg,
+        bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
         unitRate: l.unitRate,
         lineTotal: lineTotals.value[i] ?? 0
@@ -270,7 +271,7 @@ function buildInput(m: SaleMode): CreateSaleInput {
       .filter((l) => l.productId != null)
       .map((l) => ({
         productId: l.productId as number,
-        bagSizeKg: l.bagSizeKg,
+        bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
         unitRate: l.unitRate,
         qty: l.qty ?? 0
@@ -294,7 +295,7 @@ function buildDraftPayload(m: SaleMode): SaleDraftPayload {
     walkinPhone: walkinPhone.value,
     lines: lines.value.map((l) => ({
       productId: l.productId,
-      bagSizeKg: l.bagSizeKg,
+      bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
       qty: l.qty
@@ -452,7 +453,7 @@ watch(
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
-      bagSizeKg: l.bagSizeKg,
+      bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
       qty: l.qty
@@ -680,15 +681,20 @@ watch(
                   <Input
                     type="number"
                     min="0"
-                    :model-value="upiCollected ?? ''"
+                    :model-value="paiseInputValue(upiCollected)"
                     placeholder="0"
                     data-testid="sale-upi"
-                    @update:model-value="upiCollected = $event === '' ? null : Number($event)"
+                    @update:model-value="upiCollected = parseRupeesInput($event)"
                   />
                 </div>
                 <div class="grid gap-2">
                   <Label>Cash (auto)</Label>
-                  <Input :model-value="cashDue" type="number" disabled data-testid="sale-cash" />
+                  <Input
+                    :model-value="paiseInputValue(cashDue)"
+                    type="number"
+                    disabled
+                    data-testid="sale-cash"
+                  />
                 </div>
               </div>
               <div v-else class="space-y-2" data-testid="credit-voucher-controls">

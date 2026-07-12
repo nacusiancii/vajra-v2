@@ -38,6 +38,7 @@ import {
 } from '@domain/transaction-rules'
 import { validatePurchaseDraftCounterparty, type PurchaseDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
+import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
 import { userFacingError } from '@/lib/utils'
 import type { CreatePurchaseInput, SaleMode } from '@domain/transaction'
 
@@ -82,7 +83,7 @@ watch(customerId, (id) => {
 })
 
 const productList = computed(() => products.value ?? [])
-const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
+const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_000])
 
 const isCredit = computed(() => mode.value === 'credit')
 
@@ -118,7 +119,7 @@ function segmentClass(m: SaleMode): string {
 const productLookup = computed(() => {
   const map = new Map<number, LineProductLookup>()
   for (const p of productList.value)
-    map.set(p.id, { type: p.type, defaultBagSizeKg: p.defaultBagSizeKg })
+    map.set(p.id, { type: p.type, defaultBagSizeG: p.defaultBagSizeG })
   return map
 })
 
@@ -129,7 +130,7 @@ const total = computed(() => {
     return lineTotal({
       productType: p.type,
       qty: l.qty,
-      bagSizeKg: l.bagSizeKg,
+      bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate
     })
@@ -156,7 +157,7 @@ function buildInput(m: SaleMode): CreatePurchaseInput {
       .filter((l) => l.productId != null)
       .map((l) => ({
         productId: l.productId as number,
-        bagSizeKg: l.bagSizeKg,
+        bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
         unitRate: l.unitRate,
         qty: l.qty ?? 0
@@ -178,7 +179,7 @@ function buildDraftPayload(m: SaleMode): PurchaseDraftPayload {
     walkinPhone: walkinPhone.value,
     lines: lines.value.map((l) => ({
       productId: l.productId,
-      bagSizeKg: l.bagSizeKg,
+      bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
       qty: l.qty
@@ -307,7 +308,7 @@ watch(
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
-      bagSizeKg: l.bagSizeKg,
+      bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
       qty: l.qty
@@ -517,10 +518,10 @@ watch(
                 <Input
                   type="number"
                   min="0"
-                  :model-value="additionalCharges ?? ''"
+                  :model-value="paiseInputValue(additionalCharges)"
                   placeholder="0"
                   data-testid="purchase-additional"
-                  @update:model-value="additionalCharges = $event === '' ? null : Number($event)"
+                  @update:model-value="additionalCharges = parseRupeesInput($event)"
                 />
               </div>
 
@@ -530,16 +531,16 @@ watch(
                   <Input
                     type="number"
                     min="0"
-                    :model-value="upiCollected ?? ''"
+                    :model-value="paiseInputValue(upiCollected)"
                     placeholder="0"
                     data-testid="purchase-upi"
-                    @update:model-value="upiCollected = $event === '' ? null : Number($event)"
+                    @update:model-value="upiCollected = parseRupeesInput($event)"
                   />
                 </div>
                 <div class="grid gap-2">
                   <Label>Cash (auto)</Label>
                   <Input
-                    :model-value="cashDue"
+                    :model-value="paiseInputValue(cashDue)"
                     type="number"
                     disabled
                     data-testid="purchase-cash"

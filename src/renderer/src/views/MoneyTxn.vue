@@ -10,6 +10,7 @@ import { useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
 import { MoneyTxnSchema } from '@domain/transaction-rules'
 import { moneyFace, moneyRealized } from '@domain/transaction'
 import { formatRupees } from '@/lib/format'
+import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
 import type { MoneyTxnType } from '@shared/api'
 
 const route = useRoute()
@@ -92,10 +93,6 @@ const face = computed(() =>
   moneyFace(cashCollected.value ?? 0, upiCollected.value ?? 0, discountAmount.value ?? 0)
 )
 
-function parseMoney(value: string | number): number | null {
-  return value === '' ? null : Number(value)
-}
-
 /** Drawer cash/UPI for a money txn (only one side is non-zero). */
 function drawerCash(txn: { cashIn: number; cashOut: number }): number {
   return txn.cashIn || txn.cashOut
@@ -124,7 +121,7 @@ function finish(): void {
     upi = upiCollected.value ?? 0
     cash = cashDue.value
     discount = 0
-    if (Math.abs(cash + upi - faceAmount) >= 0.01) {
+    if (cash + upi !== faceAmount) {
       error.value = 'UPI cannot exceed the amount'
       return
     }
@@ -221,10 +218,10 @@ watch(
         <Input
           type="number"
           min="0"
-          :model-value="amount ?? ''"
+          :model-value="paiseInputValue(amount)"
           placeholder="0"
           data-testid="money-amount"
-          @update:model-value="amount = parseMoney($event)"
+          @update:model-value="amount = parseRupeesInput($event)"
         />
       </div>
 
@@ -234,15 +231,20 @@ watch(
           <Input
             type="number"
             min="0"
-            :model-value="upiCollected ?? ''"
+            :model-value="paiseInputValue(upiCollected)"
             placeholder="0"
             data-testid="money-upi"
-            @update:model-value="upiCollected = parseMoney($event)"
+            @update:model-value="upiCollected = parseRupeesInput($event)"
           />
         </div>
         <div class="grid gap-2">
           <Label>Cash (auto)</Label>
-          <Input :model-value="cashDue" type="number" disabled data-testid="money-cash" />
+          <Input
+            :model-value="paiseInputValue(cashDue)"
+            type="number"
+            disabled
+            data-testid="money-cash"
+          />
         </div>
       </div>
     </template>
@@ -255,10 +257,10 @@ watch(
           <Input
             type="number"
             min="0"
-            :model-value="cashCollected ?? ''"
+            :model-value="paiseInputValue(cashCollected)"
             placeholder="0"
             data-testid="money-cash"
-            @update:model-value="cashCollected = parseMoney($event)"
+            @update:model-value="cashCollected = parseRupeesInput($event)"
           />
         </div>
         <div class="grid gap-2">
@@ -266,10 +268,10 @@ watch(
           <Input
             type="number"
             min="0"
-            :model-value="upiCollected ?? ''"
+            :model-value="paiseInputValue(upiCollected)"
             placeholder="0"
             data-testid="money-upi"
-            @update:model-value="upiCollected = parseMoney($event)"
+            @update:model-value="upiCollected = parseRupeesInput($event)"
           />
         </div>
       </div>
@@ -279,10 +281,10 @@ watch(
         <Input
           type="number"
           min="0"
-          :model-value="discountAmount ?? ''"
+          :model-value="paiseInputValue(discountAmount)"
           placeholder="0"
           data-testid="money-discount"
-          @update:model-value="discountAmount = parseMoney($event)"
+          @update:model-value="discountAmount = parseRupeesInput($event)"
         />
       </div>
 

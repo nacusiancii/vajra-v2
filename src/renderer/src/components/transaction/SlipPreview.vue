@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { formatQty, formatRupees } from '@/lib/format'
-import { lineKg } from '@domain/transaction-rules'
+import { formatBagKg, formatKgFromG, formatQty, formatRupees } from '@/lib/format'
+import { lineMassGrams } from '@domain/transaction-rules'
 import type { Txn } from '@domain/transaction'
 
 const props = defineProps<{
@@ -70,11 +70,11 @@ const counterparty = computed(() => {
             <span class="truncate">
               {{ line.productName }}
               <span
-                v-if="line.productType === 'bulk' && line.bagSizeKg"
+                v-if="line.productType === 'bulk' && line.bagSizeG"
                 class="text-muted-foreground"
               >
-                ({{ formatQty(line.qty) }} × {{ line.bagSizeKg }}kg =
-                {{ lineKg('bulk', line.qty, line.bagSizeKg) }}kg)
+                ({{ formatQty(line.qty) }} × {{ formatBagKg(line.bagSizeG) }} =
+                {{ formatKgFromG(lineMassGrams('bulk', line.qty, line.bagSizeG)) }})
               </span>
               <span v-else class="text-muted-foreground">× {{ formatQty(line.qty) }}</span>
             </span>

@@ -4,9 +4,12 @@
  * Uses the glossary from CONTEXT.md exactly. The functions here are pure — they are
  * the single source of truth for stock deltas and the Inventory projection (ADR-0005),
  * shared by the repository (write time), the live UI, and the End of Day Report.
+ *
+ * Money fields are integer **paise**. Bag sizes and bulk stock are integer **grams**.
  */
 
 import type { ProductType } from './types'
+import { bulkStockDeltaG, roundHalfAway } from './units'
 
 /** Two-letter transaction-type codes — a closed set (ADR-0009). */
 export type TxnType = 'SA' | 'PU' | 'RE' | 'PA' | 'EX' | 'IN' | 'ST'
@@ -32,11 +35,19 @@ export interface TxnLine {
   productName: string
   productType: ProductType
   side: TxnLineSide
-  bagSizeKg: number | null
+  /** Bag Type in grams; null for Packaged. */
+  bagSizeG: number | null
+  /** Paise per quintal. */
   quintalRate: number | null
+  /** Paise per unit. */
   unitRate: number | null
   qty: number
+  /**
+   * Stock change: grams for Bulk, units for Packaged.
+   * Sign is the ledger direction (negative on Sale).
+   */
   stockDelta: number
+  /** Line total in paise. */
   lineTotal: number
 }
 
@@ -52,6 +63,7 @@ export interface Txn {
   walkinPlace: string | null
   walkinPhone: string | null
   label: string | null
+  /** Drawer columns — paise. */
   cashIn: number
   upiIn: number
   cashOut: number
@@ -61,7 +73,7 @@ export interface Txn {
   total: number
   creditAmount: number
   /**
-   * Settlement write-off in rupees (RE/PA). Always 0 for other types.
+   * Settlement write-off in paise (RE/PA). Always 0 for other types.
    * Face amount is derived: cash + UPI + discount; `total` stays realized (cash + UPI).
    */
   discountAmount: number
@@ -84,8 +96,10 @@ export interface BusinessDay {
 
 export interface SaleLineInput {
   productId: number
-  bagSizeKg: number | null
+  bagSizeG: number | null
+  /** Paise per quintal. */
   quintalRate: number | null
+  /** Paise per unit. */
   unitRate: number | null
   qty: number
 }
@@ -124,7 +138,7 @@ export interface CreatePurchaseInput {
 
 export interface TransferLegInput {
   productId: number
-  bagSizeKg: number | null
+  bagSizeG: number | null
   qty: number
 }
 
@@ -136,19 +150,14 @@ export interface CreateStockTransferInput {
 
 /**
  * Receipt, Payment (customer-bound) and Expense, Income (labelled) share a shape.
- *
- * RE/PA: cashier enters cash, UPI, and discount amount (₹) independently.
- * EX/IN: UI still collects a face amount with UPI typed and cash as remainder; discount is always 0.
- *
- * Stored: drawer cash/UPI columns, `discountAmount`, and `total` = cash + UPI (realized only).
- * Face and discount % are derived when a view needs them — not stored.
+ * All money fields are integer paise.
  */
 export interface CreateMoneyTxnInput {
   customerId: number | null
   label: string | null
   cashCollected: number
   upiCollected: number
-  /** Settlement write-off in rupees. RE/PA only; always 0 for Expense/Income. */
+  /** Settlement write-off in paise. RE/PA only; always 0 for Expense/Income. */
   discountAmount: number
   remarks: string | null
 }
@@ -186,21 +195,21 @@ export function formatTxnId(type: TxnType, seq: number, startDate: string): stri
 // ── Stock delta + Inventory projection (ADR-0005) ────────────────────────────
 
 /**
- * Signed change in stock for one line, expressed in the Product's Default Bag Size units.
- * Packaged stock is whole units; Bulk stock is fractional when a non-default Bag Type moves
- * (a 25kg bag against a 50kg default contributes 0.5).
+ * Signed change in stock for one line.
+ * - Packaged: whole units (qty rounded to nearest integer count when fractional).
+ * - Bulk: grams moved (qty bags × bag size g).
  */
 export function lineStockDelta(args: {
   productType: ProductType
   qty: number
-  bagSizeKg: number | null
-  defaultBagSizeKg: number | null
+  bagSizeG: number | null
+  defaultBagSizeG: number | null
   direction: 1 | -1
 }): number {
-  const { productType, qty, bagSizeKg, defaultBagSizeKg, direction } = args
-  if (productType === 'packaged') return direction * qty
-  if (!bagSizeKg || !defaultBagSizeKg) return direction * qty
-  return direction * qty * (bagSizeKg / defaultBagSizeKg)
+  const { productType, qty, bagSizeG, direction } = args
+  if (productType === 'packaged') return direction * roundHalfAway(qty)
+  if (!bagSizeG) return direction * roundHalfAway(qty)
+  return bulkStockDeltaG(qty, bagSizeG, direction)
 }
 
 export interface ProjectionProduct {
@@ -208,7 +217,7 @@ export interface ProjectionProduct {
   name: string
   productGroupName: string
   type: ProductType
-  defaultBagSizeKg: number | null
+  defaultBagSizeG: number | null
 }
 
 export interface ProjectionMovement {
@@ -222,7 +231,8 @@ export interface InventoryRow {
   productName: string
   productGroupName: string
   productType: ProductType
-  defaultBagSizeKg: number | null
+  defaultBagSizeG: number | null
+  /** Bulk: grams. Packaged: units. */
   opening: number
   purchased: number
   sold: number
@@ -236,6 +246,7 @@ export interface InventoryRow {
 /**
  * The Inventory projection: Opening Stock + replay of live (non-voided) movements.
  * Callers must pre-filter movements to voided = 0; this function trusts its inputs.
+ * Quantities are grams (Bulk) or units (Packaged).
  */
 export function projectInventory(
   products: ProjectionProduct[],
@@ -249,7 +260,7 @@ export function projectInventory(
       productName: p.name,
       productGroupName: p.productGroupName,
       productType: p.type,
-      defaultBagSizeKg: p.defaultBagSizeKg,
+      defaultBagSizeG: p.defaultBagSizeG,
       opening: opening.get(p.id) ?? 0,
       purchased: 0,
       sold: 0,
@@ -292,9 +303,9 @@ export interface DrawerSummary {
   upiOut: number
   cashNet: number
   upiNet: number
-  /** Goods sold on credit — sum of Sale `creditAmount` (customer owes us). */
+  /** Goods sold on credit — sum of Sale `creditAmount` (customer owes us), paise. */
   creditIssued: number
-  /** Goods bought on credit — sum of Purchase `creditAmount` (we owe supplier). */
+  /** Goods bought on credit — sum of Purchase `creditAmount` (we owe supplier), paise. */
   creditReceived: number
 }
 
