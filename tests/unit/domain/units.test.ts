@@ -8,7 +8,6 @@ import {
   paiseToRupees,
   roundHalfAway,
   rupeesToPaise,
-  SCHEMA_IDENTITY,
   stockGToDefaultBags
 } from '@domain/units'
 
@@ -50,11 +49,5 @@ describe('bulk pricing', () => {
     // mass that produces a half-paise intermediate should round
     expect(roundHalfAway(1.5)).toBe(2)
     expect(roundHalfAway(-1.5)).toBe(-2)
-  })
-})
-
-describe('schema identity', () => {
-  it('is a stable non-empty string', () => {
-    expect(SCHEMA_IDENTITY).toMatch(/^paise-grams-/)
   })
 })

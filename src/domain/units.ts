@@ -18,9 +18,6 @@ export const QUINTAL_G = 100_000
 export type BagSizeG = 25_000 | 30_000 | 50_000
 export const BAG_SIZES_G: readonly BagSizeG[] = [25_000, 30_000, 50_000] as const
 
-/** Schema identity written into every new DB. Old DBs without this are wiped. */
-export const SCHEMA_IDENTITY = 'paise-grams-v1'
-
 /** Round half away from zero to nearest integer (paise / grams). */
 export function roundHalfAway(n: number): number {
   if (!Number.isFinite(n)) return 0
