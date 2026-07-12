@@ -15,8 +15,8 @@
   "main": "./out/main/index.js",
   "scripts": {
     "format": "prettier --write .",
-    "lint": "eslint --cache .",
-    "lint:fix": "eslint --cache --fix .",
+    "lint": "eslint --cache --cache-strategy content --concurrency auto .",
+    "lint:fix": "eslint --cache --cache-strategy content --concurrency auto --fix .",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "sh scripts/run-parallel.sh typecheck:node typecheck:web",
