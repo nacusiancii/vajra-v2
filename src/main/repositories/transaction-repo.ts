@@ -1,5 +1,4 @@
 import type { Database } from 'better-sqlite3'
-import type { ProductType } from '../../domain/types'
 import {
   formatTxnId,
   lineStockDelta,
@@ -46,11 +45,11 @@ interface LineRow {
   id: number
   product_id: number
   product_name: string
-  product_type: ProductType
   side: 'single' | 'source' | 'target'
+  is_loose: number
   bag_size_g: number | null
   quintal_rate: number | null
-  unit_rate: number | null
+  per_kg_rate: number | null
   qty: number
   stock_delta: number
   line_total: number
@@ -58,17 +57,17 @@ interface LineRow {
 
 interface ProductMeta {
   id: number
-  type: ProductType
-  defaultBagSizeG: number | null
+  defaultBagSizeG: number
 }
 
 /** A computed line ready to insert: stock_delta and line_total already resolved. */
 interface ResolvedLine {
   side: 'single' | 'source' | 'target'
   productId: number
+  isLoose: boolean
   bagSizeG: number | null
   quintalRate: number | null
-  unitRate: number | null
+  perKgRate: number | null
   qty: number
   stockDelta: number
   lineTotal: number
@@ -87,7 +86,7 @@ const ZERO_DRAWER: DrawerColumns = { cashIn: 0, upiIn: 0, cashOut: 0, upiOut: 0 
  * Owns the transactional ledger: creating each transaction type, listing the open day's
  * transactions, and Edit-as-void-plus-successor (ADR-0007). Stock deltas are computed and
  * stored at write time so the Inventory projection stays a pure SUM (ADR-0005).
- * All money is integer paise; bulk stock is integer grams.
+ * All money is integer paise; stock is integer grams.
  */
 export class TransactionRepo {
   constructor(private db: Database) {}
@@ -323,17 +322,20 @@ export class TransactionRepo {
         )
 
       const insertLine = this.db.prepare(
-        `INSERT INTO txn_line (txn_id, side, product_id, bag_size_g, quintal_rate, unit_rate, qty, stock_delta, line_total)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        `INSERT INTO txn_line (
+           txn_id, side, product_id, is_loose, bag_size_g, quintal_rate, per_kg_rate,
+           qty, stock_delta, line_total
+         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       for (const l of lines) {
         insertLine.run(
           id,
           l.side,
           l.productId,
+          l.isLoose ? 1 : 0,
           l.bagSizeG,
           l.quintalRate,
-          l.unitRate,
+          l.perKgRate,
           l.qty,
           l.stockDelta,
           l.lineTotal
@@ -353,26 +355,27 @@ export class TransactionRepo {
   ): ResolvedLine {
     const product = products.get(line.productId)
     if (!product) throw new Error(`Unknown product ${line.productId}`)
+    const isLoose = !!line.isLoose
     const stockDelta = lineStockDelta({
-      productType: product.type,
+      isLoose,
       qty: line.qty,
       bagSizeG: line.bagSizeG,
-      defaultBagSizeG: product.defaultBagSizeG,
       direction
     })
     const total = lineTotal({
-      productType: product.type,
+      isLoose,
       qty: line.qty,
       bagSizeG: line.bagSizeG,
       quintalRate: line.quintalRate,
-      unitRate: line.unitRate
+      perKgRate: line.perKgRate
     })
     return {
       side: 'single',
       productId: line.productId,
-      bagSizeG: line.bagSizeG,
-      quintalRate: line.quintalRate,
-      unitRate: line.unitRate,
+      isLoose,
+      bagSizeG: isLoose ? null : line.bagSizeG,
+      quintalRate: isLoose ? null : line.quintalRate,
+      perKgRate: isLoose ? line.perKgRate : null,
       qty: line.qty,
       stockDelta,
       lineTotal: total
@@ -388,18 +391,18 @@ export class TransactionRepo {
     const product = products.get(leg.productId)
     if (!product) throw new Error(`Unknown product ${leg.productId}`)
     const stockDelta = lineStockDelta({
-      productType: product.type,
+      isLoose: false,
       qty: leg.qty,
       bagSizeG: leg.bagSizeG,
-      defaultBagSizeG: product.defaultBagSizeG,
       direction
     })
     return {
       side,
       productId: leg.productId,
+      isLoose: false,
       bagSizeG: leg.bagSizeG,
       quintalRate: null,
-      unitRate: null,
+      perKgRate: null,
       qty: leg.qty,
       stockDelta,
       lineTotal: 0
@@ -408,9 +411,9 @@ export class TransactionRepo {
 
   private productMeta(): Map<number, ProductMeta> {
     const rows = this.db
-      .prepare(`SELECT id, type, default_bag_size_g AS dbs FROM product`)
-      .all() as Array<{ id: number; type: ProductType; dbs: number | null }>
-    return new Map(rows.map((r) => [r.id, { id: r.id, type: r.type, defaultBagSizeG: r.dbs }]))
+      .prepare(`SELECT id, default_bag_size_g AS dbs FROM product`)
+      .all() as Array<{ id: number; dbs: number }>
+    return new Map(rows.map((r) => [r.id, { id: r.id, defaultBagSizeG: r.dbs }]))
   }
 
   private currentDay(): { id: number; startDate: string } {
@@ -438,7 +441,7 @@ export class TransactionRepo {
   private hydrate(row: TxnRow): Txn {
     const lineRows = this.db
       .prepare(
-        `SELECT l.*, p.name AS product_name, p.type AS product_type
+        `SELECT l.*, p.name AS product_name
          FROM txn_line l JOIN product p ON p.id = l.product_id
          WHERE l.txn_id = ? ORDER BY l.id`
       )
@@ -447,11 +450,11 @@ export class TransactionRepo {
       id: l.id,
       productId: l.product_id,
       productName: l.product_name,
-      productType: l.product_type,
       side: l.side,
+      isLoose: l.is_loose === 1,
       bagSizeG: l.bag_size_g,
       quintalRate: l.quintal_rate,
-      unitRate: l.unit_rate,
+      perKgRate: l.per_kg_rate,
       qty: l.qty,
       stockDelta: l.stock_delta,
       lineTotal: l.line_total

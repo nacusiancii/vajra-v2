@@ -4,8 +4,8 @@ import { DEFAULT_SETTINGS, type AppSettings } from '../../domain/settings'
 const KEY = 'app'
 
 /**
- * Single-row settings store keyed by 'app'. Holds Printerless Mode (ADR-0008), the
- * Loading Charge rules per Bag Type, and the configurable Bag Types (CONTEXT.md).
+ * Single-row settings store keyed by 'app'. Holds Printerless Mode (ADR-0008),
+ * weight-breakpoint Loading Charge rules, and the configurable Bag Types (CONTEXT.md).
  */
 export class SettingsRepo {
   constructor(private db: Database) {}

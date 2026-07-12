@@ -46,40 +46,40 @@ _Avoid_: Anonymous customer, guest customer.
 ### Products
 
 **Product**:
-A single SKU identified by its name. Belongs to exactly one Product Group. Is either Packaged or Bulk — never both. Has an optional **remarks** field (single free-text, overwritable). Type and Default Bag Size are immutable after creation.
-_Avoid_: SKU (as a separate concept), item.
+A single SKU identified by its name. Belongs to exactly one Product Group. Every Product is a Bulk Product — sold by bag (with Bag Type chosen at sale/purchase time) or Loose (by kg). Has an optional **remarks** field (single free-text, overwritable). Default Bag Size is immutable after creation.
+_Avoid_: SKU (as a separate concept), item, Packaged Product.
 
 **Product Group**:
 A category that groups related Products, e.g., "Toor Dal" groups "Toor Dal Premium" and "Toor Dal Regular." Used for browsing and reporting, not for pricing or stock.
 _Avoid_: Category, family.
 
-**Packaged Product**:
-A Product sold as-is in fixed pre-made packs, e.g., a 1 kg branded atta pack. Stock is counted in whole units.
-_Avoid_: Retail product, fixed product.
-
 **Bulk Product**:
-A Product sold by the bag, with the bag size chosen at sale time and the price set at sale time from a Quintal Rate. Stock is counted in units of the Product's Default Bag Size, and may be fractional (e.g., 1.5 bags) when non-default Bag Types have been sold.
-_Avoid_: Loose product, open product.
+A Product sold by the bag or Loose. On a bag line the bag size is chosen at sale/purchase time and the price is set from a Quintal Rate. Stock is counted in units of the Product's Default Bag Size, and may be fractional (e.g., 1.5 bags) when non-default Bag Types or Loose quantities have been sold. There is no separate Packaged Product type — every Product is bulk.
+_Avoid_: Loose product (as a product type), open product, Packaged Product.
 
 **Default Bag Size**:
-The Bag Type a Bulk Product's stock is measured against. Selling a non-default Bag Type decrements stock fractionally — selling a 25 kg bag from a Product whose Default Bag Size is 50 kg subtracts 0.5 from stock.
+The Bag Type a Product's stock is measured against. Selling a non-default Bag Type decrements stock fractionally — selling a 25 kg bag from a Product whose Default Bag Size is 50 kg subtracts 0.5 from stock. Every Product has a Default Bag Size.
 
 **Bag Type**:
-A standard pack weight used for both pricing-by-weight and Loading Charges. v2 ships with 25 kg, 30 kg, and 50 kg. Additional Bag Types may be addable through an interface.
+A standard pack weight used for pricing-by-weight on bag cart lines. v2 ships with 25 kg, 30 kg, and 50 kg. Additional Bag Types may be addable through an interface.
 _Avoid_: Pack size, sack size.
 
 **Quintal Rate**:
-The per-quintal (100 kg) price entered by the cashier at sale time for a Bulk Product line. Drives the line's total before Loading Charges.
-_Avoid_: Rate, kg rate, price-per-kg.
+The per-quintal (100 kg) price entered by the cashier at sale/purchase time for a bag line. Drives the line's total before Loading Charges.
+_Avoid_: Rate, kg rate, price-per-kg (for bag lines — Loose uses per-kg rate).
+
+**Loose**:
+A cart-line option on Sales and Purchases as an alternative to picking a Bag Type. Quantity is entered in kg (1–50 inclusive, decimals allowed). Rate is price per kg (rupees in the UI, integer paise per kg in the ledger). Line total = kg × price-per-kg. Stock delta = entered kg × 1000 grams. A Loose line has no Bag Type. On Loading Charge (Sales only), the whole Loose quantity is one parcel charged by its total kg.
+_Avoid_: open sale, by-weight line (as a synonym), unpackaged.
 
 **Loading Charge**:
-An opt-in surcharge applied at the cart level, computed from configurable rules keyed by Bag Type.
+An opt-in surcharge applied at the cart level on Sales only. Computed from configurable weight breakpoints: an ordered list of { upToKg → charge } plus a charge for anything above the last breakpoint. Default: ≤ 10 kg → ₹0, ≤ 30 kg → ₹10, above → ₹12. Applies **per bag** (each bag of a bag line is charged by its bag weight) and **per Loose line** (the whole loose quantity is one parcel charged by its total kg). Not applied to Purchases.
 _Avoid_: Hamali, handling fee.
 
 ### Stock movements
 
 **Purchase**:
-A transactional entry for stock arriving at the shop. Always either fully Cash or fully Credit — never partial — picked up front like a Sale. Cash mode pays the supplier now (cash and/or UPI at finish). Credit mode records goods received with nothing paid today; the face lands in **Credit received** for the day book. The cashier records per-quintal (Bulk) or per-unit (Packaged) rate plus any Additional Charges, and stock for the affected Products is bumped immediately. Like Sales, Purchases are wiped at Rollover — only their stock impact survives, carried forward as the next day's Opening Stock. Cost is never stored on the Product Master.
+A transactional entry for stock arriving at the shop. Always either fully Cash or fully Credit — never partial — picked up front like a Sale. Cash mode pays the supplier now (cash and/or UPI at finish). Credit mode records goods received with nothing paid today; the face lands in **Credit received** for the day book. The cashier records bag lines (Quintal Rate) and/or Loose lines (per-kg rate) plus any Additional Charges, and stock for the affected Products is bumped immediately. Like Sales, Purchases are wiped at Rollover — only their stock impact survives, carried forward as the next day's Opening Stock. Cost is never stored on the Product Master.
 _Avoid_: Stock-in, GRN.
 
 **Additional Charges**:
@@ -106,7 +106,7 @@ The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in 
 Two-sided layout:
 
 - **Front** — Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), Voucher Number, Customer name, total Amount, and the signature line.
-- **Back** — Chosen Products as line items in the form `quantity × ratio × price = line total` (Bulk: bags × bag-kg/100 × Quintal Rate; Packaged: qty × 1 × unit rate), plus Loading Charges and Additional Charges as their own lines, then the Total.
+- **Back** — Chosen Products as line items: bag lines in the form `quantity × ratio × price = line total` (bags × bag-kg/100 × Quintal Rate); Loose lines as `kg × price/kg = line total`; plus Loading Charges and Additional Charges as their own lines, then the Total.
   _Avoid_: IOU, credit note, due slip.
 
 **Receipt**:

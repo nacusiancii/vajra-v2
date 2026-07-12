@@ -45,24 +45,22 @@ const targetQtySuggested = ref(false)
 const productList = computed(() => products.value ?? [])
 const productMap = computed(() => new Map(productList.value.map((p) => [p.id, p])))
 const productOptions = computed<ComboboxOption[]>(() =>
-  productList.value.map((p) => ({ value: p.id, label: p.name, hint: p.type }))
+  productList.value.map((p) => ({
+    value: p.id,
+    label: p.name,
+    hint: formatBagKg(p.defaultBagSizeG)
+  }))
 )
 
 const productLookup = computed(() => {
   const map = new Map<number, LineProductLookup>()
-  for (const p of productList.value)
-    map.set(p.id, { type: p.type, defaultBagSizeG: p.defaultBagSizeG })
+  for (const p of productList.value) map.set(p.id, { defaultBagSizeG: p.defaultBagSizeG })
   return map
 })
 
-function isBulk(leg: LegRow): boolean {
-  return leg.productId != null && productMap.value.get(leg.productId)?.type === 'bulk'
-}
-
 function rowMassG(leg: LegRow): number {
-  const p = leg.productId == null ? undefined : productMap.value.get(leg.productId)
-  if (!p || !leg.qty) return 0
-  return lineMassGrams(p.type, leg.qty, leg.bagSizeG)
+  if (!leg.qty || !leg.bagSizeG) return 0
+  return lineMassGrams({ isLoose: false, qty: leg.qty, bagSizeG: leg.bagSizeG })
 }
 
 const sourceMassG = computed(() => rowMassG(source.value))
@@ -72,7 +70,7 @@ const targetMassG = computed(() => rowMassG(target.value))
 const suggestedTargetQty = computed(() => {
   const p =
     target.value.productId == null ? undefined : productMap.value.get(target.value.productId)
-  if (!p || p.type !== 'bulk') return null
+  if (!p) return null
   return suggestedTransferTargetQty(sourceMassG.value, p.defaultBagSizeG)
 })
 
@@ -101,7 +99,7 @@ function onProduct(leg: LegRow, value: number | null, side: 'source' | 'target')
   leg.productId = value
   const p = value == null ? undefined : productMap.value.get(value)
   // Stock Transfers always move Default-Bag-Size bags — no per-leg bag choice.
-  leg.bagSizeG = p?.type === 'bulk' ? (p.defaultBagSizeG ?? null) : null
+  leg.bagSizeG = p?.defaultBagSizeG ?? null
   if (side === 'target') resumeTargetQtySuggestion()
 }
 
@@ -227,7 +225,7 @@ watch(
             />
           </div>
           <span
-            v-if="isBulk(side.leg) && side.leg.bagSizeG"
+            v-if="side.leg.bagSizeG"
             class="w-16 shrink-0 text-center text-sm text-muted-foreground"
             data-testid="transfer-bag"
           >

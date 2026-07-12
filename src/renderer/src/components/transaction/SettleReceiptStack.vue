@@ -6,22 +6,27 @@
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatBagKg, formatQty, formatRupees } from '@/lib/format'
+import { formatQty, formatRupees } from '@/lib/format'
 import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
-import type { LoadingBagBucket } from './loading-buckets'
+import type { LoadingWeightBucket } from './loading-buckets'
 
 const props = defineProps<{
   applyLoading: boolean
   loadingCharge: number
   goodsTotal: number
   additionalCharges: number | null
-  buckets: LoadingBagBucket[]
+  buckets: LoadingWeightBucket[]
 }>()
 
 const emit = defineEmits<{
   'update:applyLoading': [value: boolean]
   'update:additionalCharges': [value: number | null]
 }>()
+
+function bucketLabel(b: LoadingWeightBucket): string {
+  if (b.isLoose) return `Loose ${formatQty(b.weightKg)} kg`
+  return `${formatQty(b.weightKg)} kg bags`
+}
 </script>
 
 <template>
@@ -49,19 +54,13 @@ const emit = defineEmits<{
           />
           <span class="min-w-0 flex-1">
             <span class="block">Loading Charge</span>
-            <!--
-              One bag type per line so mixed carts stay fully readable —
-              never clip the formula to a single truncated row.
-            -->
             <span
               v-if="props.buckets.length"
               class="mt-0.5 block space-y-0.5 text-xs text-muted-foreground"
               data-testid="sale-loading-formula"
             >
-              <span v-for="b in props.buckets" :key="b.bagSizeG" class="block tabular-nums">
-                {{ formatBagKg(b.bagSizeG) }}:{{ formatQty(b.bagCount) }}×{{
-                  formatRupees(b.ratePerBag)
-                }}
+              <span v-for="(b, i) in props.buckets" :key="i" class="block tabular-nums">
+                {{ bucketLabel(b) }}:{{ formatQty(b.count) }}×{{ formatRupees(b.chargePerParcel) }}
               </span>
             </span>
           </span>

@@ -164,45 +164,42 @@ const selectedCustomer = computed(() =>
 
 const productLookup = computed(() => {
   const map = new Map<number, LineProductLookup>()
-  for (const p of productList.value)
-    map.set(p.id, { type: p.type, defaultBagSizeG: p.defaultBagSizeG })
+  for (const p of productList.value) map.set(p.id, { defaultBagSizeG: p.defaultBagSizeG })
   return map
 })
 
 const lineTotals = computed(() =>
   lines.value.map((l) => {
-    const p = l.productId == null ? undefined : productLookup.value.get(l.productId)
-    if (!p || !l.qty) return 0
+    if (!l.productId || !l.qty) return 0
     return lineTotal({
-      productType: p.type,
+      isLoose: l.isLoose,
       qty: l.qty,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate
+      perKgRate: l.perKgRate
     })
   })
 )
 
-const bulkLineInputs = computed(() =>
-  lines.value.map((l) => {
-    const p = l.productId == null ? undefined : productLookup.value.get(l.productId)
-    return {
-      productType: p?.type ?? ('packaged' as const),
-      bagSizeG: l.bagSizeG,
-      qty: l.qty ?? 0
-    }
-  })
+const loadingLineInputs = computed(() =>
+  lines.value.map((l) => ({
+    isLoose: l.isLoose,
+    bagSizeG: l.bagSizeG,
+    qty: l.qty ?? 0
+  }))
 )
 
-const loadingRules = computed(() => settings.value?.loadingChargePerBag ?? {})
+const loadingRules = computed(
+  () => settings.value?.loadingCharge ?? { breakpoints: [], aboveLastPaise: 0 }
+)
 
 const loadingBuckets = computed(() =>
-  loadingChargeBuckets(bulkLineInputs.value, loadingRules.value)
+  loadingChargeBuckets(loadingLineInputs.value, loadingRules.value)
 )
 
 const loadingCharge = computed(() => {
   if (!applyLoading.value) return 0
-  return computeLoadingCharge(bulkLineInputs.value, loadingRules.value)
+  return computeLoadingCharge(loadingLineInputs.value, loadingRules.value)
 })
 
 const goodsTotal = computed(() => lineTotals.value.reduce((a, b) => a + b, 0))
@@ -233,11 +230,11 @@ const voucherLines = computed<VoucherLine[]>(() =>
       if (!p || !l.qty) return null
       return {
         productName: p.name,
-        productType: p.type,
+        isLoose: l.isLoose,
         qty: l.qty,
         bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
-        unitRate: l.unitRate,
+        perKgRate: l.perKgRate,
         lineTotal: lineTotals.value[i] ?? 0
       }
     })
@@ -271,9 +268,10 @@ function buildInput(m: SaleMode): CreateSaleInput {
       .filter((l) => l.productId != null)
       .map((l) => ({
         productId: l.productId as number,
+        isLoose: l.isLoose,
         bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
-        unitRate: l.unitRate,
+        perKgRate: l.perKgRate,
         qty: l.qty ?? 0
       })),
     additionalCharges: additionalCharges.value ?? 0,
@@ -295,9 +293,10 @@ function buildDraftPayload(m: SaleMode): SaleDraftPayload {
     walkinPhone: walkinPhone.value,
     lines: lines.value.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate,
+      perKgRate: l.perKgRate,
       qty: l.qty
     })),
     applyLoading: applyLoading.value,
@@ -453,9 +452,10 @@ watch(
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate,
+      perKgRate: l.perKgRate,
       qty: l.qty
     }))
   },

@@ -33,16 +33,11 @@ export function formatBagKg(bagSizeG: number): string {
 }
 
 /**
- * Inventory / stock display.
- * Bulk: grams → default-bag units. Packaged: unit count as-is.
+ * Inventory / stock display: grams → default-bag units.
  */
-export function formatStockQty(
-  qty: number,
-  productType: 'bulk' | 'packaged',
-  defaultBagSizeG: number | null
-): string {
-  if (productType === 'packaged' || !defaultBagSizeG) return formatQty(qty)
-  return formatQty(stockGToDefaultBags(qty, defaultBagSizeG))
+export function formatStockQty(qtyG: number, defaultBagSizeG: number): string {
+  if (!defaultBagSizeG) return formatQty(qtyG)
+  return formatQty(stockGToDefaultBags(qtyG, defaultBagSizeG))
 }
 
 /** Grams → kg label for slips / cart. */

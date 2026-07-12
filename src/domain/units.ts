@@ -3,8 +3,7 @@
  *
  * - Money is stored and computed in **paise** (1 ₹ = 100 paise).
  * - Mass / Bag Types are stored in **grams** (1 kg = 1000 g).
- * - Bulk stock deltas and Opening Stock for Bulk Products are **grams**.
- * - Packaged stock is whole **units** (not mass).
+ * - Stock deltas and Opening Stock are **grams**.
  *
  * UI may still collect rupees / kg; convert at the boundary with the helpers below.
  */
@@ -49,7 +48,7 @@ export function isValidBagSizeG(g: number): g is BagSizeG {
 }
 
 /**
- * Mass moved by a bulk line: bags × bag size (grams).
+ * Mass moved by a bag line: bags × bag size (grams).
  * Uses roundHalfAway so half-bags (0.5) stay exact against integer bag sizes.
  */
 export function lineMassG(qtyBags: number, bagSizeG: number): number {
@@ -57,28 +56,34 @@ export function lineMassG(qtyBags: number, bagSizeG: number): number {
 }
 
 /**
- * Bulk line total in paise: (mass_g / quintal_g) × quintal rate (paise).
- * Packaged: qty × unit rate (paise), rounded.
+ * Bag line total in paise: (mass_g / quintal_g) × quintal rate (paise).
  */
 export function bulkLineTotalPaise(massG: number, quintalRatePaise: number): number {
   if (!(massG > 0) || !(quintalRatePaise > 0)) return 0
   return roundHalfAway((massG * quintalRatePaise) / QUINTAL_G)
 }
 
-export function packagedLineTotalPaise(qty: number, unitRatePaise: number): number {
-  return roundHalfAway(qty * unitRatePaise)
-}
-
-/** Loading: rate (paise/bag) × bag count, rounded per line then summed by caller. */
-export function loadingLinePaise(qtyBags: number, ratePaisePerBag: number): number {
-  return roundHalfAway(qtyBags * ratePaisePerBag)
-}
-
 /**
- * Bulk stock change in grams. Packaged stock change is unit count (use qty directly).
+ * Loose line total in paise: kg × price-per-kg (paise).
  */
+export function looseLineTotalPaise(kg: number, perKgRatePaise: number): number {
+  if (!(kg > 0) || !(perKgRatePaise > 0)) return 0
+  return roundHalfAway(kg * perKgRatePaise)
+}
+
+/** Loading: rate (paise/parcel) × count, rounded per line then summed by caller. */
+export function loadingLinePaise(count: number, ratePaisePerParcel: number): number {
+  return roundHalfAway(count * ratePaisePerParcel)
+}
+
+/** Bulk/bag stock change in grams. */
 export function bulkStockDeltaG(qtyBags: number, bagSizeG: number, direction: 1 | -1): number {
   return direction * lineMassG(qtyBags, bagSizeG)
+}
+
+/** Loose stock change in grams: entered kg × 1000. */
+export function looseStockDeltaG(kg: number, direction: 1 | -1): number {
+  return direction * kgToG(kg)
 }
 
 /** Default-bag units for display: grams / default bag grams. */

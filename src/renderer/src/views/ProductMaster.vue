@@ -161,7 +161,6 @@ function handleDelete(id: number): void {
           <TableRow>
             <TableHead>Name</TableHead>
             <TableHead>Group</TableHead>
-            <TableHead>Type</TableHead>
             <TableHead>Bag Size</TableHead>
             <TableHead>Telugu</TableHead>
             <TableHead>Remarks</TableHead>
@@ -170,12 +169,12 @@ function handleDelete(id: number): void {
         </TableHeader>
         <TableBody>
           <TableRow v-if="isLoading">
-            <TableCell :colspan="7" class="py-8 text-center text-muted-foreground">
+            <TableCell :colspan="6" class="py-8 text-center text-muted-foreground">
               Loading...
             </TableCell>
           </TableRow>
           <TableRow v-else-if="filtered.length === 0">
-            <TableCell :colspan="7" class="py-8 text-center text-muted-foreground">
+            <TableCell :colspan="6" class="py-8 text-center text-muted-foreground">
               {{ (products ?? []).length === 0 ? 'No products yet' : 'No matches' }}
             </TableCell>
           </TableRow>
@@ -183,10 +182,7 @@ function handleDelete(id: number): void {
             <TableCell class="font-medium">{{ product.name }}</TableCell>
             <TableCell>{{ product.productGroupName }}</TableCell>
             <TableCell>
-              <Badge variant="secondary" class="capitalize">{{ product.type }}</Badge>
-            </TableCell>
-            <TableCell>
-              {{ product.defaultBagSizeG ? formatBagKg(product.defaultBagSizeG) : '—' }}
+              {{ formatBagKg(product.defaultBagSizeG) }}
             </TableCell>
             <TableCell>
               <TooltipProvider v-if="!product.nameTe">

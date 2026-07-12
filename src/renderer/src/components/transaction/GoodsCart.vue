@@ -3,6 +3,7 @@ import { computed, nextTick, ref } from 'vue'
 import { Plus, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Select,
   SelectContent,
@@ -27,9 +28,10 @@ import type { Product } from '@domain/types'
 /** A cart line while being edited — rates may be empty until typed. Rates are paise; bag sizes grams. */
 export interface CartLine {
   productId: number | null
+  isLoose: boolean
   bagSizeG: number | null
   quintalRate: number | null
-  unitRate: number | null
+  perKgRate: number | null
   qty: number | null
 }
 
@@ -45,7 +47,11 @@ const lines = defineModel<CartLine[]>({ required: true })
 
 const productMap = computed(() => new Map(props.products.map((p) => [p.id, p])))
 const productOptions = computed<ComboboxOption[]>(() =>
-  props.products.map((p) => ({ value: p.id, label: p.name, hint: p.type }))
+  props.products.map((p) => ({
+    value: p.id,
+    label: p.name,
+    hint: formatBagKg(p.defaultBagSizeG)
+  }))
 )
 
 /** Product comboboxes by row — used to open the picker after auto-adding a line. */
@@ -74,33 +80,39 @@ function productOf(line: CartLine): Product | undefined {
   return line.productId == null ? undefined : productMap.value.get(line.productId)
 }
 
-function isBulk(line: CartLine): boolean {
-  return productOf(line)?.type === 'bulk'
+function emptyLine(): CartLine {
+  return {
+    productId: null,
+    isLoose: false,
+    bagSizeG: null,
+    quintalRate: null,
+    perKgRate: null,
+    qty: null
+  }
 }
 
 function rowTotal(line: CartLine): number {
-  const p = productOf(line)
-  if (!p || !line.qty) return 0
+  if (!line.productId || !line.qty) return 0
   return lineTotal({
-    productType: p.type,
+    isLoose: line.isLoose,
     qty: line.qty,
     bagSizeG: line.bagSizeG,
     quintalRate: line.quintalRate,
-    unitRate: line.unitRate
+    perKgRate: line.perKgRate
   })
 }
 
 function rowMassG(line: CartLine): number {
-  const p = productOf(line)
-  if (!p || !line.qty) return 0
-  return lineMassGrams(p.type, line.qty, line.bagSizeG)
+  if (!line.productId || !line.qty) return 0
+  return lineMassGrams({
+    isLoose: line.isLoose,
+    qty: line.qty,
+    bagSizeG: line.bagSizeG
+  })
 }
 
 function addLine(): void {
-  lines.value = [
-    ...lines.value,
-    { productId: null, bagSizeG: null, quintalRate: null, unitRate: null, qty: null }
-  ]
+  lines.value = [...lines.value, emptyLine()]
 }
 
 /** Empty cart after customer pick — start the first line and open its product picker. */
@@ -127,9 +139,22 @@ function focusQty(index: number): void {
 function onProductChange(line: CartLine, value: number | null, index: number): void {
   line.productId = value
   const p = productOf(line)
-  // Default a Bulk line's bag size to the Product's Default Bag Size; clear for Packaged.
-  line.bagSizeG = p?.type === 'bulk' ? (p.defaultBagSizeG ?? null) : null
+  if (!line.isLoose) {
+    line.bagSizeG = p?.defaultBagSizeG ?? null
+  }
   if (value != null) focusQty(index)
+}
+
+function setLoose(line: CartLine, loose: boolean): void {
+  line.isLoose = loose
+  if (loose) {
+    line.bagSizeG = null
+    line.quintalRate = null
+  } else {
+    line.perKgRate = null
+    const p = productOf(line)
+    line.bagSizeG = p?.defaultBagSizeG ?? null
+  }
 }
 
 defineExpose({ ensureLineAndFocusProduct })
@@ -141,7 +166,7 @@ defineExpose({ ensureLineAndFocusProduct })
       <TableHeader>
         <TableRow>
           <TableHead class="min-w-[180px]">Product</TableHead>
-          <TableHead class="w-[110px]">Bag Type</TableHead>
+          <TableHead class="w-[130px]">Bag / Loose</TableHead>
           <TableHead class="w-[90px]">Qty</TableHead>
           <TableHead class="w-[120px]">Rate</TableHead>
           <TableHead class="w-[110px] text-right">Total</TableHead>
@@ -168,51 +193,63 @@ defineExpose({ ensureLineAndFocusProduct })
             />
           </TableCell>
           <TableCell>
-            <Select
-              v-if="isBulk(line)"
-              :model-value="line.bagSizeG == null ? '' : String(line.bagSizeG)"
-              @update:model-value="line.bagSizeG = Number($event)"
-            >
-              <SelectTrigger class="w-full" data-testid="cart-bag">
-                <SelectValue placeholder="Bag" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)">{{
-                  formatBagKg(b)
-                }}</SelectItem>
-              </SelectContent>
-            </Select>
-            <span v-else class="text-sm text-muted-foreground">unit</span>
+            <div class="flex flex-col gap-1.5">
+              <label class="flex cursor-pointer items-center gap-1.5 text-xs">
+                <Checkbox
+                  :model-value="line.isLoose"
+                  data-testid="cart-loose"
+                  @update:model-value="setLoose(line, $event === true)"
+                />
+                Loose
+              </label>
+              <Select
+                v-if="!line.isLoose"
+                :model-value="line.bagSizeG == null ? '' : String(line.bagSizeG)"
+                @update:model-value="line.bagSizeG = Number($event)"
+              >
+                <SelectTrigger class="w-full" data-testid="cart-bag">
+                  <SelectValue placeholder="Bag" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)">{{
+                    formatBagKg(b)
+                  }}</SelectItem>
+                </SelectContent>
+              </Select>
+              <span v-else class="text-xs text-muted-foreground">kg</span>
+            </div>
           </TableCell>
           <TableCell>
             <Input
               :ref="(el) => setQtyInputRef(index, el)"
               type="number"
-              min="0"
-              step="0.5"
+              :min="line.isLoose ? 1 : 0"
+              :max="line.isLoose ? 50 : undefined"
+              :step="line.isLoose ? 0.1 : 0.5"
               :model-value="line.qty ?? ''"
+              :placeholder="line.isLoose ? 'kg' : 'bags'"
               data-testid="cart-qty"
               @update:model-value="line.qty = $event === '' ? null : Number($event)"
             />
           </TableCell>
           <TableCell>
             <Input
-              v-if="isBulk(line)"
+              v-if="line.isLoose"
+              type="number"
+              min="0"
+              :model-value="paiseInputValue(line.perKgRate)"
+              placeholder="₹/kg"
+              data-testid="cart-rate"
+              @update:model-value="line.perKgRate = parseRupeesInput($event)"
+            />
+            <Input
+              v-else
               type="number"
               min="0"
               :model-value="paiseInputValue(line.quintalRate)"
               placeholder="₹/quintal"
               data-testid="cart-rate"
               @update:model-value="line.quintalRate = parseRupeesInput($event)"
-            />
-            <Input
-              v-else
-              type="number"
-              min="0"
-              :model-value="paiseInputValue(line.unitRate)"
-              placeholder="₹/unit"
-              data-testid="cart-rate"
-              @update:model-value="line.unitRate = parseRupeesInput($event)"
             />
           </TableCell>
           <TableCell class="text-right tabular-nums">

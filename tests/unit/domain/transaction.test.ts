@@ -21,40 +21,25 @@ describe('formatTxnId', () => {
   })
 })
 
-describe('lineStockDelta (grams for bulk, units for packaged)', () => {
-  it('packaged moves whole units', () => {
-    expect(
-      lineStockDelta({
-        productType: 'packaged',
-        qty: 3,
-        bagSizeG: null,
-        defaultBagSizeG: null,
-        direction: -1
-      })
-    ).toBe(-3)
-  })
-
-  it('bulk default bag is mass of bags', () => {
+describe('lineStockDelta (grams)', () => {
+  it('bag default bag is mass of bags', () => {
     // 2 × 50kg = 100_000 g
     expect(
       lineStockDelta({
-        productType: 'bulk',
+        isLoose: false,
         qty: 2,
         bagSizeG: 50_000,
-        defaultBagSizeG: 50_000,
         direction: 1
       })
     ).toBe(100_000)
   })
 
-  it('bulk non-default bag moves mass of that bag type', () => {
-    // a 25kg bag is 25_000 g (display as 0.5 of a 50kg default)
+  it('bag non-default bag moves mass of that bag type', () => {
     expect(
       lineStockDelta({
-        productType: 'bulk',
+        isLoose: false,
         qty: 1,
         bagSizeG: 25_000,
-        defaultBagSizeG: 50_000,
         direction: -1
       })
     ).toBe(-25_000)
@@ -63,34 +48,39 @@ describe('lineStockDelta (grams for bulk, units for packaged)', () => {
   it('30kg bag × 5 is exact grams', () => {
     expect(
       lineStockDelta({
-        productType: 'bulk',
+        isLoose: false,
         qty: 5,
         bagSizeG: 30_000,
-        defaultBagSizeG: 50_000,
         direction: -1
       })
     ).toBe(-150_000)
   })
 
-  it('custom 40kg bag × 5 is exact grams', () => {
+  it('loose qty kg becomes grams', () => {
     expect(
       lineStockDelta({
-        productType: 'bulk',
-        qty: 5,
-        bagSizeG: 40_000,
-        defaultBagSizeG: 50_000,
+        isLoose: true,
+        qty: 2.5,
+        bagSizeG: null,
+        direction: -1
+      })
+    ).toBe(-2_500)
+    expect(
+      lineStockDelta({
+        isLoose: true,
+        qty: 12,
+        bagSizeG: null,
         direction: 1
       })
-    ).toBe(200_000)
+    ).toBe(12_000)
   })
 
   it('missing bag sizes falls back to raw qty (edge / incomplete line)', () => {
     expect(
       lineStockDelta({
-        productType: 'bulk',
+        isLoose: false,
         qty: 3,
         bagSizeG: null,
-        defaultBagSizeG: 50_000,
         direction: -1
       })
     ).toBe(-3)
@@ -99,21 +89,21 @@ describe('lineStockDelta (grams for bulk, units for packaged)', () => {
 
 describe('projectInventory', () => {
   const products: ProjectionProduct[] = [
-    { id: 1, name: 'Toor Dal', productGroupName: 'Dal', type: 'bulk', defaultBagSizeG: 50_000 },
-    { id: 2, name: 'Atta 1kg', productGroupName: 'Flour', type: 'packaged', defaultBagSizeG: null }
+    { id: 1, name: 'Toor Dal', productGroupName: 'Dal', defaultBagSizeG: 50_000 },
+    { id: 2, name: 'Moong', productGroupName: 'Dal', defaultBagSizeG: 50_000 }
   ]
 
-  it('opening + purchased - sold + transfers = closing (grams / units)', () => {
+  it('opening + purchased - sold + transfers = closing (grams)', () => {
     // 10 bags of 50kg = 500_000 g opening
     const opening = new Map<number, number>([
       [1, 500_000],
-      [2, 100]
+      [2, 100_000]
     ])
     const movements: ProjectionMovement[] = [
       { productId: 1, type: 'PU', stockDelta: 250_000 }, // +5 bags
       { productId: 1, type: 'SA', stockDelta: -100_000 }, // -2 bags
       { productId: 1, type: 'ST', stockDelta: -50_000 }, // -1 bag
-      { productId: 2, type: 'SA', stockDelta: -30 }
+      { productId: 2, type: 'SA', stockDelta: -2_500 } // loose 2.5 kg
     ]
     const rows = projectInventory(products, opening, movements)
     const dal = rows.find((r) => r.productId === 1)!
@@ -122,8 +112,8 @@ describe('projectInventory', () => {
     expect(dal.sold).toBe(100_000)
     expect(dal.transferOut).toBe(50_000)
     expect(dal.closing).toBe(600_000) // 500+250-100-50
-    const atta = rows.find((r) => r.productId === 2)!
-    expect(atta.closing).toBe(70)
+    const moong = rows.find((r) => r.productId === 2)!
+    expect(moong.closing).toBe(97_500)
   })
 })
 

@@ -2,16 +2,14 @@
  * Domain types for Vajra master data.
  *
  * These types use the glossary from CONTEXT.md exactly.
- * "Product type" = Packaged | Bulk.
+ * Every Product is a Bulk Product with a Default Bag Size.
  * "Bag Type" = a standard pack weight (stored as grams; 25/30/50 kg in v2).
- * "Default Bag Size" = the Bag Type a Bulk Product's stock is measured against.
+ * "Default Bag Size" = the Bag Type a Product's stock is measured against.
  */
 
 import type { BagSizeG } from './units'
 export type { BagSizeG } from './units'
 export { BAG_SIZES_G, isValidBagSizeG } from './units'
-
-export type ProductType = 'packaged' | 'bulk'
 
 export interface Place {
   id: number
@@ -41,9 +39,8 @@ export interface Product {
   name: string
   productGroupId: number
   productGroupName: string
-  type: ProductType
-  /** Default Bag Size in grams; null for Packaged. */
-  defaultBagSizeG: BagSizeG | null
+  /** Default Bag Size in grams — always set. */
+  defaultBagSizeG: BagSizeG
   nameTe: string | null
   remarks: string | null
   createdAt: string
@@ -64,8 +61,7 @@ export type UpdateCustomerInput = CreateCustomerInput
 export interface CreateProductInput {
   name: string
   productGroupName: string
-  type: ProductType
-  defaultBagSizeG: BagSizeG | null
+  defaultBagSizeG: BagSizeG
   nameTe: string | null
   remarks: string | null
 }

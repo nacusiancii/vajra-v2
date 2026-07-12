@@ -118,21 +118,19 @@ function segmentClass(m: SaleMode): string {
 
 const productLookup = computed(() => {
   const map = new Map<number, LineProductLookup>()
-  for (const p of productList.value)
-    map.set(p.id, { type: p.type, defaultBagSizeG: p.defaultBagSizeG })
+  for (const p of productList.value) map.set(p.id, { defaultBagSizeG: p.defaultBagSizeG })
   return map
 })
 
 const total = computed(() => {
   const lineTotals = lines.value.map((l) => {
-    const p = l.productId == null ? undefined : productLookup.value.get(l.productId)
-    if (!p || !l.qty) return 0
+    if (!l.productId || !l.qty) return 0
     return lineTotal({
-      productType: p.type,
+      isLoose: l.isLoose,
       qty: l.qty,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate
+      perKgRate: l.perKgRate
     })
   })
   return grandTotal(lineTotals, 0, additionalCharges.value ?? 0)
@@ -157,9 +155,10 @@ function buildInput(m: SaleMode): CreatePurchaseInput {
       .filter((l) => l.productId != null)
       .map((l) => ({
         productId: l.productId as number,
+        isLoose: l.isLoose,
         bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
-        unitRate: l.unitRate,
+        perKgRate: l.perKgRate,
         qty: l.qty ?? 0
       })),
     additionalCharges: additionalCharges.value ?? 0,
@@ -179,9 +178,10 @@ function buildDraftPayload(m: SaleMode): PurchaseDraftPayload {
     walkinPhone: walkinPhone.value,
     lines: lines.value.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate,
+      perKgRate: l.perKgRate,
       qty: l.qty
     })),
     additionalCharges: additionalCharges.value,
@@ -308,9 +308,10 @@ watch(
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate,
+      perKgRate: l.perKgRate,
       qty: l.qty
     }))
   },

@@ -14,8 +14,7 @@ interface ProductRow {
   name: string
   product_group_id: number
   product_group_name: string
-  type: 'packaged' | 'bulk'
-  default_bag_size_g: number | null
+  default_bag_size_g: number
   name_te: string | null
   remarks: string | null
   created_at: string
@@ -28,8 +27,7 @@ function rowToProduct(row: ProductRow): Product {
     name: row.name,
     productGroupId: row.product_group_id,
     productGroupName: row.product_group_name,
-    type: row.type,
-    defaultBagSizeG: row.default_bag_size_g as BagSizeG | null,
+    defaultBagSizeG: row.default_bag_size_g as BagSizeG,
     nameTe: row.name_te,
     remarks: row.remarks,
     createdAt: row.created_at,
@@ -75,17 +73,10 @@ export class ProductRepo {
     const groupId = this.resolveProductGroup(input.productGroupName)
     const result = this.db
       .prepare(
-        `INSERT INTO product (name, product_group_id, type, default_bag_size_g, name_te, remarks)
-         VALUES (?, ?, ?, ?, ?, ?)`
+        `INSERT INTO product (name, product_group_id, default_bag_size_g, name_te, remarks)
+         VALUES (?, ?, ?, ?, ?)`
       )
-      .run(
-        input.name.trim(),
-        groupId,
-        input.type,
-        input.defaultBagSizeG,
-        input.nameTe,
-        input.remarks
-      )
+      .run(input.name.trim(), groupId, input.defaultBagSizeG, input.nameTe, input.remarks)
     return this.getById(Number(result.lastInsertRowid))!
   }
 

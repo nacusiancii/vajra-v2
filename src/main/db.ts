@@ -7,14 +7,15 @@ let db: Database.Database | null = null
 
 /**
  * Schema version, stored in SQLite's \`PRAGMA user_version\`. Bump when the schema
- * changes and add a step to MIGRATIONS that upgrades from the previous version.
+ * changes. During development (issue #75), older versions are wiped rather than
+ * migrated — see openAtCurrentVersion.
  */
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
- * Each step runs inside a transaction together with its user_version bump.
- * None exist yet — v1 is the first versioned schema.
+ * Empty during the development-phase wipe policy (SCHEMA_VERSION bump → wipe).
+ * Reintroduce real migrations before shipping a production data-retention promise.
  */
 const MIGRATIONS: Record<number, (database: Database.Database) => void> = {}
 
@@ -25,7 +26,9 @@ function getDbPath(): string {
 
 /**
  * Integer ledger schema (paise + grams).
- * Money columns and rates are INTEGER paise; bag sizes and bulk stock are INTEGER grams.
+ * Money columns and rates are INTEGER paise; bag sizes and stock are INTEGER grams.
+ * Every Product has a Default Bag Size. Loose lines store per_kg_rate (paise/kg);
+ * bag lines store bag_size_g + quintal_rate.
  */
 const SCHEMA = `
   CREATE TABLE IF NOT EXISTS place (
@@ -58,12 +61,7 @@ const SCHEMA = `
     id                   INTEGER PRIMARY KEY AUTOINCREMENT,
     name                 TEXT    NOT NULL UNIQUE COLLATE NOCASE,
     product_group_id     INTEGER NOT NULL REFERENCES product_group(id),
-    type                 TEXT    NOT NULL CHECK (type IN ('packaged', 'bulk')),
-    default_bag_size_g   INTEGER CHECK (
-      (type = 'bulk'     AND default_bag_size_g IS NOT NULL AND default_bag_size_g IN (25000, 30000, 50000))
-      OR
-      (type = 'packaged' AND default_bag_size_g IS NULL)
-    ),
+    default_bag_size_g   INTEGER NOT NULL CHECK (default_bag_size_g IN (25000, 30000, 50000)),
     name_te              TEXT,
     remarks              TEXT,
     created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
@@ -84,7 +82,7 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS opening_stock (
     business_day_id  INTEGER NOT NULL REFERENCES business_day(id),
     product_id       INTEGER NOT NULL REFERENCES product(id),
-    -- Bulk: grams. Packaged: unit count.
+    -- Grams on hand at Business Day open.
     qty              INTEGER NOT NULL,
     PRIMARY KEY (business_day_id, product_id)
   );
@@ -122,11 +120,15 @@ const SCHEMA = `
     txn_id        TEXT    NOT NULL REFERENCES txn(id) ON DELETE CASCADE,
     side          TEXT    NOT NULL DEFAULT 'single' CHECK (side IN ('single','source','target')),
     product_id    INTEGER NOT NULL REFERENCES product(id),
+    -- 1 = Loose (qty is kg, per_kg_rate set, bag_size_g null); 0 = bag line.
+    is_loose      INTEGER NOT NULL DEFAULT 0 CHECK (is_loose IN (0, 1)),
     bag_size_g    INTEGER,
     quintal_rate  INTEGER,
-    unit_rate     INTEGER,
+    -- Paise per kg; set only for Loose lines.
+    per_kg_rate   INTEGER,
+    -- Bag count for bag lines; kilograms for Loose.
     qty           REAL    NOT NULL,
-    -- Bulk: grams. Packaged: units.
+    -- Grams.
     stock_delta   INTEGER NOT NULL,
     line_total    INTEGER NOT NULL DEFAULT 0
   );
@@ -183,31 +185,34 @@ function open(dbPath: string): Database.Database {
  * Open the database at SCHEMA_VERSION.
  *
  * - Fresh (no tables): create the current schema, stamp the version.
- * - Pre-version (tables but user_version 0): wipe and start fresh. This is a
- *   development-phase decision to move fast, not a migration strategy — it fires
- *   only on this positive determination, never on open/read errors.
- * - Older version: run MIGRATIONS stepwise; a missing step fails loudly.
- * - Newer version (file from a newer app): fail loudly. Never wipe versioned data.
+ * - Pre-version (tables but user_version 0) OR any older version
+ *   (user_version < SCHEMA_VERSION): wipe and recreate fresh.
+ *   **Development-phase policy (issue #75)** — intentionally overrides the earlier
+ *   promise never to wipe versioned data. Not a production migration strategy.
+ * - Newer version (file from a newer app): fail loudly. Never wipe newer data.
  */
 function openAtCurrentVersion(dbPath: string): Database.Database {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
   let database = open(dbPath)
-  if (userVersion(database) === 0 && hasTables(database)) {
+  const version = userVersion(database)
+
+  // Wipe pre-versioned DBs and any older schema during development (#75).
+  if ((version === 0 && hasTables(database)) || (version > 0 && version < SCHEMA_VERSION)) {
     database.close()
     wipeDbFiles(dbPath)
     database = open(dbPath)
   }
 
-  const version = userVersion(database)
-  if (version > SCHEMA_VERSION) {
+  const afterWipe = userVersion(database)
+  if (afterWipe > SCHEMA_VERSION) {
     database.close()
     throw new Error(
-      `Database is schema v${version}, newer than this app's v${SCHEMA_VERSION} — update the app`
+      `Database is schema v${afterWipe}, newer than this app's v${SCHEMA_VERSION} — update the app`
     )
   }
 
-  if (version === 0) {
+  if (afterWipe === 0) {
     database.transaction(() => {
       database.exec(SCHEMA)
       database.pragma(`user_version = ${SCHEMA_VERSION}`)
@@ -215,7 +220,8 @@ function openAtCurrentVersion(dbPath: string): Database.Database {
     return database
   }
 
-  for (let v = version; v < SCHEMA_VERSION; v++) {
+  // Retained for post-development migration path; unused while wipe policy is active.
+  for (let v = afterWipe; v < SCHEMA_VERSION; v++) {
     const step = MIGRATIONS[v]
     if (!step) {
       database.close()
