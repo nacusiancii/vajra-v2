@@ -5,7 +5,7 @@ description: Delegate any task — research, implementation, adversarial testing
 
 # /grok-it — we do absolutely nothing
 
-Claude never does the work. Claude writes the brief, sets the stage, launches grok, and judges the result. That's the whole job.
+**We have a massive deal with grok. The mandate: play around with it and push how far we can harness its intelligence.** So Claude never does the work. Claude writes the brief, sets the stage, launches grok, and judges the result. That's the whole job.
 
 ## The launch (learned the hard way)
 
