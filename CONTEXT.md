@@ -58,22 +58,31 @@ A Product sold as-is in fixed pre-made packs, e.g., a 1 kg branded atta pack. St
 _Avoid_: Retail product, fixed product.
 
 **Bulk Product**:
-A Product sold by the bag, with the bag size chosen at sale time and the price set at sale time from a Quintal Rate. Stock is counted in units of the Product's Default Bag Size, and may be fractional (e.g., 1.5 bags) when non-default Bag Types have been sold.
+A Product sold by the bag, with the bag size chosen at sale time (a Default Bag Type or a Dynamic bag weight) and the price set at sale time from a Quintal Rate. Stock is counted in units of the Product's Default Bag Size, and may be fractional (e.g., 1.5 bags) when a non-default bag weight has been sold or purchased.
 _Avoid_: Loose product, open product.
 
 **Default Bag Size**:
-The Bag Type a Bulk Product's stock is measured against. Selling a non-default Bag Type decrements stock fractionally — selling a 25 kg bag from a Product whose Default Bag Size is 50 kg subtracts 0.5 from stock.
+The Default Bag Type a Bulk Product's stock is measured against. Chosen only from the Settings catalog of Default Bag Types at Product create time; immutable thereafter. Selling or purchasing a different bag weight decrements or increments stock fractionally — a 25 kg bag against a 50 kg Default Bag Size moves 0.5 stock units.
+_Avoid_: Pack size (as the stock unit).
+
+**Default Bag Type**:
+A shop-configured standard pack weight in Settings: a positive integer **kg** (immutable after create) plus an editable **loading charge** (₹ per bag; ₹0 allowed). Seeded with 25 kg, 30 kg, and 50 kg. The shop may add further sizes (e.g. 40 kg) without a Vajra release. Eligible as a Product's Default Bag Size and as a one-tap bag choice on Sale and Purchase bulk lines. Removing a Default Bag Type is blocked while any Product uses it as Default Bag Size, and the catalog must not be emptied.
+_Avoid_: Pack size, sack size. Prefer this term over bare "Bag Type" when meaning the settings catalog entry.
 
 **Bag Type**:
-A standard pack weight used for both pricing-by-weight and Loading Charges. v2 ships with 25 kg, 30 kg, and 50 kg. Additional Bag Types may be addable through an interface.
-_Avoid_: Pack size, sack size.
+Informal shorthand for a bag weight on a line. Prefer **Default Bag Type** (catalog) or **Dynamic bag weight** (free-typed) when the distinction matters.
+_Avoid_: Using "Bag Type" alone in new specs when Default vs Dynamic is ambiguous.
+
+**Dynamic bag weight**:
+A positive integer kg free-typed on a **Sale** or **Purchase** bulk line when the counterparty needs a size that is not (or is not chosen as) a Default Bag Type. Not eligible as a Product Default Bag Size. Stock still projects in Default Bag Size units. **Stock Transfer** bulk legs always use each Product's Default Bag Size — no Dynamic bag weight on transfers.
+_Avoid_: Custom bag, other kg (as durable names).
 
 **Quintal Rate**:
 The per-quintal (100 kg) price entered by the cashier at sale time for a Bulk Product line. Drives the line's total before Loading Charges.
 _Avoid_: Rate, kg rate, price-per-kg.
 
 **Loading Charge**:
-An opt-in surcharge applied at the cart level, computed from configurable rules keyed by Bag Type.
+An opt-in surcharge on a **Sale** cart (not Purchase). When applied: each bulk line contributes (rate ₹/bag × qty). Rate for a Default Bag Type line comes from that type's Settings loading charge; rate for a Dynamic bag weight line comes from one **global default dynamic loading charge** (Settings), unless the cashier sets a **per-line custom ₹/bag** on that dynamic line only. On Edit Sale, rates recompute from **current** Settings (not historical snapshots); cart opt-in and any per-line dynamic ₹/bag overrides must still round-trip even when the computed total is ₹0.
 _Avoid_: Hamali, handling fee.
 
 ### Stock movements
@@ -162,7 +171,7 @@ A settings-level toggle that lets Vajra operate without a printer. When on, fini
 ### Stock-only movements
 
 **Stock Transfer**:
-A rebranding or repackaging operation that moves stock from one Product to another without any money changing hands. Declared in two sides: the source Products and quantities removed, and the target Products and quantities added. Example: 6 × 50 kg bags of "Toor Dal Regular" become 12 × 25 kg bags of "Toor Dal Premium." Vajra will show the kg totals on each side so the operator can see any yield difference. Like other transactional entries, Stock Transfers are wiped at Rollover; only their net stock impact survives.
+A rebranding or repackaging operation that moves stock from one Product to another without any money changing hands. Declared in two sides: the source Products and quantities removed, and the target Products and quantities added. Bulk legs always use each Product's **Default Bag Size** — no Dynamic bag weight and no alternate Default Bag Type pick on the leg. Example: 6 × 50 kg bags of "Toor Dal Regular" become 12 × 25 kg bags of "Toor Dal Premium" (each side in that Product's Default Bag Size). Vajra will show the kg totals on each side so the operator can see any yield difference. Like other transactional entries, Stock Transfers are wiped at Rollover; only their net stock impact survives.
 _Avoid_: Rebranding, repack, conversion.
 
 ## Flagged ambiguities
