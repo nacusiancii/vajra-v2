@@ -110,10 +110,10 @@ function approve(): void {
             <TableRow v-for="row in inv" :key="row.productId">
               <TableCell>{{ row.productName }}</TableCell>
               <TableCell class="text-right tabular-nums">{{
-                formatStockQty(row.opening, row.productType, row.defaultBagSizeG)
+                formatStockQty(row.opening, row.defaultBagSizeG)
               }}</TableCell>
               <TableCell class="text-right font-semibold tabular-nums">
-                {{ formatStockQty(Math.max(0, row.closing), row.productType, row.defaultBagSizeG) }}
+                {{ formatStockQty(Math.max(0, row.closing), row.defaultBagSizeG) }}
               </TableCell>
             </TableRow>
           </TableBody>

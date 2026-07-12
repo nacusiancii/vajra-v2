@@ -8,8 +8,7 @@ export const CreateProductSchema = z
   .object({
     name: z.string().trim().min(1, 'Name is required'),
     productGroupName: z.string().trim().min(1, 'Product Group is required'),
-    type: z.enum(['packaged', 'bulk']),
-    defaultBagSizeG: z.coerce.number().nullable(),
+    defaultBagSizeG: z.coerce.number(),
     nameTe: z
       .string()
       .trim()
@@ -21,16 +20,10 @@ export const CreateProductSchema = z
       .transform((v) => (v === '' ? null : v))
       .nullable()
   })
-  .refine(
-    (d) => {
-      if (d.type === 'bulk') return d.defaultBagSizeG != null && isValidBagSizeG(d.defaultBagSizeG)
-      return d.defaultBagSizeG == null
-    },
-    {
-      message: 'Bulk Products require a Default Bag Size; Packaged Products must not have one',
-      path: ['defaultBagSizeG']
-    }
-  )
+  .refine((d) => isValidBagSizeG(d.defaultBagSizeG), {
+    message: 'Products require a Default Bag Size (25, 30, or 50 kg)',
+    path: ['defaultBagSizeG']
+  })
 
 export const UpdateProductSchema = z.object({
   name: z.string().trim().min(1, 'Name is required'),

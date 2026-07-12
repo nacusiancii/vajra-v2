@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Plus, Settings as SettingsIcon, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useSettingsQuery, useUpdateSettings } from '@/queries/operations'
-import type { AppSettings } from '@domain/settings'
+import { loadingChargeForKg, type AppSettings, type LoadingChargeRules } from '@domain/settings'
 import { gToKg, kgToG, paiseToRupees, rupeesToPaise, type BagSizeG } from '@domain/units'
-import { formatBagKg } from '@/lib/format'
+import { formatBagKg, formatRupees } from '@/lib/format'
 
 const { data: settings } = useSettingsQuery()
 const updateSettings = useUpdateSettings()
@@ -18,6 +18,9 @@ const draft = ref<AppSettings | null>(null)
 const newBagSizeKg = ref<number | null>(null)
 const saved = ref(false)
 
+/** Test weight in kg — uses in-form (unsaved) breakpoints. */
+const testWeightKg = ref<number | null>(null)
+
 watch(
   settings,
   (s) => {
@@ -26,11 +29,61 @@ watch(
   { immediate: true }
 )
 
-function loadingRateRupees(sizeG: number): number {
-  return paiseToRupees(draft.value?.loadingChargePerBag[sizeG] ?? 0)
+const loadingRules = computed((): LoadingChargeRules => {
+  return (
+    draft.value?.loadingCharge ?? {
+      breakpoints: [],
+      aboveLastPaise: 0
+    }
+  )
+})
+
+const testChargePaise = computed(() => {
+  const kg = testWeightKg.value
+  if (kg == null || !(kg > 0)) return null
+  return loadingChargeForKg(kg, loadingRules.value)
+})
+
+function bpUpToKg(index: number): number {
+  return draft.value?.loadingCharge.breakpoints[index]?.upToKg ?? 0
 }
-function setLoadingRateRupees(sizeG: number, rupees: number): void {
-  if (draft.value) draft.value.loadingChargePerBag[sizeG] = rupeesToPaise(rupees)
+
+function setBpUpToKg(index: number, kg: number): void {
+  if (!draft.value) return
+  const bp = draft.value.loadingCharge.breakpoints[index]
+  if (bp) bp.upToKg = kg
+}
+
+function bpChargeRupees(index: number): number {
+  return paiseToRupees(draft.value?.loadingCharge.breakpoints[index]?.chargePaise ?? 0)
+}
+
+function setBpChargeRupees(index: number, rupees: number): void {
+  if (!draft.value) return
+  const bp = draft.value.loadingCharge.breakpoints[index]
+  if (bp) bp.chargePaise = rupeesToPaise(rupees)
+}
+
+function aboveLastRupees(): number {
+  return paiseToRupees(draft.value?.loadingCharge.aboveLastPaise ?? 0)
+}
+
+function setAboveLastRupees(rupees: number): void {
+  if (draft.value) draft.value.loadingCharge.aboveLastPaise = rupeesToPaise(rupees)
+}
+
+function addBreakpoint(): void {
+  if (!draft.value) return
+  const bps = draft.value.loadingCharge.breakpoints
+  const lastUp = bps.length ? bps[bps.length - 1]!.upToKg : 0
+  draft.value.loadingCharge.breakpoints = [...bps, { upToKg: lastUp + 10, chargePaise: 0 }]
+}
+
+function removeBreakpoint(index: number): void {
+  if (!draft.value) return
+  draft.value.loadingCharge.breakpoints = draft.value.loadingCharge.breakpoints.filter(
+    (_, i) => i !== index
+  )
 }
 
 function addBagType(): void {
@@ -39,7 +92,6 @@ function addBagType(): void {
   const sizeG = kgToG(kg) as BagSizeG
   if (!draft.value.bagTypes.includes(sizeG)) {
     draft.value.bagTypes = [...draft.value.bagTypes, sizeG].sort((a, b) => a - b)
-    draft.value.loadingChargePerBag[sizeG] = draft.value.loadingChargePerBag[sizeG] ?? 0
   }
   newBagSizeKg.value = null
 }
@@ -50,6 +102,9 @@ function removeBagType(sizeG: number): void {
 
 function save(): void {
   if (!draft.value) return
+  // Keep breakpoints ordered by upToKg ascending.
+  const sorted = [...draft.value.loadingCharge.breakpoints].sort((a, b) => a.upToKg - b.upToKg)
+  draft.value.loadingCharge.breakpoints = sorted
   const payload = JSON.parse(JSON.stringify(draft.value)) as AppSettings
   payload.printerlessMode = true
   updateSettings.mutate(payload, {
@@ -124,9 +179,9 @@ function save(): void {
     </section>
 
     <section class="space-y-3">
-      <h2 class="font-semibold">Bag Types &amp; Loading Charges</h2>
+      <h2 class="font-semibold">Bag Types</h2>
       <p class="text-sm text-muted-foreground">
-        Loading Charge is a rupee rate per bag, applied per Bag Type when opted in on a Sale.
+        Standard pack weights used on cart bag lines for pricing by Quintal Rate.
       </p>
       <div class="space-y-2">
         <div
@@ -137,17 +192,6 @@ function save(): void {
           :data-bag-size="gToKg(sizeG)"
         >
           <span class="w-20 font-medium tabular-nums">{{ formatBagKg(sizeG) }}</span>
-          <div class="flex flex-1 items-center gap-2">
-            <Label class="text-xs text-muted-foreground">₹/bag</Label>
-            <Input
-              type="number"
-              min="0"
-              class="w-28"
-              :model-value="loadingRateRupees(sizeG)"
-              :data-testid="`bag-type-rate-${gToKg(sizeG)}`"
-              @update:model-value="setLoadingRateRupees(sizeG, Number($event) || 0)"
-            />
-          </div>
           <Button
             variant="ghost"
             size="icon"
@@ -171,6 +215,94 @@ function save(): void {
         <Button variant="outline" size="sm" data-testid="add-bag-type" @click="addBagType">
           <Plus class="mr-2 size-4" /> Add Bag Type
         </Button>
+      </div>
+    </section>
+
+    <section class="space-y-3">
+      <h2 class="font-semibold">Loading Charges</h2>
+      <p class="text-sm text-muted-foreground">
+        Charge per bag (by bag weight) or per Loose line (by total kg). Opt-in on Sales only.
+        Breakpoints are inclusive upper bounds: weight ≤ N kg pays the listed charge.
+      </p>
+      <div class="space-y-2">
+        <div
+          v-for="(_bp, index) in draft.loadingCharge.breakpoints"
+          :key="index"
+          class="flex flex-wrap items-center gap-3 rounded-md border p-2"
+          data-testid="loading-breakpoint-row"
+        >
+          <Label class="text-xs text-muted-foreground">Up to (kg)</Label>
+          <Input
+            type="number"
+            min="0"
+            step="0.1"
+            class="w-24"
+            :model-value="bpUpToKg(index)"
+            :data-testid="`loading-bp-kg-${index}`"
+            @update:model-value="setBpUpToKg(index, Number($event) || 0)"
+          />
+          <Label class="text-xs text-muted-foreground">₹ / parcel</Label>
+          <Input
+            type="number"
+            min="0"
+            class="w-28"
+            :model-value="bpChargeRupees(index)"
+            :data-testid="`loading-bp-rate-${index}`"
+            @update:model-value="setBpChargeRupees(index, Number($event) || 0)"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            :data-testid="`loading-bp-remove-${index}`"
+            @click="removeBreakpoint(index)"
+          >
+            <Trash2 class="size-4 text-destructive" />
+          </Button>
+        </div>
+        <div
+          class="flex flex-wrap items-center gap-3 rounded-md border p-2"
+          data-testid="loading-above-row"
+        >
+          <span class="text-sm font-medium">Above last breakpoint</span>
+          <Label class="text-xs text-muted-foreground">₹ / parcel</Label>
+          <Input
+            type="number"
+            min="0"
+            class="w-28"
+            :model-value="aboveLastRupees()"
+            data-testid="loading-above-rate"
+            @update:model-value="setAboveLastRupees(Number($event) || 0)"
+          />
+        </div>
+      </div>
+      <Button variant="outline" size="sm" data-testid="loading-bp-add" @click="addBreakpoint">
+        <Plus class="mr-2 size-4" /> Add Breakpoint
+      </Button>
+
+      <div class="mt-4 space-y-2 rounded-md border bg-muted/20 p-3" data-testid="loading-test">
+        <h3 class="text-sm font-medium">Test charge</h3>
+        <p class="text-xs text-muted-foreground">
+          Enter a weight in kg to see the charge the breakpoints above would produce (uses the form
+          values, even if not saved).
+        </p>
+        <div class="flex flex-wrap items-center gap-3">
+          <Input
+            type="number"
+            min="0"
+            step="0.1"
+            class="w-32"
+            :model-value="testWeightKg ?? ''"
+            placeholder="Weight kg"
+            data-testid="loading-test-kg"
+            @update:model-value="testWeightKg = $event === '' ? null : Number($event)"
+          />
+          <span class="text-sm tabular-nums" data-testid="loading-test-result">
+            <template v-if="testChargePaise != null">
+              Charge: {{ formatRupees(testChargePaise) }}
+            </template>
+            <template v-else>—</template>
+          </span>
+        </div>
       </div>
     </section>
 

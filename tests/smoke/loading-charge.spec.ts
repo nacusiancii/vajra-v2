@@ -2,10 +2,11 @@ import { test, expect, dismissAutoPicker } from './fixtures'
 import type { Page } from '@playwright/test'
 
 /**
- * End-to-end Loading Charge flow — was never proven in the smoke suite.
+ * End-to-end Loading Charge flow with weight breakpoints.
  *
- * Settings rates → product → purchase stock → Sale with opt-in loading →
+ * Settings breakpoints → product → purchase stock → Sale with opt-in loading →
  * live total, slip, cash drawer, inventory (stock unaffected by loading money).
+ * Also covers a Loose cart line on a Sale.
  */
 
 async function goHome(page: Page): Promise<void> {
@@ -37,15 +38,19 @@ async function addBulkProduct(
   await goHome(page)
 }
 
-async function configureLoadingRates(
-  page: Page,
-  rates: Partial<Record<25 | 30 | 50, number>>
-): Promise<void> {
+/**
+ * Configure breakpoints: index 0 = ≤10kg, index 1 = ≤30kg, plus above-last.
+ * Defaults already match ₹0 / ₹10 / ₹12 — only override when needed.
+ */
+async function configureLoadingDefaults(page: Page): Promise<void> {
   await openManagement(page, 'Settings')
   await expect(page.getByTestId('settings-page')).toBeVisible()
-  for (const [size, rate] of Object.entries(rates)) {
-    await page.getByTestId(`bag-type-rate-${size}`).fill(String(rate))
-  }
+  // Ensure default-like values (form may already have them)
+  await page.getByTestId('loading-bp-kg-0').fill('10')
+  await page.getByTestId('loading-bp-rate-0').fill('0')
+  await page.getByTestId('loading-bp-kg-1').fill('30')
+  await page.getByTestId('loading-bp-rate-1').fill('10')
+  await page.getByTestId('loading-above-rate').fill('12')
   await page.getByTestId('settings-save').click()
   await expect(page.getByTestId('settings-saved')).toBeVisible()
   await goHome(page)
@@ -85,8 +90,8 @@ async function startWalkinSale(page: Page, name: string, place: string): Promise
 test('loading charge: settings → sale total → slip → cash drawer', async ({ page }) => {
   test.setTimeout(90_000)
 
-  // ₹20 per 50kg bag, ₹10 per 25kg bag
-  await configureLoadingRates(page, { 50: 20, 25: 10, 30: 12 })
+  // Defaults: ≤10 → ₹0, ≤30 → ₹10, above → ₹12. 50kg bag → ₹12 each.
+  await configureLoadingDefaults(page)
   await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
@@ -101,31 +106,31 @@ test('loading charge: settings → sale total → slip → cash drawer', async (
   // Goods only: 2 × 50kg = 100kg = 1 quintal × ₹6000
   await expect(page.getByTestId('sale-total')).toContainText('6,000')
 
-  // Opt-in: 2 bags × ₹20 = ₹40 → total ₹6,040
+  // Opt-in: 2 bags × ₹12 = ₹24 → total ₹6,024
   await page.getByTestId('sale-apply-loading').click()
-  await expect(page.getByTestId('sale-apply-loading-label')).toContainText('40')
-  await expect(page.getByTestId('sale-total')).toContainText('6,040')
-  await expect(page.getByTestId('sale-cash')).toHaveValue('6040')
+  await expect(page.getByTestId('sale-apply-loading-label')).toContainText('24')
+  await expect(page.getByTestId('sale-total')).toContainText('6,024')
+  await expect(page.getByTestId('sale-cash')).toHaveValue('6024')
 
   // Toggle off restores goods-only total
   await page.getByTestId('sale-apply-loading').click()
   await expect(page.getByTestId('sale-total')).toContainText('6,000')
   await page.getByTestId('sale-apply-loading').click()
-  await expect(page.getByTestId('sale-total')).toContainText('6,040')
+  await expect(page.getByTestId('sale-total')).toContainText('6,024')
 
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('slip-preview')).toBeVisible()
   await expect(page.getByTestId('slip-preview')).toContainText('Write a manual copy')
   await expect(page.getByTestId('slip-loading')).toBeVisible()
-  await expect(page.getByTestId('slip-loading')).toContainText('40')
+  await expect(page.getByTestId('slip-loading')).toContainText('24')
   // Grand total on slip includes loading
-  await expect(page.getByTestId('slip-preview')).toContainText('6,040')
+  await expect(page.getByTestId('slip-preview')).toContainText('6,024')
   await page.getByTestId('slip-done').click()
 
   // Done returns Home; open ledger to confirm cash drawer includes loading surcharge.
   await expect(page.getByTestId('home-page')).toBeVisible()
   await openManagement(page, 'Transactions')
-  await expect(page.getByTestId('drawer-summary')).toContainText('6,040')
+  await expect(page.getByTestId('drawer-summary')).toContainText('6,024')
   await goHome(page)
 
   // Stock: 10 − 2 = 8 (loading is money only)
@@ -134,10 +139,10 @@ test('loading charge: settings → sale total → slip → cash drawer', async (
   await expect(page.getByTestId('inventory-row')).toContainText('8')
 })
 
-test('loading charge uses the line Bag Type rate, not Default Bag Size', async ({ page }) => {
+test('loading charge uses bag weight breakpoints, not bag-type table', async ({ page }) => {
   test.setTimeout(90_000)
 
-  await configureLoadingRates(page, { 50: 20, 25: 10 })
+  await configureLoadingDefaults(page)
   await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
   await purchaseBulk(page, 'Toor Dal', '6000', '20')
 
@@ -145,7 +150,7 @@ test('loading charge uses the line Bag Type rate, not Default Bag Size', async (
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
-  // Override to 25 kg bags: same 100kg goods, different loading key
+  // Override to 25 kg bags: same 100kg goods, loading from 25kg band (₹10)
   await page.getByTestId('cart-bag').click()
   await page.getByRole('option', { name: '25 kg' }).click()
   await page.getByTestId('cart-rate').fill('6000')
@@ -153,7 +158,7 @@ test('loading charge uses the line Bag Type rate, not Default Bag Size', async (
 
   await expect(page.getByTestId('sale-total')).toContainText('6,000')
   await page.getByTestId('sale-apply-loading').click()
-  // 4 × ₹10 = ₹40 (not 4 × ₹20)
+  // 4 × ₹10 = ₹40
   await expect(page.getByTestId('sale-apply-loading-label')).toContainText('40')
   await expect(page.getByTestId('sale-total')).toContainText('6,040')
 
@@ -167,24 +172,29 @@ test('loading charge uses the line Bag Type rate, not Default Bag Size', async (
   await expect(page.getByTestId('inventory-row')).toContainText('18')
 })
 
-test('loading charge is 0 until rates are configured (defaults are zero)', async ({ page }) => {
+test('loading charge zero band until weight exceeds 10 kg', async ({ page }) => {
   test.setTimeout(60_000)
 
-  // Fresh install: no Settings save — rates stay at 0
+  await configureLoadingDefaults(page)
   await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  // Purchase enough for loose later; still need bag purchase for stock
   await purchaseBulk(page, 'Toor Dal', '6000', '5')
 
-  await startWalkinSale(page, 'Zero Rate', 'Guntur')
+  await startWalkinSale(page, 'Zero Band', 'Guntur')
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
-  await page.getByTestId('cart-rate').fill('6000')
-  await page.getByTestId('cart-qty').fill('2')
+  // Loose 8 kg → ≤10 → ₹0 loading
+  await page.getByTestId('cart-bag').click()
+  await page.getByRole('option', { name: 'Loose' }).click()
+  await page.getByTestId('cart-rate').fill('60')
+  await page.getByTestId('cart-qty').fill('8')
 
+  // Goods: 8 × ₹60 = ₹480
+  await expect(page.getByTestId('sale-total')).toContainText('480')
   await page.getByTestId('sale-apply-loading').click()
-  // Opt-in with zero rates: label shows ₹0.00, total unchanged
   await expect(page.getByTestId('sale-apply-loading-label')).toContainText('0.00')
-  await expect(page.getByTestId('sale-total')).toContainText('6,000')
+  await expect(page.getByTestId('sale-total')).toContainText('480')
 
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('slip-preview')).toBeVisible()
@@ -193,131 +203,80 @@ test('loading charge is 0 until rates are configured (defaults are zero)', async
   await page.getByTestId('slip-done').click()
 })
 
-test('mixed cart: packaged lines never contribute to loading', async ({ page }) => {
+test('edit keeps loading opt-in when stored charge is ₹0 (free band)', async ({ page }) => {
+  // Finding: rehydrate from amount (> 0) dropped opt-in on free-band Sales.
+  // Fix: persist loading_applied; Edit must restore the toggle from the flag.
   test.setTimeout(90_000)
 
-  await configureLoadingRates(page, { 50: 20 })
-  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
-
-  // Packaged product
-  await openManagement(page, 'Product Master')
-  await page.getByTestId('add-product-btn').click()
-  await page.getByTestId('product-name-input').fill('Atta 1kg')
-  await page.getByTestId('product-group-combobox').fill('Flour')
-  await page.getByTestId('product-type-select').click()
-  await page.getByRole('option', { name: 'Packaged' }).click()
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-  await goHome(page)
-
-  await purchaseBulk(page, 'Toor Dal', '6000', '5')
-
-  // Purchase packaged stock too
-  await page.getByTestId('open-purchase').click()
-  await page.getByTestId('purchase-gate-credit').click()
-  await dismissAutoPicker(page)
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
-  await page.getByRole('option', { name: 'Atta 1kg' }).click()
-  await page.getByTestId('cart-rate').fill('40')
-  await page.getByTestId('cart-qty').fill('20')
-  await page.getByTestId('purchase-finish').click()
-  await goHome(page)
-
-  await startWalkinSale(page, 'Mixed Cart', 'Guntur')
-  // Bulk line: 1 × 50kg @ 6000 = ₹3000 goods, loading ₹20
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
-  await page.getByRole('option', { name: 'Toor Dal' }).click()
-  await page.getByTestId('cart-rate').fill('6000')
-  await page.getByTestId('cart-qty').fill('1')
-
-  // Packaged: 5 × ₹40 = ₹200, no loading
-  await page.getByTestId('cart-add-line').click()
-  const lines = page.getByTestId('cart-line')
-  await lines.nth(1).getByTestId('cart-product').click()
-  await page.getByRole('option', { name: 'Atta 1kg' }).click()
-  await lines.nth(1).getByTestId('cart-rate').fill('40')
-  await lines.nth(1).getByTestId('cart-qty').fill('5')
-
-  // Goods only: 3000 + 200 = 3200
-  await expect(page.getByTestId('sale-total')).toContainText('3,200')
-  await page.getByTestId('sale-apply-loading').click()
-  // Only bulk bag contributes: +₹20 → 3220
-  await expect(page.getByTestId('sale-apply-loading-label')).toContainText('20')
-  await expect(page.getByTestId('sale-total')).toContainText('3,220')
-
-  await page.getByTestId('sale-finish').click()
-  await expect(page.getByTestId('slip-loading')).toContainText('20')
-  await page.getByTestId('slip-done').click()
-})
-
-test('loading charge + additional charges stack on the total', async ({ page }) => {
-  test.setTimeout(90_000)
-
-  await configureLoadingRates(page, { 50: 20 })
-  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
-  await purchaseBulk(page, 'Toor Dal', '6000', '5')
-
-  await startWalkinSale(page, 'Stack Charges', 'Guntur')
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
-  await page.getByRole('option', { name: 'Toor Dal' }).click()
-  await page.getByTestId('cart-rate').fill('6000')
-  await page.getByTestId('cart-qty').fill('2') // goods 6000
-
-  await page.getByTestId('sale-apply-loading').click() // +40
-  await page.getByTestId('sale-additional').fill('100') // +100
-  // 6000 + 40 + 100 = 6140
-  await expect(page.getByTestId('sale-total')).toContainText('6,140')
-  await expect(page.getByTestId('sale-cash')).toHaveValue('6140')
-
-  await page.getByTestId('sale-finish').click()
-  await expect(page.getByTestId('slip-preview')).toBeVisible()
-  await expect(page.getByTestId('slip-loading')).toContainText('40')
-  await expect(page.getByTestId('slip-preview')).toContainText('6,140')
-  await page.getByTestId('slip-done').click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-  await openManagement(page, 'Transactions')
-  await expect(page.getByTestId('drawer-summary')).toContainText('6,140')
-})
-
-test('adding a custom bag type in Settings appears on the Sale cart', async ({ page }) => {
-  test.setTimeout(90_000)
-
-  await openManagement(page, 'Settings')
-  await page.getByTestId('new-bag-size').fill('40')
-  await page.getByTestId('add-bag-type').click()
-  await expect(page.getByTestId('bag-type-row')).toHaveCount(4)
-  await page.getByTestId('bag-type-rate-40').fill('15')
-  await page.getByTestId('settings-save').click()
-  await expect(page.getByTestId('settings-saved')).toBeVisible()
-  await goHome(page)
-
+  await configureLoadingDefaults(page)
   await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
-  await startWalkinSale(page, 'Custom Bag', 'Guntur')
+  await startWalkinSale(page, 'Free Band Edit', 'Guntur')
+  await page.getByTestId('cart-add-line').click()
+  await page.getByTestId('cart-product').click()
+  await page.getByRole('option', { name: 'Toor Dal' }).click()
+  // Loose 8 kg → free band → ₹0 loading when opted in
+  await page.getByTestId('cart-bag').click()
+  await page.getByRole('option', { name: 'Loose' }).click()
+  await page.getByTestId('cart-rate').fill('60')
+  await page.getByTestId('cart-qty').fill('8')
+  await page.getByTestId('sale-apply-loading').click()
+  await expect(page.getByTestId('sale-loading-amount')).toContainText('0.00')
+  await page.getByTestId('sale-finish').click()
+  await expect(page.getByTestId('slip-preview')).toBeVisible()
+  await page.getByTestId('slip-done').click()
+  await expect(page.getByTestId('home-page')).toBeVisible()
+
+  // Edit the live Sale from Home recent list
+  await page.getByTestId('home-txn-row').first().getByTestId('txn-edit').click()
+  await expect(page.getByTestId('sale-page')).toBeVisible()
+  // Toggle must still be on (amount is still ₹0 free band)
+  await expect(page.getByTestId('sale-apply-loading')).toHaveAttribute('data-state', 'checked')
+  await expect(page.getByTestId('sale-loading-amount')).toContainText('0.00')
+
+  // Adding a 50 kg bag under opt-in must now charge loading (successor recomputes)
+  await page.getByTestId('cart-add-line').click()
+  // Second line: product combobox — use last cart-product
+  await page.getByTestId('cart-product').last().click()
+  await page.getByRole('option', { name: 'Toor Dal' }).click()
+  await page.getByTestId('cart-rate').last().fill('6000')
+  await page.getByTestId('cart-qty').last().fill('1')
+  // 50 kg bag → above → ₹12 loading
+  await expect(page.getByTestId('sale-loading-amount')).toContainText('12')
+})
+
+test('loose line: kg × price/kg total, stock delta, loading by total kg', async ({ page }) => {
+  test.setTimeout(90_000)
+
+  await configureLoadingDefaults(page)
+  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  await purchaseBulk(page, 'Toor Dal', '6000', '10')
+
+  await startWalkinSale(page, 'Loose Customer', 'Guntur')
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   await page.getByTestId('cart-bag').click()
-  // Custom 40 kg must be selectable even though product default is 50
-  await page.getByRole('option', { name: '40 kg' }).click()
-  await page.getByTestId('cart-rate').fill('6000')
-  await page.getByTestId('cart-qty').fill('5') // 200kg = 2q = ₹12,000 goods
+  await page.getByRole('option', { name: 'Loose' }).click()
+  // 15 kg × ₹60/kg = ₹900; loading ≤30 → ₹10
+  await page.getByTestId('cart-rate').fill('60')
+  await page.getByTestId('cart-qty').fill('15')
 
+  await expect(page.getByTestId('sale-total')).toContainText('900')
   await page.getByTestId('sale-apply-loading').click()
-  // 5 × ₹15 = ₹75
-  await expect(page.getByTestId('sale-apply-loading-label')).toContainText('75')
-  await expect(page.getByTestId('sale-total')).toContainText('12,075')
+  await expect(page.getByTestId('sale-apply-loading-label')).toContainText('10')
+  await expect(page.getByTestId('sale-total')).toContainText('910')
 
   await page.getByTestId('sale-finish').click()
-  await expect(page.getByTestId('slip-loading')).toContainText('75')
+  await expect(page.getByTestId('slip-preview')).toBeVisible()
+  await expect(page.getByTestId('slip-line-loose')).toBeVisible()
+  await expect(page.getByTestId('slip-loading')).toContainText('10')
   await page.getByTestId('slip-done').click()
   await goHome(page)
 
-  // Stock: 5 × (40/50) = 4 default bags out → 10 − 4 = 6
+  // Stock: 10 bags − 15kg/50kg = 10 − 0.3 = 9.7
   await openManagement(page, 'Inventory')
-  await expect(page.getByTestId('inventory-row')).toContainText('6')
+  await expect(page.getByTestId('inventory-row')).toContainText('Toor Dal')
+  await expect(page.getByTestId('inventory-row')).toContainText('9.7')
 })

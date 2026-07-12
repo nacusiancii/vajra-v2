@@ -8,7 +8,7 @@ test.describe('Product Master', () => {
     await expect(page.getByText('No products yet')).toBeVisible()
   })
 
-  test('add a bulk product via dialog', async ({ page }) => {
+  test('add a product via dialog', async ({ page }) => {
     await page.getByTestId('management-links').getByText('Product Master').click()
     await page.getByTestId('add-product-btn').click()
     await expect(page.getByTestId('product-dialog')).toBeVisible()
@@ -16,7 +16,6 @@ test.describe('Product Master', () => {
     await page.getByTestId('product-name-input').fill('Toor Dal Premium')
     await page.getByTestId('product-group-combobox').fill('Toor Dal')
 
-    // Type defaults to 'bulk', select bag size
     await page.getByTestId('product-bag-size-select').click()
     await page.getByRole('option', { name: '50 kg' }).click()
 
@@ -26,23 +25,7 @@ test.describe('Product Master', () => {
     await expect(page.getByText('Toor Dal Premium')).toBeVisible()
   })
 
-  test('add a packaged product via dialog', async ({ page }) => {
-    await page.getByTestId('management-links').getByText('Product Master').click()
-    await page.getByTestId('add-product-btn').click()
-
-    await page.getByTestId('product-name-input').fill('Atta 1kg Pack')
-    await page.getByTestId('product-group-combobox').fill('Flour')
-
-    // Switch to packaged
-    await page.getByTestId('product-type-select').click()
-    await page.getByRole('option', { name: 'Packaged' }).click()
-
-    await page.getByTestId('product-submit').click()
-    await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-    await expect(page.getByText('1 product')).toBeVisible()
-  })
-
-  test('edit a product — type and bag size shown as read-only', async ({ page }) => {
+  test('edit a product — bag size shown as read-only', async ({ page }) => {
     await page.getByTestId('management-links').getByText('Product Master').click()
 
     // Create

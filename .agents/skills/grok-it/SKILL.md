@@ -25,7 +25,7 @@ grok -p "<BRIEF>" --cwd=<worktree> --check --max-turns 200 \
 
 - **Research?** Grok. Read-only brief: return findings as markdown, commit nothing.
 - **Implementation?** Grok. PRD/issue brief, docs duty included: "if vocabulary shifts, update CONTEXT.md to match."
-- **Testing?** A **new** grok in the same worktree, briefed to *break the previous grok's code*: aggressive smoke + unit tests hunting real cracks (money rounding, stock deltas, mode toggles, empty/boundary carts). Wrecking-ball tests are for finding bugs — they get reported, then deleted; only the few high-value ones earn a commit (AGENTS.md test philosophy).
+- **Testing?** A **new** grok in the same worktree, briefed to _break the previous grok's code_: aggressive smoke + unit tests hunting real cracks (money rounding, stock deltas, mode toggles, empty/boundary carts). Wrecking-ball tests are for finding bugs — they get reported, then deleted; only the few high-value ones earn a commit (AGENTS.md test philosophy).
 - **Cleanup?** Grok, same worktree, briefed to sweep the previous grok's diff for debris: dead code, debug logs, commented-out blocks, unused exports, stale docs. Behavior identical — `pnpm fix:headless` proves it.
 - **Simplify?** Grok on the diff hunting reuse, simplification, and efficiency wins — quality only, no bug hunt (that's the Testing grok's game). If a change isn't clearly simpler, it doesn't land.
 - Bugs found → written into a fresh brief for the next implementation grok. We do not fix them ourselves.
