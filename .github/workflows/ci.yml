@@ -43,9 +43,10 @@ jobs:
         uses: actions/cache@v4
         with:
           path: .eslintcache
-          key: eslint-${{ runner.os }}-v1-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs') }}
+          # v2: content-strategy cache (v1 used mtime and was always cold after checkout)
+          key: eslint-${{ runner.os }}-v2-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs') }}
           restore-keys: |
-            eslint-${{ runner.os }}-v1-
+            eslint-${{ runner.os }}-v2-
             eslint-${{ runner.os }}-
 
       - name: Install dependencies
