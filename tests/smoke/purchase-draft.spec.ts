@@ -88,9 +88,8 @@ test('park Purchase Draft → other work → resume → finish; inventory waits 
 
   // Finish → normal Purchase; Draft gone; Inventory gains 2 bags.
   await page.getByTestId('purchase-finish').click()
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
-  await expect(page.getByTestId('txn-row').filter({ hasText: 'Parked Supplier' })).toBeVisible()
-  await goHome(page)
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  await expect(page.getByTestId('recent-transactions')).toContainText('Parked Supplier')
   await expect(page.getByTestId('home-drafts')).toHaveCount(0)
 
   await openManagement(page, 'Inventory')

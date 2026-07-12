@@ -157,7 +157,7 @@ function finish(): void {
       return
     }
   }
-  const onSuccess = (): void => void router.push('/transactions')
+  const onSuccess = (): void => void router.push('/')
   if (editId.value) editTransfer.mutate({ id: editId.value, input }, { onSuccess })
   else createTransfer.mutate(input, { onSuccess })
 }

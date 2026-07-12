@@ -11,8 +11,15 @@ async function goHome(page: Page): Promise<void> {
   await expect(page.getByTestId('home-page')).toBeVisible()
 }
 
+async function openManagement(page: Page, name: string): Promise<void> {
+  await page
+    .getByTestId('management-links')
+    .getByRole('link', { name: new RegExp(`^${name}`) })
+    .click()
+}
+
 async function addCustomer(page: Page, name: string, place: string): Promise<void> {
-  await page.getByTestId('management-links').getByText('Customer Master').click()
+  await openManagement(page, 'Customer Master')
   await page.getByTestId('add-customer-btn').click()
   await page.getByTestId('customer-name-input').fill(name)
   await page.getByTestId('customer-place-combobox').fill(place)
@@ -41,13 +48,14 @@ test('receipt cash + UPI + discount stores and edits round-trip', async ({ page 
   await expect(page.getByTestId('money-summary')).toContainText('1,000')
 
   await page.getByTestId('money-finish').click()
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
-  // Total column shows realized (cash+UPI), not face.
-  const row = page.getByTestId('txn-row').first()
-  await expect(row).toContainText('Receipt')
-  await expect(row).toContainText('900')
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  // Home recent list shows realized total (cash+UPI), not face.
+  await expect(page.getByTestId('recent-transactions')).toContainText('Receipt')
+  await expect(page.getByTestId('recent-transactions')).toContainText('900')
 
   // ── Edit: discount must load (not reset to 0) and re-save ──
+  await openManagement(page, 'Transactions')
+  await expect(page.getByTestId('transactions-page')).toBeVisible()
   await page.getByTestId('txn-edit').click()
   await expect(page.getByTestId('money-page')).toBeVisible()
   await expect(page.getByTestId('money-cash')).toHaveValue('700')
@@ -56,9 +64,10 @@ test('receipt cash + UPI + discount stores and edits round-trip', async ({ page 
 
   await page.getByTestId('money-discount').fill('150')
   await page.getByTestId('money-finish').click()
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
+  await expect(page.getByTestId('home-page')).toBeVisible()
 
   // Re-open edit to confirm the new discount stuck (void + successor).
+  await openManagement(page, 'Transactions')
   await page.getByTestId('txn-edit').first().click()
   await expect(page.getByTestId('money-page')).toBeVisible()
   await expect(page.getByTestId('money-cash')).toHaveValue('700')

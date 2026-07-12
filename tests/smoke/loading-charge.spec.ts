@@ -67,8 +67,7 @@ async function purchaseBulk(
   await page.getByTestId('cart-rate').fill(rate)
   await page.getByTestId('cart-qty').fill(qty)
   await page.getByTestId('purchase-finish').click()
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
-  await goHome(page)
+  await expect(page.getByTestId('home-page')).toBeVisible()
 }
 
 async function startWalkinSale(page: Page, name: string, place: string): Promise<void> {
@@ -123,8 +122,9 @@ test('loading charge: settings → sale total → slip → cash drawer', async (
   await expect(page.getByTestId('slip-preview')).toContainText('6,040')
   await page.getByTestId('slip-done').click()
 
-  // Cash drawer must include the loading surcharge
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
+  // Done returns Home; open ledger to confirm cash drawer includes loading surcharge.
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  await openManagement(page, 'Transactions')
   await expect(page.getByTestId('drawer-summary')).toContainText('6,040')
   await goHome(page)
 
@@ -277,6 +277,8 @@ test('loading charge + additional charges stack on the total', async ({ page }) 
   await expect(page.getByTestId('slip-loading')).toContainText('40')
   await expect(page.getByTestId('slip-preview')).toContainText('6,140')
   await page.getByTestId('slip-done').click()
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  await openManagement(page, 'Transactions')
   await expect(page.getByTestId('drawer-summary')).toContainText('6,140')
 })
 

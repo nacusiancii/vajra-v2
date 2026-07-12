@@ -44,8 +44,7 @@ async function purchaseStock(page: Page): Promise<void> {
   await page.getByTestId('cart-rate').fill('5000')
   await page.getByTestId('cart-qty').fill('4')
   await page.getByTestId('purchase-finish').click()
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
-  await goHome(page)
+  await expect(page.getByTestId('home-page')).toBeVisible()
 }
 
 test('park Sale Draft → other work → resume → finish; inventory waits for Finish', async ({
@@ -104,9 +103,8 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('slip-preview')).toBeVisible()
   await page.getByTestId('slip-done').click()
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
-  await expect(page.getByTestId('txn-row').filter({ hasText: 'Parked Customer' })).toBeVisible()
-  await goHome(page)
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  await expect(page.getByTestId('recent-transactions')).toContainText('Parked Customer')
   await expect(page.getByTestId('home-drafts')).toHaveCount(0)
 
   await openManagement(page, 'Inventory')
