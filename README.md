@@ -40,24 +40,38 @@ ELECTRON_DISABLE_SANDBOX=1 pnpm dev
 
 ## Verification
 
-The single command that gates all work:
+Default gate (no Electron windows on screen — needs `xvfb`):
 
 ```bash
-pnpm verify
+sudo apt install xvfb   # once, Linux
+pnpm verify:headless
+# or after local edits:
+pnpm fix:headless
 ```
 
 This runs lint, typecheck, unit tests (domain validation, pricing, and the Inventory
-projection), and Playwright smoke tests (master data + the full transactional core).
+projection), and Playwright smoke tests (master data + the full transactional core)
+on a virtual display.
+
+To watch the app UI while smoke tests run (debugging):
+
+```bash
+pnpm test:smoke
+# or full suite with visible Electron:
+pnpm verify
+```
 
 ### Scripts
 
 ```bash
-- `pnpm test` — run unit tests (pure domain logic, no Electron, fast)
-- `pnpm test:smoke` — build then run Playwright smoke tests against the real Electron app
-- `pnpm verify` — full check: lint:fix → typecheck → unit tests → smoke tests
+- `pnpm test` — unit tests (pure domain logic, no Electron, fast)
+- `pnpm test:smoke` — build + Playwright smoke (visible Electron windows)
+- `pnpm test:smoke:headless` — same, under Xvfb (no window flash)
+- `pnpm verify` / `pnpm verify:headless` — lint → typecheck → unit → smoke
+- `pnpm fix` / `pnpm fix:headless` — lint:fix → format → verify
 ```
 
-Refer to @package.json for the complete list of scripts, use pnpm, avoid npm and npx.
+Agents default to the `:headless` variants. Refer to @package.json for the complete list; use pnpm, avoid npm and npx.
 
 ## Adding shadcn-vue components
 

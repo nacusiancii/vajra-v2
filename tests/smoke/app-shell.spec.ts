@@ -2,6 +2,13 @@ import { test, expect } from './fixtures'
 
 test.describe('Window shell', () => {
   test('opens maximized by default', async ({ electronApp, page }) => {
+    // Xvfb has no real window manager; BrowserWindow.isMaximized() stays false
+    // even after maximize(). Visible (non-headless) smoke still covers this.
+    test.skip(
+      process.env.VAJRA_SMOKE_HEADLESS === '1',
+      'isMaximized is unreliable under Xvfb headless'
+    )
+
     await expect(page.getByTestId('home-page')).toBeVisible()
 
     const isMaximized = await electronApp.evaluate(({ BrowserWindow }) => {
