@@ -5,6 +5,8 @@ import {
   gToKg,
   kgToG,
   lineMassG,
+  looseLineTotalPaise,
+  looseStockDeltaG,
   paiseToRupees,
   roundHalfAway,
   rupeesToPaise,
@@ -49,5 +51,21 @@ describe('bulk pricing', () => {
     // mass that produces a half-paise intermediate should round
     expect(roundHalfAway(1.5)).toBe(2)
     expect(roundHalfAway(-1.5)).toBe(-2)
+  })
+})
+
+describe('loose money + mass (integer paise / grams)', () => {
+  it('2.5 kg × ₹33.33/kg is integer paise (half-away)', () => {
+    // 2.5 × 3333 = 8332.5 → 8333
+    expect(rupeesToPaise(33.33)).toBe(3333)
+    expect(looseLineTotalPaise(2.5, 3333)).toBe(8333)
+    expect(Number.isInteger(looseLineTotalPaise(2.5, 3333))).toBe(true)
+  })
+
+  it('1.2345 kg stock delta is integer grams (half-away)', () => {
+    // 1234.5 g → 1235
+    expect(kgToG(1.2345)).toBe(1235)
+    expect(looseStockDeltaG(1.2345, -1)).toBe(-1235)
+    expect(Number.isInteger(looseStockDeltaG(1.2345, -1))).toBe(true)
   })
 })
