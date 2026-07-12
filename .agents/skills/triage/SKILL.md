@@ -86,7 +86,7 @@ Show counts and a one-line summary per issue. Let the maintainer pick.
    - `needs-research` — post a short research prompt (what to investigate, decisions needed, what "done researching" looks like). Optionally set priority.
    - `wontfix` (bug) — polite explanation, then close.
    - `wontfix` (enhancement) — write to `.out-of-scope/`, link to it from a comment, then close ([OUT-OF-SCOPE.md](OUT-OF-SCOPE.md)).
-   - `triage-done` — apply the role when evaluation is finished but the issue is parked (not ready-for-*, not waiting on info/research, not wontfix). Optional comment with parking notes.
+   - `triage-done` — apply the role when evaluation is finished but the issue is parked (not ready-for-\*, not waiting on info/research, not wontfix). Optional comment with parking notes.
    - `epic` — the feature is too big for one brief; see below. Apply priority when known; post a research kickoff prompt on high / highest epics when starting discovery.
    - priority — set or change `prio-*` when the maintainer states urgency. Highest/high work should not sit without a next action (brief, research prompt, or explicit park note).
 
