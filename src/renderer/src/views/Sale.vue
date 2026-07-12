@@ -765,7 +765,7 @@ watch(
       <SlipPreview
         :open="slipOpen"
         :txn="finished"
-        :printerless="settings?.printerlessMode ?? false"
+        :printerless="settings?.printerlessMode ?? true"
         @update:open="(v) => (slipOpen = v)"
         @done="onSlipDone"
       />

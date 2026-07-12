@@ -22,6 +22,12 @@ function settings(partial: Partial<AppSettings> = {}): AppSettings {
   })
 }
 
+describe('DEFAULT_SETTINGS', () => {
+  it('defaults to printerless mode', () => {
+    expect(DEFAULT_SETTINGS.printerlessMode).toBe(true)
+  })
+})
+
 describe('seed Default Bag Types', () => {
   it('ships 25, 30, 50 kg with loading ₹0 each', () => {
     expect(DEFAULT_SETTINGS.bagTypes).toEqual([25, 30, 50])

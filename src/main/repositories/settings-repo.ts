@@ -24,6 +24,33 @@ export class SettingsRepo {
   constructor(private db: Database) {}
 
   get(): AppSettings {
+    return lockPrinterless(this.read())
+  }
+
+  update(settings: AppSettings): AppSettings {
+    const previous = this.get()
+    const next = lockPrinterless(normalizeDefaultBagTypes(settings))
+    const productCountByDefaultBagSize = this.productCountByDefaultBagSize()
+
+    const check = validateDefaultBagTypesUpdate({
+      next,
+      previous,
+      productCountByDefaultBagSize
+    })
+    if (!check.ok) {
+      throw new Error(check.reason ?? 'Invalid Default Bag Types catalog')
+    }
+
+    this.db
+      .prepare(
+        `INSERT INTO setting (key, value) VALUES (?, ?)
+         ON CONFLICT(key) DO UPDATE SET value = excluded.value`
+      )
+      .run(KEY, JSON.stringify(next))
+    return this.get()
+  }
+
+  private read(): AppSettings {
     const row = this.db.prepare(`SELECT value FROM setting WHERE key = ?`).get(KEY) as
       | { value: string }
       | undefined
@@ -46,29 +73,6 @@ export class SettingsRepo {
     }
   }
 
-  update(settings: AppSettings): AppSettings {
-    const previous = this.get()
-    const next = normalizeDefaultBagTypes(settings)
-    const productCountByDefaultBagSize = this.productCountByDefaultBagSize()
-
-    const check = validateDefaultBagTypesUpdate({
-      next,
-      previous,
-      productCountByDefaultBagSize
-    })
-    if (!check.ok) {
-      throw new Error(check.reason ?? 'Invalid Default Bag Types catalog')
-    }
-
-    this.db
-      .prepare(
-        `INSERT INTO setting (key, value) VALUES (?, ?)
-         ON CONFLICT(key) DO UPDATE SET value = excluded.value`
-      )
-      .run(KEY, JSON.stringify(next))
-    return this.get()
-  }
-
   /** How many Products use each Default Bag Size (for remove guardrails). */
   productCountByDefaultBagSize(): Map<number, number> {
     const rows = this.db
@@ -81,4 +85,12 @@ export class SettingsRepo {
       .all() as Array<{ kg: number; n: number }>
     return new Map(rows.map((r) => [r.kg, r.n]))
   }
+}
+
+/**
+ * Temporary: no printer driver yet (#22). Force printerless on every read/write
+ * so old rows and UI saves cannot turn it off. Drop when #28 ships.
+ */
+function lockPrinterless(settings: AppSettings): AppSettings {
+  return { ...settings, printerlessMode: true }
 }
