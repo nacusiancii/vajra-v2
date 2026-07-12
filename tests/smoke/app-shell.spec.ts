@@ -39,10 +39,8 @@ test.describe('Home page', () => {
     await expect(page.getByTestId('money-page')).toBeVisible()
     await page.getByTestId('money-label').fill('Tea')
     await page.getByTestId('money-amount').fill('50')
+    // Finish returns Home (#83) so the new row is immediately editable from Recent.
     await page.getByTestId('money-finish').click()
-    await expect(page.getByTestId('transactions-page')).toBeVisible()
-
-    await page.getByRole('link', { name: /^Vajra$/ }).click()
     await expect(page.getByTestId('home-page')).toBeVisible()
 
     const recent = page.getByTestId('recent-transactions')
