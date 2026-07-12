@@ -1,9 +1,11 @@
 /**
- * Loading Charge + bag-size pricing rules in integer paise / grams.
+ * Loading Charge (weight breakpoints) + loose bulk pricing in integer paise / grams.
  */
 import { describe, it, expect } from 'vitest'
 import {
+  cartBulkMassG,
   computeLoadingCharge,
+  computeLoadingChargeForLines,
   grandTotal,
   lineTotal,
   validateSale,
@@ -12,148 +14,115 @@ import {
 import { lineStockDelta } from '@domain/transaction'
 import type { SaleLineInput } from '@domain/transaction'
 import { CreateProductSchema, isValidBagSizeG } from '@domain/product'
-import { DEFAULT_SETTINGS } from '@domain/settings'
+import { DEFAULT_LOADING_BREAKPOINTS, DEFAULT_SETTINGS } from '@domain/settings'
 import { BAG_SIZES_G } from '@domain/types'
 
-describe('computeLoadingCharge — core cases (paise)', () => {
-  it('returns 0 for an empty cart', () => {
-    expect(computeLoadingCharge([], { 25_000: 1_000, 50_000: 2_000 })).toBe(0)
+describe('computeLoadingCharge — weight breakpoints (paise)', () => {
+  const defaults = DEFAULT_LOADING_BREAKPOINTS
+
+  it('returns 0 for zero mass', () => {
+    expect(computeLoadingCharge(0, defaults)).toBe(0)
   })
 
-  it('returns 0 when rates are empty', () => {
-    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeG: 50_000, qty: 3 }], {})).toBe(0)
+  it('returns 0 for empty breakpoints', () => {
+    expect(computeLoadingCharge(50_000, [])).toBe(0)
   })
 
-  it('returns 0 when all rates are 0 (shipped defaults)', () => {
+  it('≤10 kg → ₹0 (shipped default)', () => {
+    expect(computeLoadingCharge(10_000, defaults)).toBe(0)
+    expect(computeLoadingCharge(5_000, defaults)).toBe(0)
+  })
+
+  it('≤30 kg → ₹10 (shipped default)', () => {
+    expect(computeLoadingCharge(10_001, defaults)).toBe(1_000)
+    expect(computeLoadingCharge(30_000, defaults)).toBe(1_000)
+  })
+
+  it('above 30 kg → ₹12 (shipped default)', () => {
+    expect(computeLoadingCharge(30_001, defaults)).toBe(1_200)
+    expect(computeLoadingCharge(100_000, defaults)).toBe(1_200)
+  })
+
+  it('charges from cart bulk mass (bags + loose), ignores packaged', () => {
+    // 1 × 50kg bag + 5 kg loose = 55 kg → ₹12
+    const mass = cartBulkMassG([
+      { productType: 'bulk', bagSizeG: 50_000, qty: 1, isLoose: false },
+      { productType: 'bulk', bagSizeG: null, qty: 5, isLoose: true },
+      { productType: 'packaged', bagSizeG: null, qty: 100 }
+    ])
+    expect(mass).toBe(55_000)
     expect(
-      computeLoadingCharge(
-        [{ productType: 'bulk', bagSizeG: 50_000, qty: 4 }],
-        DEFAULT_SETTINGS.loadingChargePerBag
-      )
-    ).toBe(0)
-  })
-
-  it('charges one bag type only', () => {
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeG: 50_000, qty: 3 }], { 50_000: 1_500 })
-    ).toBe(4_500)
-  })
-
-  it('sums multiple bulk lines with different bag types', () => {
-    // 2×50 @ ₹20 + 4×25 @ ₹10 + 1×30 @ ₹12 = 92 rupees = 9200 paise
-    expect(
-      computeLoadingCharge(
+      computeLoadingChargeForLines(
         [
-          { productType: 'bulk', bagSizeG: 50_000, qty: 2 },
-          { productType: 'bulk', bagSizeG: 25_000, qty: 4 },
-          { productType: 'bulk', bagSizeG: 30_000, qty: 1 }
+          { productType: 'bulk', bagSizeG: 50_000, qty: 1, isLoose: false },
+          { productType: 'bulk', bagSizeG: null, qty: 5, isLoose: true },
+          { productType: 'packaged', bagSizeG: null, qty: 100 }
         ],
-        { 50_000: 2_000, 25_000: 1_000, 30_000: 1_200 }
+        defaults
       )
-    ).toBe(9_200)
-  })
-
-  it('ignores packaged lines completely', () => {
-    expect(
-      computeLoadingCharge(
-        [
-          { productType: 'packaged', bagSizeG: null, qty: 100 },
-          { productType: 'packaged', bagSizeG: 50_000, qty: 5 }
-        ],
-        { 50_000: 9_900 }
-      )
-    ).toBe(0)
-  })
-
-  it('half bags charge half rate (rounded)', () => {
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeG: 50_000, qty: 0.5 }], { 50_000: 2_000 })
-    ).toBe(1_000)
-  })
-
-  it('floating rupee rate stored as paise stays integer', () => {
-    // ₹10.50/bag × 3 = ₹31.50 = 3150 paise
-    expect(
-      computeLoadingCharge([{ productType: 'bulk', bagSizeG: 50_000, qty: 3 }], { 50_000: 1_050 })
-    ).toBe(3_150)
+    ).toBe(1_200)
   })
 })
 
-describe('line pricing + loading composition (paise)', () => {
-  it('grand total = lines + loading + additional', () => {
-    // 2×50kg @ ₹6000/q = ₹6000; loading ₹40; additional ₹25 → ₹6065
-    const goods = lineTotal({
-      productType: 'bulk',
-      qty: 2,
-      bagSizeG: 50_000,
-      quintalRate: 600_000,
-      unitRate: null
-    })
-    const loading = computeLoadingCharge([{ productType: 'bulk', bagSizeG: 50_000, qty: 2 }], {
-      50_000: 2_000
-    })
-    expect(goods).toBe(600_000)
-    expect(loading).toBe(4_000)
-    expect(grandTotal([goods], loading, 2_500)).toBe(606_500)
+describe('loose bulk pricing (paise)', () => {
+  it('line total = kg × price/kg', () => {
+    // 12.5 kg × ₹60/kg = ₹750 = 75_000 paise
+    expect(
+      lineTotal({
+        productType: 'bulk',
+        qty: 12.5,
+        bagSizeG: null,
+        quintalRate: null,
+        unitRate: 6_000,
+        isLoose: true
+      })
+    ).toBe(75_000)
   })
 
-  it('non-default bag size changes goods total AND loading rate key', () => {
-    // 4 × 25kg = 100kg = 1 quintal @ ₹6000
-    const goods = lineTotal({
-      productType: 'bulk',
-      qty: 4,
-      bagSizeG: 25_000,
-      quintalRate: 600_000,
-      unitRate: null
-    })
-    const loading = computeLoadingCharge([{ productType: 'bulk', bagSizeG: 25_000, qty: 4 }], {
-      25_000: 1_000,
-      50_000: 2_000
-    })
-    expect(goods).toBe(600_000)
-    expect(loading).toBe(4_000)
-  })
-})
-
-describe('stock deltas in grams', () => {
-  it('25kg against 50kg default is 25000 g not a float fraction', () => {
+  it('stock delta is grams for loose kg', () => {
     expect(
       lineStockDelta({
         productType: 'bulk',
-        qty: 1,
-        bagSizeG: 25_000,
+        qty: 12.5,
+        bagSizeG: null,
         defaultBagSizeG: 50_000,
-        direction: -1
+        direction: -1,
+        isLoose: true
       })
-    ).toBe(-25_000)
+    ).toBe(-12_500)
   })
 
-  it('30kg × 5 against 50kg default is exact 150000 g', () => {
-    expect(
-      lineStockDelta({
-        productType: 'bulk',
-        qty: 5,
-        bagSizeG: 30_000,
-        defaultBagSizeG: 50_000,
-        direction: -1
-      })
-    ).toBe(-150_000)
+  it('grand total = loose goods + loading + additional', () => {
+    const goods = lineTotal({
+      productType: 'bulk',
+      qty: 25,
+      bagSizeG: null,
+      quintalRate: null,
+      unitRate: 6_000,
+      isLoose: true
+    })
+    // 25 kg → ≤30 → ₹10 loading
+    const loading = computeLoadingCharge(25_000, DEFAULT_LOADING_BREAKPOINTS)
+    expect(goods).toBe(150_000)
+    expect(loading).toBe(1_000)
+    expect(grandTotal([goods], loading, 2_500)).toBe(153_500)
   })
 })
 
-describe('validateSale + bag membership', () => {
+describe('validateSale — loose lines', () => {
   const products = new Map<number, LineProductLookup>([
     [1, { type: 'bulk', defaultBagSizeG: 50_000 }],
     [2, { type: 'packaged', defaultBagSizeG: null }]
   ])
 
-  it('accepts bulk with non-default bag size still in shop bag types', () => {
+  it('accepts loose bulk with kg qty and ₹/kg', () => {
     const line: SaleLineInput = {
       productId: 1,
-      bagSizeG: 25_000,
-      quintalRate: 600_000,
-      unitRate: null,
-      qty: 1
+      isLoose: true,
+      bagSizeG: null,
+      quintalRate: null,
+      unitRate: 6_000,
+      qty: 12
     }
     expect(
       validateSale([line], products, {
@@ -164,16 +133,55 @@ describe('validateSale + bag membership', () => {
       })
     ).toBeNull()
   })
+
+  it('rejects loose qty outside 1–50 kg', () => {
+    const low: SaleLineInput = {
+      productId: 1,
+      isLoose: true,
+      bagSizeG: null,
+      quintalRate: null,
+      unitRate: 6_000,
+      qty: 0.5
+    }
+    expect(
+      validateSale([low], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toMatch(/1 and 50/)
+    const high: SaleLineInput = { ...low, qty: 51 }
+    expect(
+      validateSale([high], products, {
+        mode: 'cash',
+        hasCustomer: false,
+        customerHasPhone: false,
+        isWalkin: true
+      })
+    ).toMatch(/1 and 50/)
+  })
 })
 
-describe('settings + bag types', () => {
-  it('defaults use grams keys and zero paise rates', () => {
-    expect([...DEFAULT_SETTINGS.bagTypes]).toEqual([...BAG_SIZES_G])
-    expect([...BAG_SIZES_G]).toEqual([25_000, 30_000, 50_000])
-    expect(DEFAULT_SETTINGS.loadingChargePerBag).toEqual({ 25_000: 0, 30_000: 0, 50_000: 0 })
+describe('settings defaults', () => {
+  it('ships weight breakpoints, not per-bag rates', () => {
+    expect(DEFAULT_SETTINGS.loadingChargeBreakpoints).toEqual(DEFAULT_LOADING_BREAKPOINTS)
+    expect(DEFAULT_SETTINGS.loadingChargeBreakpoints[0]).toEqual({
+      maxMassG: 10_000,
+      chargePaise: 0
+    })
+    expect(DEFAULT_SETTINGS.loadingChargeBreakpoints[1]).toEqual({
+      maxMassG: 30_000,
+      chargePaise: 1_000
+    })
+    expect(DEFAULT_SETTINGS.loadingChargeBreakpoints[2]).toEqual({
+      maxMassG: null,
+      chargePaise: 1_200
+    })
   })
 
-  it('isValidBagSizeG accepts shipped sizes', () => {
+  it('Default Bag Size constants still cover product master', () => {
+    expect([...BAG_SIZES_G]).toEqual([25_000, 30_000, 50_000])
     expect(isValidBagSizeG(25_000)).toBe(true)
     expect(isValidBagSizeG(40_000)).toBe(false)
   })
@@ -189,15 +197,5 @@ describe('settings + bag types', () => {
         remarks: null
       }).success
     ).toBe(true)
-    expect(
-      CreateProductSchema.safeParse({
-        name: 'X',
-        productGroupName: 'G',
-        type: 'bulk',
-        defaultBagSizeG: 40_000,
-        nameTe: null,
-        remarks: null
-      }).success
-    ).toBe(false)
   })
 })

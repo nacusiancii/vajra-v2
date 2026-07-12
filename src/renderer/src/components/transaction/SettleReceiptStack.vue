@@ -1,21 +1,21 @@
 <script setup lang="ts">
 /**
  * Settle money breakdown: Goods + opt-in Loading Charge + Additional Charges.
- * Loading Charge is a line item in the total story, not a free-floating checkbox.
+ * Loading Charge is a flat tier from total bulk mass (weight breakpoints).
  */
 import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { formatBagKg, formatQty, formatRupees } from '@/lib/format'
+import { formatKgFromG, formatRupees } from '@/lib/format'
 import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
-import type { LoadingBagBucket } from './loading-buckets'
 
 const props = defineProps<{
   applyLoading: boolean
   loadingCharge: number
   goodsTotal: number
   additionalCharges: number | null
-  buckets: LoadingBagBucket[]
+  /** Total bulk mass in grams for the Loading Charge formula. */
+  bulkMassG: number
 }>()
 
 const emit = defineEmits<{
@@ -49,20 +49,12 @@ const emit = defineEmits<{
           />
           <span class="min-w-0 flex-1">
             <span class="block">Loading Charge</span>
-            <!--
-              One bag type per line so mixed carts stay fully readable —
-              never clip the formula to a single truncated row.
-            -->
             <span
-              v-if="props.buckets.length"
-              class="mt-0.5 block space-y-0.5 text-xs text-muted-foreground"
+              v-if="props.bulkMassG > 0"
+              class="mt-0.5 block text-xs text-muted-foreground tabular-nums"
               data-testid="sale-loading-formula"
             >
-              <span v-for="b in props.buckets" :key="b.bagSizeG" class="block tabular-nums">
-                {{ formatBagKg(b.bagSizeG) }}:{{ formatQty(b.bagCount) }}×{{
-                  formatRupees(b.ratePerBag)
-                }}
-              </span>
+              {{ formatKgFromG(props.bulkMassG) }} bulk
             </span>
           </span>
         </label>

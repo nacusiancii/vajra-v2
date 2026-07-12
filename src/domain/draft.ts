@@ -17,6 +17,8 @@ export type DraftType = 'SA' | 'PU'
 /** Cart line while parked — rates/qty may still be empty. */
 export interface DraftCartLine {
   productId: number | null
+  /** Loose bulk: qty in kg, unitRate is paise/kg. */
+  isLoose: boolean
   bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null

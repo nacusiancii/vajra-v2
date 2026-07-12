@@ -54,9 +54,22 @@ describe('lineTotal (paise)', () => {
         qty: 2,
         bagSizeG: 50_000,
         quintalRate: 600_000,
-        unitRate: null
+        unitRate: null,
+        isLoose: false
       })
     ).toBe(600_000)
+  })
+  it('loose bulk priced per kg', () => {
+    expect(
+      lineTotal({
+        productType: 'bulk',
+        qty: 10,
+        bagSizeG: null,
+        quintalRate: null,
+        unitRate: 6_000,
+        isLoose: true
+      })
+    ).toBe(60_000)
   })
   it('packaged priced per unit', () => {
     expect(
@@ -77,33 +90,21 @@ describe('grandTotal (paise)', () => {
   })
 })
 
-describe('computeLoadingCharge (paise)', () => {
-  it('charges per bag of each bulk line by bag type', () => {
-    const charge = computeLoadingCharge(
-      [
-        { productType: 'bulk', bagSizeG: 50_000, qty: 2 },
-        { productType: 'bulk', bagSizeG: 25_000, qty: 4 },
-        { productType: 'packaged', bagSizeG: null, qty: 10 }
-      ],
-      { 50_000: 2_000, 25_000: 1_000 }
-    )
-    expect(charge).toBe(2 * 2_000 + 4 * 1_000)
+describe('computeLoadingCharge (paise, weight breakpoints)', () => {
+  const breakpoints = [
+    { maxMassG: 10_000, chargePaise: 0 },
+    { maxMassG: 30_000, chargePaise: 1_000 },
+    { maxMassG: null, chargePaise: 1_200 }
+  ]
+
+  it('picks tier from total mass in grams', () => {
+    // 2 × 50kg = 100_000 g → above 30 → ₹12
+    expect(computeLoadingCharge(100_000, breakpoints)).toBe(1_200)
   })
 
-  it('returns 0 when not opted in / empty rates', () => {
-    expect(computeLoadingCharge([{ productType: 'bulk', bagSizeG: 50_000, qty: 2 }], {})).toBe(0)
-  })
-
-  it('missing bag-type rate contributes 0 for that line only', () => {
-    expect(
-      computeLoadingCharge(
-        [
-          { productType: 'bulk', bagSizeG: 50_000, qty: 1 },
-          { productType: 'bulk', bagSizeG: 30_000, qty: 2 }
-        ],
-        { 50_000: 2_000 }
-      )
-    ).toBe(2_000)
+  it('returns 0 for empty mass or empty breakpoints', () => {
+    expect(computeLoadingCharge(0, breakpoints)).toBe(0)
+    expect(computeLoadingCharge(50_000, [])).toBe(0)
   })
 })
 
@@ -114,6 +115,7 @@ describe('validateSale', () => {
   ])
   const bulkLine: SaleLineInput = {
     productId: 1,
+    isLoose: false,
     bagSizeG: 50_000,
     quintalRate: 600_000,
     unitRate: null,

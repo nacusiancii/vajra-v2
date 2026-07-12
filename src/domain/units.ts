@@ -2,7 +2,7 @@
  * Integer units for ledger-safe money and mass.
  *
  * - Money is stored and computed in **paise** (1 ₹ = 100 paise).
- * - Mass / Bag Types are stored in **grams** (1 kg = 1000 g).
+ * - Mass / Default Bag Size are stored in **grams** (1 kg = 1000 g).
  * - Bulk stock deltas and Opening Stock for Bulk Products are **grams**.
  * - Packaged stock is whole **units** (not mass).
  *
@@ -14,7 +14,11 @@ export const G_PER_KG = 1000
 /** One quintal = 100 kg = 100_000 g. */
 export const QUINTAL_G = 100_000
 
-/** Shipped Bag Types in grams (25 / 30 / 50 kg). */
+/** Loose bulk qty bounds (kg) — cashier enters kilograms, not bags. */
+export const LOOSE_QTY_MIN_KG = 1
+export const LOOSE_QTY_MAX_KG = 50
+
+/** Shipped Default Bag Sizes in grams (25 / 30 / 50 kg). */
 export type BagSizeG = 25_000 | 30_000 | 50_000
 export const BAG_SIZES_G: readonly BagSizeG[] = [25_000, 30_000, 50_000] as const
 
@@ -49,7 +53,7 @@ export function isValidBagSizeG(g: number): g is BagSizeG {
 }
 
 /**
- * Mass moved by a bulk line: bags × bag size (grams).
+ * Mass moved by a bagged bulk line: bags × bag size (grams).
  * Uses roundHalfAway so half-bags (0.5) stay exact against integer bag sizes.
  */
 export function lineMassG(qtyBags: number, bagSizeG: number): number {
@@ -59,6 +63,7 @@ export function lineMassG(qtyBags: number, bagSizeG: number): number {
 /**
  * Bulk line total in paise: (mass_g / quintal_g) × quintal rate (paise).
  * Packaged: qty × unit rate (paise), rounded.
+ * Loose bulk: kg × rate per kg (paise), rounded.
  */
 export function bulkLineTotalPaise(massG: number, quintalRatePaise: number): number {
   if (!(massG > 0) || !(quintalRatePaise > 0)) return 0
@@ -69,9 +74,9 @@ export function packagedLineTotalPaise(qty: number, unitRatePaise: number): numb
   return roundHalfAway(qty * unitRatePaise)
 }
 
-/** Loading: rate (paise/bag) × bag count, rounded per line then summed by caller. */
-export function loadingLinePaise(qtyBags: number, ratePaisePerBag: number): number {
-  return roundHalfAway(qtyBags * ratePaisePerBag)
+/** Loose bulk: qty (kg) × price per kg (paise). */
+export function looseLineTotalPaise(qtyKg: number, ratePaisePerKg: number): number {
+  return roundHalfAway(qtyKg * ratePaisePerKg)
 }
 
 /**
@@ -79,6 +84,11 @@ export function loadingLinePaise(qtyBags: number, ratePaisePerBag: number): numb
  */
 export function bulkStockDeltaG(qtyBags: number, bagSizeG: number, direction: 1 | -1): number {
   return direction * lineMassG(qtyBags, bagSizeG)
+}
+
+/** Loose bulk stock change: kilograms → signed grams. */
+export function looseStockDeltaG(qtyKg: number, direction: 1 | -1): number {
+  return direction * kgToG(qtyKg)
 }
 
 /** Default-bag units for display: grams / default bag grams. */

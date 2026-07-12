@@ -39,7 +39,6 @@ import {
 import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
 import SlipPreview from '@/components/transaction/SlipPreview.vue'
 import SettleReceiptStack from '@/components/transaction/SettleReceiptStack.vue'
-import { loadingChargeBuckets } from '@/components/transaction/loading-buckets'
 import CreditVoucherPreview, {
   type VoucherLine
 } from '@/components/transaction/CreditVoucherPreview.vue'
@@ -49,11 +48,13 @@ import { useCustomersQuery } from '@/queries/customers'
 import { useSettingsQuery, useBusinessDayQuery } from '@/queries/operations'
 import { useClearDraft, useCreateSale, useEditSale, useSaveSaleDraft } from '@/queries/transactions'
 import {
+  cartBulkMassG,
   computeLoadingCharge,
   grandTotal,
   lineTotal,
   validateSale
 } from '@domain/transaction-rules'
+import { DEFAULT_LOADING_BREAKPOINTS } from '@domain/settings'
 import { validateSaleDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
 import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
@@ -116,7 +117,6 @@ const printGateOpen = ref(false)
 
 const productList = computed(() => products.value ?? [])
 const customerList = computed(() => customers.value ?? [])
-const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_000])
 
 const isCredit = computed(() => mode.value === 'credit')
 
@@ -178,7 +178,8 @@ const lineTotals = computed(() =>
       qty: l.qty,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate
+      unitRate: l.unitRate,
+      isLoose: l.isLoose
     })
   })
 )
@@ -189,20 +190,21 @@ const bulkLineInputs = computed(() =>
     return {
       productType: p?.type ?? ('packaged' as const),
       bagSizeG: l.bagSizeG,
-      qty: l.qty ?? 0
+      qty: l.qty ?? 0,
+      isLoose: l.isLoose
     }
   })
 )
 
-const loadingRules = computed(() => settings.value?.loadingChargePerBag ?? {})
-
-const loadingBuckets = computed(() =>
-  loadingChargeBuckets(bulkLineInputs.value, loadingRules.value)
+const loadingBreakpoints = computed(
+  () => settings.value?.loadingChargeBreakpoints ?? DEFAULT_LOADING_BREAKPOINTS
 )
+
+const bulkMassG = computed(() => cartBulkMassG(bulkLineInputs.value))
 
 const loadingCharge = computed(() => {
   if (!applyLoading.value) return 0
-  return computeLoadingCharge(bulkLineInputs.value, loadingRules.value)
+  return computeLoadingCharge(bulkMassG.value, loadingBreakpoints.value)
 })
 
 const goodsTotal = computed(() => lineTotals.value.reduce((a, b) => a + b, 0))
@@ -234,6 +236,7 @@ const voucherLines = computed<VoucherLine[]>(() =>
       return {
         productName: p.name,
         productType: p.type,
+        isLoose: l.isLoose,
         qty: l.qty,
         bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
@@ -271,6 +274,7 @@ function buildInput(m: SaleMode): CreateSaleInput {
       .filter((l) => l.productId != null)
       .map((l) => ({
         productId: l.productId as number,
+        isLoose: l.isLoose,
         bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
         unitRate: l.unitRate,
@@ -295,6 +299,7 @@ function buildDraftPayload(m: SaleMode): SaleDraftPayload {
     walkinPhone: walkinPhone.value,
     lines: lines.value.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
@@ -453,6 +458,7 @@ watch(
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
@@ -643,12 +649,7 @@ watch(
             <CardTitle>Goods</CardTitle>
           </CardHeader>
           <CardContent>
-            <GoodsCart
-              ref="goodsCart"
-              v-model="lines"
-              :products="productList"
-              :bag-types="bagTypes"
-            />
+            <GoodsCart ref="goodsCart" v-model="lines" :products="productList" />
           </CardContent>
         </Card>
 
@@ -670,7 +671,7 @@ watch(
                 :loading-charge="loadingCharge"
                 :goods-total="goodsTotal"
                 :additional-charges="additionalCharges"
-                :buckets="loadingBuckets"
+                :bulk-mass-g="bulkMassG"
                 @update:apply-loading="applyLoading = $event"
                 @update:additional-charges="additionalCharges = $event"
               />

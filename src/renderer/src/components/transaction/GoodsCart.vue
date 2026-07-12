@@ -22,11 +22,14 @@ import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox
 import { formatBagKg, formatKgFromG, formatRupees } from '@/lib/format'
 import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
 import { lineMassGrams, lineTotal } from '@domain/transaction-rules'
+import { LOOSE_QTY_MAX_KG, LOOSE_QTY_MIN_KG } from '@domain/units'
 import type { Product } from '@domain/types'
 
 /** A cart line while being edited — rates may be empty until typed. Rates are paise; bag sizes grams. */
 export interface CartLine {
   productId: number | null
+  /** Loose bulk: qty in kg, unitRate paise/kg. Bagged bulk uses Default Bag Size + quintal rate. */
+  isLoose: boolean
   bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
@@ -37,8 +40,6 @@ type Focusable = { focus: () => void }
 
 const props = defineProps<{
   products: Product[]
-  /** Bag Types in grams. */
-  bagTypes: number[]
 }>()
 
 const lines = defineModel<CartLine[]>({ required: true })
@@ -78,6 +79,17 @@ function isBulk(line: CartLine): boolean {
   return productOf(line)?.type === 'bulk'
 }
 
+function emptyLine(): CartLine {
+  return {
+    productId: null,
+    isLoose: false,
+    bagSizeG: null,
+    quintalRate: null,
+    unitRate: null,
+    qty: null
+  }
+}
+
 function rowTotal(line: CartLine): number {
   const p = productOf(line)
   if (!p || !line.qty) return 0
@@ -86,21 +98,19 @@ function rowTotal(line: CartLine): number {
     qty: line.qty,
     bagSizeG: line.bagSizeG,
     quintalRate: line.quintalRate,
-    unitRate: line.unitRate
+    unitRate: line.unitRate,
+    isLoose: line.isLoose
   })
 }
 
 function rowMassG(line: CartLine): number {
   const p = productOf(line)
   if (!p || !line.qty) return 0
-  return lineMassGrams(p.type, line.qty, line.bagSizeG)
+  return lineMassGrams(p.type, line.qty, line.bagSizeG, line.isLoose)
 }
 
 function addLine(): void {
-  lines.value = [
-    ...lines.value,
-    { productId: null, bagSizeG: null, quintalRate: null, unitRate: null, qty: null }
-  ]
+  lines.value = [...lines.value, emptyLine()]
 }
 
 /** Empty cart after customer pick — start the first line and open its product picker. */
@@ -127,9 +137,25 @@ function focusQty(index: number): void {
 function onProductChange(line: CartLine, value: number | null, index: number): void {
   line.productId = value
   const p = productOf(line)
-  // Default a Bulk line's bag size to the Product's Default Bag Size; clear for Packaged.
+  line.isLoose = false
+  // Bagged bulk snapshots the Product's Default Bag Size; clear for Packaged.
   line.bagSizeG = p?.type === 'bulk' ? (p.defaultBagSizeG ?? null) : null
+  line.quintalRate = null
+  line.unitRate = null
   if (value != null) focusQty(index)
+}
+
+function onBulkModeChange(line: CartLine, mode: string): void {
+  const loose = mode === 'loose'
+  line.isLoose = loose
+  const p = productOf(line)
+  if (loose) {
+    line.bagSizeG = null
+    line.quintalRate = null
+  } else {
+    line.bagSizeG = p?.defaultBagSizeG ?? null
+    line.unitRate = null
+  }
 }
 
 defineExpose({ ensureLineAndFocusProduct })
@@ -140,8 +166,8 @@ defineExpose({ ensureLineAndFocusProduct })
     <Table>
       <TableHeader>
         <TableRow>
-          <TableHead class="min-w-[180px]">Product</TableHead>
-          <TableHead class="w-[110px]">Bag Type</TableHead>
+          <TableHead class="min-w-[160px]">Product</TableHead>
+          <TableHead class="w-[110px]">Mode</TableHead>
           <TableHead class="w-[90px]">Qty</TableHead>
           <TableHead class="w-[120px]">Rate</TableHead>
           <TableHead class="w-[110px] text-right">Total</TableHead>
@@ -170,16 +196,21 @@ defineExpose({ ensureLineAndFocusProduct })
           <TableCell>
             <Select
               v-if="isBulk(line)"
-              :model-value="line.bagSizeG == null ? '' : String(line.bagSizeG)"
-              @update:model-value="line.bagSizeG = Number($event)"
+              :model-value="line.isLoose ? 'loose' : 'bag'"
+              @update:model-value="onBulkModeChange(line, String($event))"
             >
-              <SelectTrigger class="w-full" data-testid="cart-bag">
-                <SelectValue placeholder="Bag" />
+              <SelectTrigger class="w-full" data-testid="cart-mode">
+                <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem v-for="b in bagTypes" :key="b" :value="String(b)">{{
-                  formatBagKg(b)
-                }}</SelectItem>
+                <SelectItem value="bag">
+                  Bag{{
+                    line.bagSizeG || productOf(line)?.defaultBagSizeG
+                      ? ` (${formatBagKg(line.bagSizeG ?? productOf(line)?.defaultBagSizeG ?? 0)})`
+                      : ''
+                  }}
+                </SelectItem>
+                <SelectItem value="loose">Loose</SelectItem>
               </SelectContent>
             </Select>
             <span v-else class="text-sm text-muted-foreground">unit</span>
@@ -189,15 +220,32 @@ defineExpose({ ensureLineAndFocusProduct })
               :ref="(el) => setQtyInputRef(index, el)"
               type="number"
               min="0"
-              step="0.5"
+              :step="line.isLoose ? '0.1' : '0.5'"
               :model-value="line.qty ?? ''"
+              :placeholder="line.isLoose ? 'kg' : undefined"
               data-testid="cart-qty"
               @update:model-value="line.qty = $event === '' ? null : Number($event)"
             />
+            <p
+              v-if="line.isLoose"
+              class="mt-0.5 text-[10px] text-muted-foreground"
+              data-testid="cart-loose-hint"
+            >
+              {{ LOOSE_QTY_MIN_KG }}–{{ LOOSE_QTY_MAX_KG }} kg
+            </p>
           </TableCell>
           <TableCell>
             <Input
-              v-if="isBulk(line)"
+              v-if="isBulk(line) && line.isLoose"
+              type="number"
+              min="0"
+              :model-value="paiseInputValue(line.unitRate)"
+              placeholder="₹/kg"
+              data-testid="cart-rate"
+              @update:model-value="line.unitRate = parseRupeesInput($event)"
+            />
+            <Input
+              v-else-if="isBulk(line)"
               type="number"
               min="0"
               :model-value="paiseInputValue(line.quintalRate)"

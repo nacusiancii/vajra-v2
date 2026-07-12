@@ -66,6 +66,7 @@ interface ProductMeta {
 interface ResolvedLine {
   side: 'single' | 'source' | 'target'
   productId: number
+  isLoose: boolean
   bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
@@ -353,25 +354,31 @@ export class TransactionRepo {
   ): ResolvedLine {
     const product = products.get(line.productId)
     if (!product) throw new Error(`Unknown product ${line.productId}`)
+    const isLoose = product.type === 'bulk' && line.isLoose
+    // Loose bulk never stores a bag size; bagged bulk snapshots Default Bag Size.
+    const bagSizeG = isLoose ? null : line.bagSizeG
     const stockDelta = lineStockDelta({
       productType: product.type,
       qty: line.qty,
-      bagSizeG: line.bagSizeG,
+      bagSizeG,
       defaultBagSizeG: product.defaultBagSizeG,
-      direction
+      direction,
+      isLoose
     })
     const total = lineTotal({
       productType: product.type,
       qty: line.qty,
-      bagSizeG: line.bagSizeG,
-      quintalRate: line.quintalRate,
-      unitRate: line.unitRate
+      bagSizeG,
+      quintalRate: isLoose ? null : line.quintalRate,
+      unitRate: line.unitRate,
+      isLoose
     })
     return {
       side: 'single',
       productId: line.productId,
-      bagSizeG: line.bagSizeG,
-      quintalRate: line.quintalRate,
+      isLoose,
+      bagSizeG,
+      quintalRate: isLoose ? null : line.quintalRate,
       unitRate: line.unitRate,
       qty: line.qty,
       stockDelta,
@@ -392,11 +399,13 @@ export class TransactionRepo {
       qty: leg.qty,
       bagSizeG: leg.bagSizeG,
       defaultBagSizeG: product.defaultBagSizeG,
-      direction
+      direction,
+      isLoose: false
     })
     return {
       side,
       productId: leg.productId,
+      isLoose: false,
       bagSizeG: leg.bagSizeG,
       quintalRate: null,
       unitRate: null,
@@ -443,19 +452,24 @@ export class TransactionRepo {
          WHERE l.txn_id = ? ORDER BY l.id`
       )
       .all(row.id) as LineRow[]
-    const lines: TxnLine[] = lineRows.map((l) => ({
-      id: l.id,
-      productId: l.product_id,
-      productName: l.product_name,
-      productType: l.product_type,
-      side: l.side,
-      bagSizeG: l.bag_size_g,
-      quintalRate: l.quintal_rate,
-      unitRate: l.unit_rate,
-      qty: l.qty,
-      stockDelta: l.stock_delta,
-      lineTotal: l.line_total
-    }))
+    const lines: TxnLine[] = lineRows.map((l) => {
+      // Loose bulk is stored without bag_size_g; bagged bulk always has one.
+      const isLoose = l.product_type === 'bulk' && l.bag_size_g == null
+      return {
+        id: l.id,
+        productId: l.product_id,
+        productName: l.product_name,
+        productType: l.product_type,
+        side: l.side,
+        isLoose,
+        bagSizeG: l.bag_size_g,
+        quintalRate: l.quintal_rate,
+        unitRate: l.unit_rate,
+        qty: l.qty,
+        stockDelta: l.stock_delta,
+        lineTotal: l.line_total
+      }
+    })
     return {
       id: row.id,
       type: row.type,

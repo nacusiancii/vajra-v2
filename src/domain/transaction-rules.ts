@@ -3,27 +3,44 @@
  * Shared by the cart UIs (live totals) and the repository (authoritative write).
  *
  * Money arguments and return values are **integer paise**.
- * Bag sizes are **integer grams**.
+ * Bag sizes and mass are **integer grams**. Loose bulk qty is **kilograms**.
  */
 
 import { z } from 'zod'
+import type { LoadingChargeBreakpoint } from './settings'
 import type { ProductType } from './types'
 import type { SaleLineInput, TransferLegInput } from './transaction'
-import { bulkLineTotalPaise, loadingLinePaise, lineMassG, packagedLineTotalPaise } from './units'
+import {
+  bulkLineTotalPaise,
+  kgToG,
+  lineMassG,
+  LOOSE_QTY_MAX_KG,
+  LOOSE_QTY_MIN_KG,
+  looseLineTotalPaise,
+  packagedLineTotalPaise
+} from './units'
 
 /** Mass in grams a single Bulk line moves. Packaged returns 0. */
 export function lineMassGrams(
   productType: ProductType,
   qty: number,
-  bagSizeG: number | null
+  bagSizeG: number | null,
+  isLoose = false
 ): number {
-  if (productType !== 'bulk' || !bagSizeG) return 0
+  if (productType !== 'bulk') return 0
+  if (isLoose) return kgToG(qty)
+  if (!bagSizeG) return 0
   return lineMassG(qty, bagSizeG)
 }
 
 /** Kilograms for a bulk line (display / transfer yield UI). */
-export function lineKg(productType: ProductType, qty: number, bagSizeG: number | null): number {
-  return lineMassGrams(productType, qty, bagSizeG) / 1000
+export function lineKg(
+  productType: ProductType,
+  qty: number,
+  bagSizeG: number | null,
+  isLoose = false
+): number {
+  return lineMassGrams(productType, qty, bagSizeG, isLoose) / 1000
 }
 
 /**
@@ -42,7 +59,9 @@ export function suggestedTransferTargetQty(
 
 /**
  * Money total for one line, in paise.
- * Bulk: (mass_g / quintal_g) × Quintal Rate. Packaged: qty × unit rate.
+ * - Bagged bulk: (mass_g / quintal_g) × Quintal Rate
+ * - Loose bulk: qty_kg × price per kg
+ * - Packaged: qty × unit rate
  */
 export function lineTotal(args: {
   productType: ProductType
@@ -50,10 +69,14 @@ export function lineTotal(args: {
   bagSizeG: number | null
   quintalRate: number | null
   unitRate: number | null
+  isLoose?: boolean
 }): number {
-  const { productType, qty, bagSizeG, quintalRate, unitRate } = args
+  const { productType, qty, bagSizeG, quintalRate, unitRate, isLoose } = args
+  if (productType === 'bulk' && isLoose) {
+    return looseLineTotalPaise(qty, unitRate ?? 0)
+  }
   if (productType === 'bulk') {
-    const massG = lineMassGrams('bulk', qty, bagSizeG)
+    const massG = lineMassGrams('bulk', qty, bagSizeG, false)
     return bulkLineTotalPaise(massG, quintalRate ?? 0)
   }
   return packagedLineTotalPaise(qty, unitRate ?? 0)
@@ -64,21 +87,58 @@ export function grandTotal(lineTotals: number[], loading: number, additional: nu
   return lineTotals.reduce((a, b) => a + b, 0) + loading + additional
 }
 
-/**
- * Loading Charge for a cart from per-Bag-Type rules (paise per bag, keyed by grams).
- * Charged per bag of each Bulk line. Returns 0 when not opted in (empty rules).
- */
-export function computeLoadingCharge(
-  lines: Array<{ productType: ProductType; bagSizeG: number | null; qty: number }>,
-  ratePerBagBySizeG: Record<number, number>
+/** Total bulk mass (grams) across cart lines — packaged contributes 0. */
+export function cartBulkMassG(
+  lines: Array<{
+    productType: ProductType
+    bagSizeG: number | null
+    qty: number
+    isLoose?: boolean
+  }>
 ): number {
   let total = 0
   for (const l of lines) {
-    if (l.productType !== 'bulk' || !l.bagSizeG) continue
-    const rate = ratePerBagBySizeG[l.bagSizeG] ?? 0
-    total += loadingLinePaise(l.qty, rate)
+    if (!(l.qty > 0)) continue
+    total += lineMassGrams(l.productType, l.qty, l.bagSizeG, l.isLoose ?? false)
   }
   return total
+}
+
+/**
+ * Loading Charge from total bulk mass and weight breakpoints (paise).
+ * Picks the first tier (sorted by maxMassG, null last) where totalMassG ≤ maxMassG
+ * (or the catch-all null tier). Returns 0 when mass is 0 or breakpoints empty.
+ */
+export function computeLoadingCharge(
+  totalMassG: number,
+  breakpoints: LoadingChargeBreakpoint[]
+): number {
+  if (!(totalMassG > 0) || breakpoints.length === 0) return 0
+  const sorted = [...breakpoints].sort((a, b) => {
+    if (a.maxMassG == null) return 1
+    if (b.maxMassG == null) return -1
+    return a.maxMassG - b.maxMassG
+  })
+  for (const bp of sorted) {
+    if (bp.maxMassG == null || totalMassG <= bp.maxMassG) return bp.chargePaise
+  }
+  return 0
+}
+
+/**
+ * Convenience for Settings "test" button and Sale cart:
+ * sum bulk mass from lines, then apply breakpoints.
+ */
+export function computeLoadingChargeForLines(
+  lines: Array<{
+    productType: ProductType
+    bagSizeG: number | null
+    qty: number
+    isLoose?: boolean
+  }>,
+  breakpoints: LoadingChargeBreakpoint[]
+): number {
+  return computeLoadingCharge(cartBulkMassG(lines), breakpoints)
 }
 
 // ── Validation (returns a human-readable reason, or null when valid) ─────────
@@ -95,12 +155,23 @@ function validateGoodsLine(
   if (!product) return 'Line references an unknown Product'
   if (!(line.qty > 0)) return 'Quantity must be greater than zero'
   if (product.type === 'bulk') {
-    if (!line.bagSizeG) return 'Bulk lines need a Bag Type'
-    if (!(typeof line.quintalRate === 'number' && line.quintalRate > 0))
-      return 'Bulk lines need a Quintal Rate'
+    if (line.isLoose) {
+      if (line.qty < LOOSE_QTY_MIN_KG || line.qty > LOOSE_QTY_MAX_KG) {
+        return `Loose quantity must be between ${LOOSE_QTY_MIN_KG} and ${LOOSE_QTY_MAX_KG} kg`
+      }
+      if (!(typeof line.unitRate === 'number' && line.unitRate > 0)) {
+        return 'Loose lines need a price per kg'
+      }
+    } else {
+      if (!line.bagSizeG) return 'Bulk lines need a Default Bag Size'
+      if (!(typeof line.quintalRate === 'number' && line.quintalRate > 0)) {
+        return 'Bulk lines need a Quintal Rate'
+      }
+    }
   } else {
-    if (!(typeof line.unitRate === 'number' && line.unitRate > 0))
+    if (!(typeof line.unitRate === 'number' && line.unitRate > 0)) {
       return 'Packaged lines need a unit rate'
+    }
   }
   return null
 }
@@ -149,7 +220,7 @@ export function validateTransferLeg(
 ): string | null {
   if (!product) return 'Leg references an unknown Product'
   if (!(leg.qty > 0)) return 'Quantity must be greater than zero'
-  if (product.type === 'bulk' && !leg.bagSizeG) return 'Bulk legs need a Bag Type'
+  if (product.type === 'bulk' && !leg.bagSizeG) return 'Bulk legs need a Default Bag Size'
   return null
 }
 

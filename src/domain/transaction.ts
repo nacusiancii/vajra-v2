@@ -9,7 +9,7 @@
  */
 
 import type { ProductType } from './types'
-import { bulkStockDeltaG, roundHalfAway } from './units'
+import { bulkStockDeltaG, looseStockDeltaG, roundHalfAway } from './units'
 
 /** Two-letter transaction-type codes — a closed set (ADR-0009). */
 export type TxnType = 'SA' | 'PU' | 'RE' | 'PA' | 'EX' | 'IN' | 'ST'
@@ -35,12 +35,20 @@ export interface TxnLine {
   productName: string
   productType: ProductType
   side: TxnLineSide
-  /** Bag Type in grams; null for Packaged. */
+  /**
+   * true = loose bulk (qty in kg, unitRate is paise/kg, bagSizeG null).
+   * Inferred at read time when bulk and bagSizeG is null.
+   */
+  isLoose: boolean
+  /** Default Bag Size in grams for bagged bulk; null for Packaged and loose bulk. */
   bagSizeG: number | null
-  /** Paise per quintal. */
+  /** Paise per quintal (bagged bulk). */
   quintalRate: number | null
-  /** Paise per unit. */
+  /** Paise per unit (packaged) or paise per kg (loose bulk). */
   unitRate: number | null
+  /**
+   * Bagged bulk: bag count. Loose bulk: kilograms. Packaged: unit count.
+   */
   qty: number
   /**
    * Stock change: grams for Bulk, units for Packaged.
@@ -96,10 +104,15 @@ export interface BusinessDay {
 
 export interface SaleLineInput {
   productId: number
+  /**
+   * Loose bulk: qty is kg (1–50), unitRate is paise/kg, bagSizeG null, quintalRate null.
+   * Bagged bulk: qty is bags, bagSizeG = Default Bag Size, quintalRate set.
+   */
+  isLoose: boolean
   bagSizeG: number | null
-  /** Paise per quintal. */
+  /** Paise per quintal (bagged bulk). */
   quintalRate: number | null
-  /** Paise per unit. */
+  /** Paise per unit (packaged) or paise per kg (loose bulk). */
   unitRate: number | null
   qty: number
 }
@@ -197,7 +210,8 @@ export function formatTxnId(type: TxnType, seq: number, startDate: string): stri
 /**
  * Signed change in stock for one line.
  * - Packaged: whole units (qty rounded to nearest integer count when fractional).
- * - Bulk: grams moved (qty bags × bag size g).
+ * - Bagged bulk: grams moved (qty bags × bag size g).
+ * - Loose bulk: grams moved (qty kg → grams).
  */
 export function lineStockDelta(args: {
   productType: ProductType
@@ -205,10 +219,12 @@ export function lineStockDelta(args: {
   bagSizeG: number | null
   defaultBagSizeG: number | null
   direction: 1 | -1
+  isLoose?: boolean
 }): number {
-  const { productType, qty, bagSizeG, direction } = args
+  const { productType, qty, bagSizeG, direction, isLoose } = args
   if (productType === 'packaged') return direction * roundHalfAway(qty)
-  if (!bagSizeG) return direction * roundHalfAway(qty)
+  if (isLoose) return looseStockDeltaG(qty, direction)
+  if (!bagSizeG) return 0
   return bulkStockDeltaG(qty, bagSizeG, direction)
 }
 

@@ -9,12 +9,12 @@ let db: Database.Database | null = null
  * Schema version, stored in SQLite's \`PRAGMA user_version\`. Bump when the schema
  * changes and add a step to MIGRATIONS that upgrades from the previous version.
  */
-const SCHEMA_VERSION = 1
+const SCHEMA_VERSION = 2
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
  * Each step runs inside a transaction together with its user_version bump.
- * None exist yet — v1 is the first versioned schema.
+ * Dev phase: older versions are wiped rather than migrated (see openAtCurrentVersion).
  */
 const MIGRATIONS: Record<number, (database: Database.Database) => void> = {}
 
@@ -183,23 +183,25 @@ function open(dbPath: string): Database.Database {
  * Open the database at SCHEMA_VERSION.
  *
  * - Fresh (no tables): create the current schema, stamp the version.
- * - Pre-version (tables but user_version 0): wipe and start fresh. This is a
- *   development-phase decision to move fast, not a migration strategy — it fires
- *   only on this positive determination, never on open/read errors.
- * - Older version: run MIGRATIONS stepwise; a missing step fails loudly.
+ * - Pre-version (tables but user_version 0) or older version: wipe and start
+ *   fresh. Fast development mode — no backwards-compatible migrations until
+ *   the schema stabilises. Never wipes on open/read errors alone.
  * - Newer version (file from a newer app): fail loudly. Never wipe versioned data.
  */
 function openAtCurrentVersion(dbPath: string): Database.Database {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true })
 
   let database = open(dbPath)
-  if (userVersion(database) === 0 && hasTables(database)) {
+  let version = userVersion(database)
+
+  // Dev phase: drop anything older than SCHEMA_VERSION and recreate.
+  if ((version === 0 && hasTables(database)) || (version > 0 && version < SCHEMA_VERSION)) {
     database.close()
     wipeDbFiles(dbPath)
     database = open(dbPath)
+    version = 0
   }
 
-  const version = userVersion(database)
   if (version > SCHEMA_VERSION) {
     database.close()
     throw new Error(

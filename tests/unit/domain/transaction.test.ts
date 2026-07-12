@@ -84,16 +84,30 @@ describe('lineStockDelta (grams for bulk, units for packaged)', () => {
     ).toBe(200_000)
   })
 
-  it('missing bag sizes falls back to raw qty (edge / incomplete line)', () => {
+  it('missing bag size on bagged bulk is zero mass (incomplete line)', () => {
     expect(
       lineStockDelta({
         productType: 'bulk',
         qty: 3,
         bagSizeG: null,
         defaultBagSizeG: 50_000,
-        direction: -1
+        direction: -1,
+        isLoose: false
       })
-    ).toBe(-3)
+    ).toBe(0)
+  })
+
+  it('loose bulk moves kilograms as grams', () => {
+    expect(
+      lineStockDelta({
+        productType: 'bulk',
+        qty: 7.5,
+        bagSizeG: null,
+        defaultBagSizeG: 50_000,
+        direction: -1,
+        isLoose: true
+      })
+    ).toBe(-7_500)
   })
 })
 

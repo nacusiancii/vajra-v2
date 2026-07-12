@@ -70,11 +70,17 @@ const counterparty = computed(() => {
             <span class="truncate">
               {{ line.productName }}
               <span
-                v-if="line.productType === 'bulk' && line.bagSizeG"
+                v-if="line.productType === 'bulk' && line.isLoose"
+                class="text-muted-foreground"
+              >
+                ({{ formatQty(line.qty) }} kg loose)
+              </span>
+              <span
+                v-else-if="line.productType === 'bulk' && line.bagSizeG"
                 class="text-muted-foreground"
               >
                 ({{ formatQty(line.qty) }} × {{ formatBagKg(line.bagSizeG) }} =
-                {{ formatKgFromG(lineMassGrams('bulk', line.qty, line.bagSizeG)) }})
+                {{ formatKgFromG(lineMassGrams('bulk', line.qty, line.bagSizeG, false)) }})
               </span>
               <span v-else class="text-muted-foreground">× {{ formatQty(line.qty) }}</span>
             </span>

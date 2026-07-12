@@ -16,6 +16,7 @@ import type { ProductType } from '@domain/types'
 export interface VoucherLine {
   productName: string
   productType: ProductType
+  isLoose: boolean
   qty: number
   bagSizeG: number | null
   quintalRate: number | null
@@ -50,13 +51,13 @@ const displayDate = computed(() => {
 })
 
 /**
- * Bulk lines price by quintal: qty bags × (bag kg / 100) × Quintal Rate.
- * Packaged lines use ratio 1: qty × 1 × unit rate.
+ * Bagged bulk: qty bags × (bag kg / 100) × Quintal Rate.
+ * Loose bulk / packaged: qty × 1 × unit rate (₹/kg or ₹/unit).
  */
 const breakdowns = computed(() =>
   props.lines.map((line) => {
     const qty = formatQty(line.qty)
-    if (line.productType === 'bulk' && line.bagSizeG) {
+    if (line.productType === 'bulk' && !line.isLoose && line.bagSizeG) {
       return {
         productName: line.productName,
         qty,

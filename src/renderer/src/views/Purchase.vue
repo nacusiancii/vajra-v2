@@ -23,7 +23,6 @@ import {
 import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useProductsQuery } from '@/queries/products'
-import { useSettingsQuery } from '@/queries/operations'
 import {
   useClearDraft,
   useCreatePurchase,
@@ -50,7 +49,6 @@ const resumeDraftQuery = computed(() =>
 )
 
 const { data: products } = useProductsQuery()
-const { data: settings } = useSettingsQuery()
 const createPurchase = useCreatePurchase()
 const editPurchase = useEditPurchase()
 const savePurchaseDraft = useSavePurchaseDraft()
@@ -83,7 +81,6 @@ watch(customerId, (id) => {
 })
 
 const productList = computed(() => products.value ?? [])
-const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_000])
 
 const isCredit = computed(() => mode.value === 'credit')
 
@@ -132,7 +129,8 @@ const total = computed(() => {
       qty: l.qty,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
-      unitRate: l.unitRate
+      unitRate: l.unitRate,
+      isLoose: l.isLoose
     })
   })
   return grandTotal(lineTotals, 0, additionalCharges.value ?? 0)
@@ -157,6 +155,7 @@ function buildInput(m: SaleMode): CreatePurchaseInput {
       .filter((l) => l.productId != null)
       .map((l) => ({
         productId: l.productId as number,
+        isLoose: l.isLoose,
         bagSizeG: l.bagSizeG,
         quintalRate: l.quintalRate,
         unitRate: l.unitRate,
@@ -179,6 +178,7 @@ function buildDraftPayload(m: SaleMode): PurchaseDraftPayload {
     walkinPhone: walkinPhone.value,
     lines: lines.value.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
@@ -308,6 +308,7 @@ watch(
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
+      isLoose: l.isLoose,
       bagSizeG: l.bagSizeG,
       quintalRate: l.quintalRate,
       unitRate: l.unitRate,
@@ -491,12 +492,7 @@ watch(
             <CardTitle>Goods</CardTitle>
           </CardHeader>
           <CardContent>
-            <GoodsCart
-              ref="goodsCart"
-              v-model="lines"
-              :products="productList"
-              :bag-types="bagTypes"
-            />
+            <GoodsCart ref="goodsCart" v-model="lines" :products="productList" />
           </CardContent>
         </Card>
 
