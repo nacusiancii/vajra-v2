@@ -24,13 +24,13 @@ import {
 import ComboboxField from '@/components/ComboboxField.vue'
 import { isNameTaken } from '@domain/product'
 import {
-  BAG_SIZES,
-  type BagSizeKg,
+  SEED_BAG_SIZES,
   type CreateProductInput,
   type UpdateProductInput,
   type Product
 } from '@domain/types'
 import { useProductsQuery, useProductGroupsQuery } from '@/queries/products'
+import { useSettingsQuery } from '@/queries/operations'
 
 const props = defineProps<{
   open: boolean
@@ -46,8 +46,12 @@ const emit = defineEmits<{
 const isEditing = computed(() => props.product !== null)
 const { data: products } = useProductsQuery()
 const { data: productGroups } = useProductGroupsQuery()
+const { data: settings } = useSettingsQuery()
 
 const groupNames = computed(() => (productGroups.value ?? []).map((g) => g.name))
+
+/** Default Bag Size options = current Default Bag Types catalog from Settings. */
+const bagTypeCatalog = computed(() => settings.value?.bagTypes ?? [...SEED_BAG_SIZES])
 
 const schema = toTypedSchema(
   z.object({
@@ -114,7 +118,7 @@ const onSubmit = handleSubmit((formValues) => {
       name: formValues.name,
       productGroupName: formValues.productGroupName,
       type: formValues.type,
-      defaultBagSizeKg: isBulk.value ? (Number(formValues.defaultBagSizeKg) as BagSizeKg) : null,
+      defaultBagSizeKg: isBulk.value ? Number(formValues.defaultBagSizeKg) : null,
       nameTe: formValues.nameTe || null,
       remarks: formValues.remarks || null
     })
@@ -204,7 +208,7 @@ const onSubmit = handleSubmit((formValues) => {
               <SelectValue placeholder="Select bag size" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem v-for="size in BAG_SIZES" :key="size" :value="String(size)">
+              <SelectItem v-for="size in bagTypeCatalog" :key="size" :value="String(size)">
                 {{ size }} kg
               </SelectItem>
             </SelectContent>

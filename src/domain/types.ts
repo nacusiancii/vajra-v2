@@ -3,14 +3,21 @@
  *
  * These types use the glossary from CONTEXT.md exactly.
  * "Product type" = Packaged | Bulk.
- * "Bag Type" = a standard pack weight (25, 30, 50 kg in v2).
- * "Default Bag Size" = the Bag Type a Bulk Product's stock is measured against.
+ * "Default Bag Type" = a shop-configured pack weight in Settings (positive integer kg).
+ * "Default Bag Size" = the Default Bag Type a Bulk Product's stock is measured against.
  */
 
 export type ProductType = 'packaged' | 'bulk'
 
-export type BagSizeKg = 25 | 30 | 50
-export const BAG_SIZES: readonly BagSizeKg[] = [25, 30, 50] as const
+/**
+ * Positive integer kg for a Default Bag Type / Default Bag Size / line bag weight.
+ * Not a closed set — the shop's Settings catalog is the source of truth for which
+ * sizes may be chosen as Product Default Bag Size.
+ */
+export type BagSizeKg = number
+
+/** Seed Default Bag Types shipped with a fresh install (loading ₹0 each). */
+export const SEED_BAG_SIZES: readonly BagSizeKg[] = [25, 30, 50] as const
 
 export interface Place {
   id: number

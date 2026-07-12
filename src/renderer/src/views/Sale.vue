@@ -59,6 +59,7 @@ import { formatRupees } from '@/lib/format'
 import { userFacingError } from '@/lib/utils'
 import type { CreateSaleInput, SaleMode, Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
+import { SEED_BAG_SIZES } from '@domain/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -115,7 +116,7 @@ const printGateOpen = ref(false)
 
 const productList = computed(() => products.value ?? [])
 const customerList = computed(() => customers.value ?? [])
-const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
+const bagTypes = computed(() => settings.value?.bagTypes ?? [...SEED_BAG_SIZES])
 
 const isCredit = computed(() => mode.value === 'credit')
 

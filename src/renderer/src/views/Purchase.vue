@@ -40,6 +40,7 @@ import { validatePurchaseDraftCounterparty, type PurchaseDraftPayload } from '@d
 import { formatRupees } from '@/lib/format'
 import { userFacingError } from '@/lib/utils'
 import type { CreatePurchaseInput, SaleMode } from '@domain/transaction'
+import { SEED_BAG_SIZES } from '@domain/types'
 
 const route = useRoute()
 const router = useRouter()
@@ -82,7 +83,7 @@ watch(customerId, (id) => {
 })
 
 const productList = computed(() => products.value ?? [])
-const bagTypes = computed(() => settings.value?.bagTypes ?? [25, 30, 50])
+const bagTypes = computed(() => settings.value?.bagTypes ?? [...SEED_BAG_SIZES])
 
 const isCredit = computed(() => mode.value === 'credit')
 

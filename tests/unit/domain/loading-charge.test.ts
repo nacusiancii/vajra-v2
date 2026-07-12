@@ -14,9 +14,9 @@ import {
 } from '@domain/transaction-rules'
 import { lineStockDelta } from '@domain/transaction'
 import type { SaleLineInput } from '@domain/transaction'
-import { CreateProductSchema, isValidBagSize } from '@domain/product'
+import { CreateProductSchema, isValidBagSize, validateBulkDefaultBagSize } from '@domain/product'
 import { DEFAULT_SETTINGS } from '@domain/settings'
-import { BAG_SIZES } from '@domain/types'
+import { SEED_BAG_SIZES } from '@domain/types'
 
 describe('computeLoadingCharge — core cases', () => {
   it('returns 0 for an empty cart', () => {
@@ -132,7 +132,7 @@ describe('computeLoadingCharge — edge / break cases', () => {
     ).toBe(-40)
   })
 
-  it('handles a custom bag size not in shipped BAG_SIZES (e.g. 40 kg)', () => {
+  it('handles a custom bag size not in seed catalog (e.g. 40 kg)', () => {
     // Settings UI can add 40 kg; product Default Bag Size cannot use it.
     expect(computeLoadingCharge([{ productType: 'bulk', bagSizeKg: 40, qty: 3 }], { 40: 18 })).toBe(
       54
@@ -471,9 +471,8 @@ describe('validateSale still allows lines that would yield zero loading', () => 
   })
 })
 
-describe('product bag-size validation gaps (known breaks)', () => {
-  it('CreateProductSchema currently accepts non-shipped bag sizes (e.g. 40)', () => {
-    // Gap: only nullability is refined; isValidBagSize is unused on create
+describe('product Default Bag Size vs Default Bag Types catalog', () => {
+  it('CreateProductSchema accepts positive integer kg shape including 40', () => {
     const result = CreateProductSchema.safeParse({
       name: 'Odd Bag Dal',
       productGroupName: 'Dal',
@@ -482,12 +481,15 @@ describe('product bag-size validation gaps (known breaks)', () => {
       nameTe: null,
       remarks: null
     })
-    // This documents current behavior — DB CHECK would still reject 40
     expect(result.success).toBe(true)
   })
 
-  it('isValidBagSize rejects 40 even though Settings can add it', () => {
-    expect(isValidBagSize(40)).toBe(false)
+  it('isValidBagSize accepts 40 (positive integer); catalog membership is separate', () => {
+    expect(isValidBagSize(40)).toBe(true)
+    expect(validateBulkDefaultBagSize('bulk', 40, DEFAULT_SETTINGS.bagTypes)).toMatch(
+      /not in the Default Bag Types catalog/
+    )
+    expect(validateBulkDefaultBagSize('bulk', 40, [25, 30, 40, 50])).toBeNull()
   })
 
   it('isValidBagSize rejects 0 and negative', () => {
@@ -495,9 +497,9 @@ describe('product bag-size validation gaps (known breaks)', () => {
     expect(isValidBagSize(-25)).toBe(false)
   })
 
-  it('shipped bag sizes align between types and defaults', () => {
-    expect([...DEFAULT_SETTINGS.bagTypes]).toEqual([...BAG_SIZES])
-    expect([...BAG_SIZES]).toEqual([25, 30, 50])
+  it('shipped bag sizes align between seed types and defaults', () => {
+    expect([...DEFAULT_SETTINGS.bagTypes]).toEqual([...SEED_BAG_SIZES])
+    expect([...SEED_BAG_SIZES]).toEqual([25, 30, 50])
     expect(DEFAULT_SETTINGS.loadingChargePerBag).toEqual({ 25: 0, 30: 0, 50: 0 })
   })
 })

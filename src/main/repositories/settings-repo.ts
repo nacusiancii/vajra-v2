@@ -1,11 +1,24 @@
 import type { Database } from 'better-sqlite3'
-import { DEFAULT_SETTINGS, type AppSettings } from '../../domain/settings'
+import {
+  DEFAULT_SETTINGS,
+  normalizeDefaultBagTypes,
+  validateDefaultBagTypesUpdate,
+  type AppSettings
+} from '../../domain/settings'
 
 const KEY = 'app'
 
+function cloneDefaults(): AppSettings {
+  return {
+    ...DEFAULT_SETTINGS,
+    bagTypes: [...DEFAULT_SETTINGS.bagTypes],
+    loadingChargePerBag: { ...DEFAULT_SETTINGS.loadingChargePerBag }
+  }
+}
+
 /**
- * Single-row settings store keyed by 'app'. Holds Printerless Mode (ADR-0008), the
- * Loading Charge rules per Bag Type, and the configurable Bag Types (CONTEXT.md).
+ * Single-row settings store keyed by 'app'. Holds Printerless Mode (ADR-0008),
+ * Default Bag Types catalog + Loading Charge rates (CONTEXT.md), and draft cap.
  */
 export class SettingsRepo {
   constructor(private db: Database) {}
@@ -15,7 +28,19 @@ export class SettingsRepo {
   }
 
   update(settings: AppSettings): AppSettings {
-    const next = lockPrinterless(settings)
+    const previous = this.get()
+    const next = lockPrinterless(normalizeDefaultBagTypes(settings))
+    const productCountByDefaultBagSize = this.productCountByDefaultBagSize()
+
+    const check = validateDefaultBagTypesUpdate({
+      next,
+      previous,
+      productCountByDefaultBagSize
+    })
+    if (!check.ok) {
+      throw new Error(check.reason ?? 'Invalid Default Bag Types catalog')
+    }
+
     this.db
       .prepare(
         `INSERT INTO setting (key, value) VALUES (?, ?)
@@ -29,12 +54,36 @@ export class SettingsRepo {
     const row = this.db.prepare(`SELECT value FROM setting WHERE key = ?`).get(KEY) as
       | { value: string }
       | undefined
-    if (!row) return { ...DEFAULT_SETTINGS }
+    if (!row) return cloneDefaults()
     try {
-      return { ...DEFAULT_SETTINGS, ...(JSON.parse(row.value) as Partial<AppSettings>) }
+      const merged: AppSettings = {
+        ...cloneDefaults(),
+        ...(JSON.parse(row.value) as Partial<AppSettings>)
+      }
+      // Ensure bagTypes is a real array even if stored JSON was partial/corrupt.
+      if (!Array.isArray(merged.bagTypes) || merged.bagTypes.length === 0) {
+        merged.bagTypes = [...DEFAULT_SETTINGS.bagTypes]
+      }
+      if (!merged.loadingChargePerBag || typeof merged.loadingChargePerBag !== 'object') {
+        merged.loadingChargePerBag = { ...DEFAULT_SETTINGS.loadingChargePerBag }
+      }
+      return normalizeDefaultBagTypes(merged)
     } catch {
-      return { ...DEFAULT_SETTINGS }
+      return cloneDefaults()
     }
+  }
+
+  /** How many Products use each Default Bag Size (for remove guardrails). */
+  productCountByDefaultBagSize(): Map<number, number> {
+    const rows = this.db
+      .prepare(
+        `SELECT default_bag_size_kg AS kg, COUNT(*) AS n
+         FROM product
+         WHERE type = 'bulk' AND default_bag_size_kg IS NOT NULL
+         GROUP BY default_bag_size_kg`
+      )
+      .all() as Array<{ kg: number; n: number }>
+    return new Map(rows.map((r) => [r.kg, r.n]))
   }
 }
 
