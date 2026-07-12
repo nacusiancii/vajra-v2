@@ -20,7 +20,8 @@ export interface AppSettings {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  printerlessMode: false,
+  // Locked on until thermal print lands (#22 / #28).
+  printerlessMode: true,
   companyName: '',
   bagTypes: [...BAG_SIZES],
   loadingChargePerBag: { 25: 0, 30: 0, 50: 0 },
