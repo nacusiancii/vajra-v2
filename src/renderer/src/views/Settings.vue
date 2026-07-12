@@ -50,6 +50,8 @@ function save(): void {
   // Clone to a plain object — Vue reactive proxies are not structured-cloneable
   // and ipcRenderer.invoke would fail silently from the mutation's perspective.
   const payload = JSON.parse(JSON.stringify(draft.value)) as AppSettings
+  // Toggle is disabled; keep payload aligned with the forced server-side lock (#22).
+  payload.printerlessMode = true
   updateSettings.mutate(payload, {
     onSuccess: () => {
       saved.value = true
@@ -88,20 +90,17 @@ function save(): void {
       </div>
     </section>
 
-    <!-- Printerless Mode -->
+    <!-- Printerless Mode: locked until #28 (thermal print) -->
     <section class="space-y-2">
       <h2 class="font-semibold">Printing</h2>
-      <label class="flex items-center gap-3 rounded-md border p-3 text-sm">
-        <Checkbox
-          :model-value="draft.printerlessMode"
-          data-testid="printerless-toggle"
-          @update:model-value="draft.printerlessMode = $event === true"
-        />
+      <label
+        class="flex cursor-not-allowed items-center gap-3 rounded-md border p-3 text-sm opacity-80"
+      >
+        <Checkbox :model-value="true" disabled data-testid="printerless-toggle" />
         <span>
           <span class="font-medium">Printerless Mode</span>
           <span class="block text-muted-foreground">
-            Show the would-be slip on screen instead of printing, so the cashier can copy it by
-            hand.
+            Always on — no printer mode is available yet. Slips show on screen for hand-copying.
           </span>
         </span>
       </label>

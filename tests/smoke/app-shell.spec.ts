@@ -37,6 +37,22 @@ test.describe('Home page', () => {
   })
 })
 
+test.describe('Settings — printerless default (#22)', () => {
+  test('printerless toggle is on and not usable until printer mode ships', async ({ page }) => {
+    await page
+      .getByTestId('management-links')
+      .getByRole('link', { name: /^Settings/ })
+      .click()
+    await expect(page.getByTestId('settings-page')).toBeVisible()
+
+    const toggle = page.getByTestId('printerless-toggle')
+    await expect(toggle).toBeVisible()
+    await expect(toggle).toBeDisabled()
+    await expect(toggle).toHaveAttribute('data-state', 'checked')
+    await expect(page.getByText(/no printer mode is available yet/i)).toBeVisible()
+  })
+})
+
 test.describe('Navigation', () => {
   test('New Sale navigates to the Sale screen', async ({ page }) => {
     await page.getByTestId('open-sale').click()
