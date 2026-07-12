@@ -1,76 +1,64 @@
 ---
 name: to-prd
-description: Turn the current conversation context into a PRD and publish it to the project issue tracker. Use when user wants to create a PRD from the current context.
+description: Expand a one-line idea or a bare GitHub issue into a decision-complete PRD on the issue tracker, ready for an agent to implement without asking anything. Use when the user gives an issue number or a rough idea and wants the mountain made from their molehill.
 ---
 
-This skill takes the current conversation context and codebase understanding and produces a PRD. Do NOT interview the user — just synthesize what you already know.
+# /to-prd — molehill in, mountain out
 
-The issue tracker and triage label vocabulary should have been provided to you — run `/setup-matt-pocock-skills` if not.
+Input: an issue number (`/to-prd 75`), a raw one-liner (`/to-prd "sell loose by kg"`), or nothing (use the current conversation). Output: a PRD published to the issue tracker that an implementing agent can execute **without asking a single question**.
+
+The reader is an agent with zero conversation context. Every decision it would otherwise have to guess at must already be made and written down.
 
 ## Process
 
-1. Explore the repo to understand the current state of the codebase, if you haven't already. Use the project's domain glossary vocabulary throughout the PRD, and respect any ADRs in the area you're touching.
+1. **Collect the molehill.** For an issue: fetch the body AND every comment — comments regularly override the body, newest wins. (`gh issue view` can fail on repos with Projects-classic; fall back to `gh api repos/{owner}/{repo}/issues/N` and `.../issues/N/comments`.) For a raw idea: the user's sentence is the molehill, verbatim.
 
-2. Sketch out the major modules you will need to build or modify to complete the implementation. Actively look for opportunities to extract deep modules that can be tested in isolation.
+2. **Research until the decisions get cheap.** Read `CONTEXT.md` (use its vocabulary exactly; missing term = flag it as NEW, don't invent a synonym), the ADRs touching this area, and the actual code seams — name the real modules that change, verified by reading them, not guessed from file names. Check prior art in the test suites. A PRD that names the wrong seams is worse than no PRD.
 
-A deep module (as opposed to a shallow module) is one which encapsulates a lot of functionality in a simple, testable interface which rarely changes.
+3. **Make every call.** Each fork in the design becomes a numbered Decision: the chosen path, the strongest rejected alternative, and why. If a decision contradicts an ADR or the glossary, say so explicitly in the Decision — never silently override (repo rule). It is fine — encouraged — for a Decision to push back on the issue itself when the codebase argues otherwise.
 
-Check with the user that these modules match their expectations. Check with the user which modules they want tests written for.
+4. **One interview round, maximum.** If research leaves forks that are genuinely the user's to own (product behaviour, scope, money rules), ask ONE compact multiple-choice round — at most 4 questions, recommended option first. Everything else: decide yourself and record it under **Vetoable defaults**. Never a second round; unanswered = take the recommended option.
 
-3. Write the PRD using the template below, then publish it to the project issue tracker. Apply the `ready-for-agent` triage label - no need for additional triage.
+5. **Publish to the tracker.** Existing issue → rewrite the issue body as the PRD, with the original text preserved verbatim in the Molehill quote at top. Raw idea → create a new issue. Apply the `ready-for-agent` label. The tracker is the PRD's only home — nothing goes in `docs/`.
 
-<prd-template>
+## Template
 
-## Problem Statement
+```markdown
+> **Molehill:** <the original one-liner / issue text, verbatim>
 
-The problem that the user is facing, from the user's perspective.
+## Problem
+2–4 sentences from the cashier's or shopkeeper's chair. No solution language.
 
-## Solution
+## Vocabulary
+| Term | Status | Meaning |
+Statuses: existing (cite CONTEXT.md), **NEW**, **retired**. NEW and retired
+terms are flagged for `/grill-with-docs` promotion — the PRD does not edit
+the glossary itself.
 
-The solution to the problem, from the user's perspective.
+## Decisions
+D1..Dn. Chosen path, strongest rejected alternative, why. Include data-shape
+and unit decisions (money in paise, mass in grams). This section is the
+mountain — a good PRD is mostly Decisions.
 
-## User Stories
+## Out of scope
+What a keen agent might reasonably do here but must not.
 
-A LONG, numbered list of user stories. Each user story should be in the format of:
+## Tests
+Few, high-value (per AGENTS.md): the domain invariants worth a unit test and
+the counter flow worth a smoke. Name prior-art specs to imitate. No tests
+that restate the implementation.
 
-1. As an <actor>, I want a <feature>, so that <benefit>
+## Acceptance
+Checkboxes an agent can self-verify: `pnpm fix:headless` green plus the named
+behaviours observable in the named smokes.
 
-<user-story-example>
-1. As a mobile bank customer, I want to see balance on my accounts, so that I can make better informed decisions about my spending
-</user-story-example>
+## Vetoable defaults
+Decisions made without asking. Veto by commenting on the issue before or
+during implementation.
+```
 
-This list of user stories should be extremely extensive and cover all aspects of the feature.
+## Qualities to hold
 
-## Implementation Decisions
-
-A list of implementation decisions that were made. This can include:
-
-- The modules that will be built/modified
-- The interfaces of those modules that will be modified
-- Technical clarifications from the developer
-- Architectural decisions
-- Schema changes
-- API contracts
-- Specific interactions
-
-Do NOT include specific file paths or code snippets. They may end up being outdated very quickly.
-
-Exception: if a prototype produced a snippet that encodes a decision more precisely than prose can (state machine, reducer, schema, type shape), inline it within the relevant decision and note briefly that it came from a prototype. Trim to the decision-rich parts — not a working demo, just the important bits.
-
-## Testing Decisions
-
-A list of testing decisions that were made. Include:
-
-- A description of what makes a good test (only test external behavior, not implementation details)
-- Which modules will be tested
-- Prior art for the tests (i.e. similar types of tests in the codebase)
-
-## Out of Scope
-
-A description of the things that are out of scope for this PRD.
-
-## Further Notes
-
-Any further notes about the feature.
-
-</prd-template>
+- **Decisions over stories.** No user-story inventories, no personas, no boilerplate. If a section would not change what the implementing agent types, delete it.
+- **Mountain ≠ padding.** Exhaustive on decisions, edge cases, and conflicts; terse everywhere else.
+- **No file paths or code in Decisions** — they rot. Exception: a snippet that encodes a decision more precisely than prose (schema, type shape, breakpoint table). Trim to the decision-rich part.
