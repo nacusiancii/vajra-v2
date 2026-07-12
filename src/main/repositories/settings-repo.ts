@@ -1,5 +1,5 @@
 import type { Database } from 'better-sqlite3'
-import { DEFAULT_SETTINGS, type AppSettings } from '../../domain/settings'
+import { DEFAULT_SETTINGS, type AppSettings, type LoadingChargeRules } from '../../domain/settings'
 
 const KEY = 'app'
 
@@ -15,7 +15,10 @@ export class SettingsRepo {
   }
 
   update(settings: AppSettings): AppSettings {
-    const next = lockPrinterless(settings)
+    const next = lockPrinterless({
+      ...settings,
+      loadingCharge: normalizeLoadingCharge(settings.loadingCharge)
+    })
     this.db
       .prepare(
         `INSERT INTO setting (key, value) VALUES (?, ?)
@@ -36,6 +39,32 @@ export class SettingsRepo {
       return { ...DEFAULT_SETTINGS }
     }
   }
+}
+
+/**
+ * Validate Loading Charge breakpoints and store them sorted ascending by upToKg.
+ * - upToKg: positive and unique
+ * - chargePaise / aboveLastPaise: integer paise ≥ 0
+ */
+export function normalizeLoadingCharge(rules: LoadingChargeRules): LoadingChargeRules {
+  if (!Number.isInteger(rules.aboveLastPaise) || rules.aboveLastPaise < 0) {
+    throw new Error('aboveLastPaise must be an integer ≥ 0')
+  }
+  const seen = new Set<number>()
+  for (const bp of rules.breakpoints) {
+    if (!(typeof bp.upToKg === 'number' && bp.upToKg > 0)) {
+      throw new Error('Breakpoint upToKg must be positive')
+    }
+    if (seen.has(bp.upToKg)) {
+      throw new Error(`Duplicate breakpoint upToKg: ${bp.upToKg}`)
+    }
+    seen.add(bp.upToKg)
+    if (!Number.isInteger(bp.chargePaise) || bp.chargePaise < 0) {
+      throw new Error('Breakpoint chargePaise must be an integer ≥ 0')
+    }
+  }
+  const breakpoints = [...rules.breakpoints].sort((a, b) => a.upToKg - b.upToKg)
+  return { breakpoints, aboveLastPaise: rules.aboveLastPaise }
 }
 
 /**

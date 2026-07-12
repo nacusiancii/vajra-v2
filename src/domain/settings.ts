@@ -12,11 +12,12 @@ export interface LoadingBreakpoint {
 }
 
 /**
- * Ordered weight breakpoints for Loading Charge, plus the charge above the last breakpoint.
- * Lookup: first breakpoint where weightKg ≤ upToKg wins; else aboveLastPaise.
+ * Weight breakpoints for Loading Charge, plus the charge above the last breakpoint.
+ * Lookup is order-independent: among breakpoints where weightKg ≤ upToKg, the one with
+ * the smallest upToKg wins; else aboveLastPaise. Settings persist them sorted ascending.
  */
 export interface LoadingChargeRules {
-  /** Must be ordered ascending by upToKg. */
+  /** Inclusive upper bounds; order in the array does not affect lookup. */
   breakpoints: LoadingBreakpoint[]
   /** Charge (paise) for weight strictly above the last breakpoint. */
   aboveLastPaise: number
@@ -68,12 +69,16 @@ export const DEFAULT_SETTINGS: AppSettings = {
 
 /**
  * Resolve Loading Charge (paise) for a single parcel of the given weight in kg.
- * Empty breakpoints → always aboveLastPaise (or 0 if that is also 0).
+ * Order-independent: among qualifying breakpoints (weightKg ≤ upToKg), pick the
+ * smallest upToKg. Empty / no match → aboveLastPaise.
  */
 export function loadingChargeForKg(weightKg: number, rules: LoadingChargeRules): number {
   if (!(weightKg > 0)) return 0
+  let best: LoadingBreakpoint | null = null
   for (const bp of rules.breakpoints) {
-    if (weightKg <= bp.upToKg) return bp.chargePaise
+    if (weightKg <= bp.upToKg && (best === null || bp.upToKg < best.upToKg)) {
+      best = bp
+    }
   }
-  return rules.aboveLastPaise
+  return best !== null ? best.chargePaise : rules.aboveLastPaise
 }

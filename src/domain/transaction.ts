@@ -73,6 +73,11 @@ export interface Txn {
   upiOut: number
   additionalCharges: number
   loadingCharges: number
+  /**
+   * Whether the cashier opted into Loading Charge on this Sale.
+   * True even when the promised amount is ₹0 (free band). Always false for non-Sales.
+   */
+  loadingApplied: boolean
   total: number
   creditAmount: number
   /**
@@ -121,7 +126,16 @@ export interface CreateSaleInput {
   walkin: WalkinInput | null
   lines: SaleLineInput[]
   additionalCharges: number
+  /**
+   * Promised Loading Charge in paise (integer ≥ 0). Stored as-is on the finished
+   * Sale — never recomputed from settings at write time.
+   */
   loadingCharges: number
+  /**
+   * Cashier opted into Loading Charge. True even when loadingCharges is 0 (free band).
+   * Persisted so Edit rehydrates the toggle from the flag, not from the amount.
+   */
+  loadingApplied: boolean
   cashCollected: number
   upiCollected: number
   /** Credit Voucher number minted at print time (null for Cash Sales). */

@@ -5,6 +5,7 @@ import {
   lineKg,
   lineTotal,
   MoneyTxnSchema,
+  SaleWriteSchema,
   suggestedTransferTargetQty,
   validateSale,
   type LineProductLookup
@@ -279,5 +280,96 @@ describe('MoneyTxnSchema (RE/PA cash + UPI + discount paise)', () => {
         discountAmount: 0
       }).success
     ).toBe(false)
+  })
+})
+
+describe('SaleWriteSchema (goods write boundary — integer paise)', () => {
+  const validLine: SaleLineInput = {
+    productId: 1,
+    isLoose: true,
+    bagSizeG: null,
+    quintalRate: null,
+    perKgRate: 6_000,
+    qty: 8
+  }
+
+  const validSale = {
+    mode: 'cash' as const,
+    customerId: null,
+    walkin: { name: 'A', place: 'B', phone: null },
+    lines: [validLine],
+    additionalCharges: 0,
+    loadingCharges: 0,
+    loadingApplied: true,
+    cashCollected: 48_000,
+    upiCollected: 0,
+    voucherSeq: null,
+    remarks: null
+  }
+
+  it('accepts a valid free-band opt-in sale (loading ₹0, applied true)', () => {
+    expect(SaleWriteSchema.safeParse(validSale).success).toBe(true)
+  })
+
+  it('rejects float paise loading charge', () => {
+    const result = SaleWriteSchema.safeParse({
+      ...validSale,
+      loadingCharges: 12.5
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects float paise per-kg rate on a line', () => {
+    const result = SaleWriteSchema.safeParse({
+      ...validSale,
+      lines: [{ ...validLine, perKgRate: 60.5 }]
+    })
+    expect(result.success).toBe(false)
+  })
+
+  it('rejects negative additional charges', () => {
+    expect(SaleWriteSchema.safeParse({ ...validSale, additionalCharges: -1 }).success).toBe(false)
+  })
+})
+
+describe('validateSale — integer rates at write', () => {
+  const products = new Map<number, LineProductLookup>([[1, { defaultBagSizeG: 50_000 }]])
+
+  it('rejects non-integer per-kg rate', () => {
+    expect(
+      validateSale(
+        [
+          {
+            productId: 1,
+            isLoose: true,
+            bagSizeG: null,
+            quintalRate: null,
+            perKgRate: 6000.5,
+            qty: 5
+          }
+        ],
+        products,
+        { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true }
+      )
+    ).toMatch(/price per kg/)
+  })
+
+  it('rejects out-of-range loose qty at the same path the write boundary uses', () => {
+    expect(
+      validateSale(
+        [
+          {
+            productId: 1,
+            isLoose: true,
+            bagSizeG: null,
+            quintalRate: null,
+            perKgRate: 6_000,
+            qty: 0.5
+          }
+        ],
+        products,
+        { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true }
+      )
+    ).toMatch(/1 and 50/)
   })
 })

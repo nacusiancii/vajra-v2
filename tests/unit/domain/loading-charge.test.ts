@@ -39,6 +39,20 @@ describe('loadingChargeForKg — breakpoint boundaries', () => {
     expect(loadingChargeForKg(0, defaultRules)).toBe(0)
     expect(loadingChargeForKg(-5, defaultRules)).toBe(0)
   })
+
+  it('is order-independent: picks the smallest qualifying upToKg', () => {
+    // Reversed storage order must still map 15 kg → ≤30 band (₹10), not aboveLast.
+    const reversed = {
+      breakpoints: [
+        { upToKg: 30, chargePaise: 1_000 },
+        { upToKg: 10, chargePaise: 0 }
+      ],
+      aboveLastPaise: 1_200
+    }
+    expect(loadingChargeForKg(5, reversed)).toBe(0)
+    expect(loadingChargeForKg(15, reversed)).toBe(1_000)
+    expect(loadingChargeForKg(50, reversed)).toBe(1_200)
+  })
 })
 
 describe('computeLoadingCharge — bag and loose parcels', () => {
