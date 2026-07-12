@@ -14,7 +14,8 @@ import {
 } from '@/components/ui/table'
 import { useTransactionsQuery } from '@/queries/transactions'
 import { formatRupees } from '@/lib/format'
-import { summariseDrawer, TXN_TYPE_LABELS, type Txn, type TxnType } from '@domain/transaction'
+import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
+import { summariseDrawer, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
 
 const router = useRouter()
 const { data: transactions, isLoading } = useTransactionsQuery()
@@ -22,27 +23,13 @@ const { data: transactions, isLoading } = useTransactionsQuery()
 const txns = computed(() => transactions.value ?? [])
 const drawer = computed(() => summariseDrawer(txns.value))
 
-const EDIT_ROUTE: Record<TxnType, string> = {
-  SA: '/sale',
-  PU: '/purchase',
-  ST: '/stock-transfer',
-  RE: '/receipt',
-  PA: '/payment',
-  EX: '/expense',
-  IN: '/income'
-}
-
-function counterparty(t: Txn): string {
-  return t.customerName ?? t.walkinName ?? t.label ?? '—'
-}
-
 /** Net cash + UPI a transaction moved through the drawer (signed). */
 function drawerImpact(t: Txn): number {
   return t.cashIn + t.upiIn - t.cashOut - t.upiOut
 }
 
 function edit(t: Txn): void {
-  void router.push(`${EDIT_ROUTE[t.type]}?edit=${t.id}`)
+  void router.push(txnEditPath(t))
 }
 </script>
 
@@ -114,7 +101,7 @@ function edit(t: Txn): void {
                 >credit</Badge
               >
             </TableCell>
-            <TableCell>{{ counterparty(t) }}</TableCell>
+            <TableCell>{{ txnCounterparty(t) }}</TableCell>
             <TableCell class="text-right tabular-nums">{{ formatRupees(t.total) }}</TableCell>
             <TableCell class="text-right tabular-nums">{{
               formatRupees(drawerImpact(t))

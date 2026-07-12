@@ -33,6 +33,28 @@ test.describe('Home page', () => {
     await expect(page.getByText(/No transactions yet/)).toBeVisible()
   })
 
+  test('recent transactions expose Edit for live entries (#29)', async ({ page }) => {
+    // Expense is the lightest ledger entry — no customer/product masters required.
+    await page.getByTestId('secondary-actions').getByRole('link', { name: 'Expense' }).click()
+    await expect(page.getByTestId('money-page')).toBeVisible()
+    await page.getByTestId('money-label').fill('Tea')
+    await page.getByTestId('money-amount').fill('50')
+    // Finish returns Home (#83) so the new row is immediately editable from Recent.
+    await page.getByTestId('money-finish').click()
+    await expect(page.getByTestId('home-page')).toBeVisible()
+
+    const recent = page.getByTestId('recent-transactions')
+    const row = recent.getByTestId('home-txn-row').first()
+    await expect(row).toContainText('Expense')
+    await expect(row).toContainText('Tea')
+    await row.getByTestId('txn-edit').click()
+
+    await expect(page.getByTestId('money-page')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Edit Expense/i })).toBeVisible()
+    await expect(page.getByTestId('money-label')).toHaveValue('Tea')
+    await expect(page.getByTestId('money-amount')).toHaveValue('50')
+  })
+
   test('shows shopkeeper management links', async ({ page }) => {
     const section = page.getByTestId('management-links')
     await expect(section).toBeVisible()
