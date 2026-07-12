@@ -6,8 +6,8 @@ import type { Page } from '@playwright/test'
  * catalog a Bulk product, buy stock, sell some, watch the Inventory projection move,
  * then Rollover and confirm the closing stock becomes the next day's Opening Stock.
  *
- * Transaction screens are routes in the single window; finishing one lands on the
- * Transactions ledger, so the flow reads results back from there and via the hub.
+ * Transaction screens are routes in the single window; finishing one returns to
+ * Home so the cashier can start the next action. Ledger checks open Transactions.
  */
 
 async function goHome(page: Page): Promise<void> {
@@ -57,10 +57,9 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('cart-qty')).toBeFocused()
   await page.getByTestId('cart-rate').fill('6000')
   await page.getByTestId('cart-qty').fill('10')
-  // Finishing routes to the Transactions ledger.
+  // Finishing returns Home for the next counter action.
   await page.getByTestId('purchase-finish').click()
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
-  await goHome(page)
+  await expect(page.getByTestId('home-page')).toBeVisible()
 
   // Inventory now shows 10 bags.
   await openManagement(page, 'Inventory')
@@ -99,7 +98,9 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('sale-number')).toHaveText('1')
   await page.getByTestId('slip-done').click()
 
-  // Done lands on the ledger: both transactions, drawer reflects the ₹6,000 cash sale.
+  // Done returns Home; open ledger to confirm both transactions and drawer.
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  await openManagement(page, 'Transactions')
   await expect(page.getByTestId('transactions-page')).toBeVisible()
   await expect(page.getByTestId('txn-row')).toHaveCount(2)
   await expect(page.getByTestId('drawer-summary')).toContainText('6,000')

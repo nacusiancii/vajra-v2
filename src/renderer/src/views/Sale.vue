@@ -427,7 +427,7 @@ function finish(): void {
 
 function onSlipDone(): void {
   slipOpen.value = false
-  void router.push('/transactions')
+  void router.push('/')
 }
 
 // Prefill when editing an existing Sale.

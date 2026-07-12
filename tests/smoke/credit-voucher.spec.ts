@@ -91,7 +91,11 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await expect(page.getByTestId('sale-number')).toHaveText('1')
   await page.getByTestId('slip-done').click()
 
-  // Done lands on the ledger, which holds the one credit Sale.
-  await expect(page.getByTestId('transactions-page')).toBeVisible()
+  // Done returns Home; open ledger for the one credit Sale.
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  await page
+    .getByTestId('management-links')
+    .getByRole('link', { name: /^Transactions/ })
+    .click()
   await expect(page.getByTestId('txn-row')).toHaveCount(1)
 })

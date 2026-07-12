@@ -153,7 +153,7 @@ function finish(): void {
   }
 
   const input = parsed.data
-  const onSuccess = (): void => void router.push('/transactions')
+  const onSuccess = (): void => void router.push('/')
   if (editId.value) {
     editMoney.mutate({ id: editId.value, type: type.value, input }, { onSuccess })
   } else {

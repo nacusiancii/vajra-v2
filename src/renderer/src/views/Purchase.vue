@@ -242,27 +242,27 @@ function clearActiveDraft(): void {
   })
 }
 
-/** After a successful create Purchase, drop any parked Draft and leave the cart. */
+/** After a successful create Purchase, drop any parked Draft and return Home. */
 function finishWithDraftCleanup(): void {
   const draftId = activeDraftId.value
-  const goTxns = (): void => {
-    void router.push('/transactions')
+  const goHome = (): void => {
+    void router.push('/')
   }
   if (draftId == null) {
-    goTxns()
+    goHome()
     return
   }
   clearDraftMut.mutate(draftId, {
     onSuccess: () => {
       activeDraftId.value = null
       draftHydratedId.value = null
-      goTxns()
+      goHome()
     },
     onError: () => {
       // Purchase already committed — still leave; Draft may linger until Clear.
       activeDraftId.value = null
       draftHydratedId.value = null
-      goTxns()
+      goHome()
     }
   })
 }
