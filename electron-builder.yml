@@ -1,5 +1,5 @@
-appId: com.electron.app
-productName: app-shell-bootstrap
+appId: app.vajra.desktop
+productName: Vajra
 directories:
   buildResources: build
 files:
@@ -12,7 +12,7 @@ files:
 asarUnpack:
   - resources/**
 win:
-  executableName: app-shell-bootstrap
+  executableName: vajra
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -33,11 +33,11 @@ linux:
     - AppImage
     - snap
     - deb
-  maintainer: electronjs.org
+  maintainer: nacusiancii
   category: Utility
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
   provider: generic
-  url: https://example.com/auto-updates
+  url: https://github.com/nacusiancii/vajra-v2/releases/latest/download/

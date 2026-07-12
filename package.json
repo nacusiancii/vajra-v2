@@ -1,10 +1,18 @@
 {
   "name": "vajra",
   "version": "1.0.0",
-  "description": "Desktop app shell for Vajra",
-  "homepage": "https://example.com",
+  "description": "Desktop app for a wholesale grocery and pulses shop — current Business Day, stock, sales, slips, and Rollover",
+  "homepage": "https://github.com/nacusiancii/vajra-v2",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/nacusiancii/vajra-v2.git"
+  },
+  "bugs": {
+    "url": "https://github.com/nacusiancii/vajra-v2/issues"
+  },
+  "license": "FSL-1.1-ALv2",
+  "author": "Murali Krishna Kurapati",
   "main": "./out/main/index.js",
-  "author": "",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",

@@ -2,6 +2,10 @@
 
 Desktop app for a wholesale grocery and pulses shop in Andhra Pradesh, India. Runs the current Business Day — stock, sales, slips, end-of-day Rollover. Built with Electron, Vue 3, TypeScript, and Tailwind.
 
+**License:** [FSL-1.1-ALv2](./LICENSE.md) (Functional Source License — source-available; each version becomes Apache-2.0 after two years). Free for your own shop and most non-competing uses; not for offering a competing product or service. See the license for the full terms.
+
+**Contributing:** See [CONTRIBUTING.md](./CONTRIBUTING.md). External PRs require a signed [CLA](./CLA.md).
+
 ## Prerequisites
 
 - Node 24 (see `.nvmrc`)
@@ -105,5 +109,5 @@ tests/
 ```
 
 The day's stock, sales, slips, money movements, and end-of-day Rollover all run through
-the transactional core. See `.scratch/04-transactional-core/DESIGN.md` for the data model
-and the decisions taken in this build.
+the transactional core. Domain vocabulary lives in [CONTEXT.md](./CONTEXT.md); durable
+architecture decisions live in [docs/adr/](./docs/adr/).
