@@ -36,7 +36,7 @@ Each grok is a fresh instance that never trusts the previous grok's claims. Add 
 
 Claude verifies exactly three things, nothing more:
 
-1. **Green for real**: run `pnpm verify:headless` yourself. The transcript's word is not evidence.
+1. **Green for real**: read the `ci` check on the draft PR, not the transcript. CI runs `pnpm verify:headless` on every PR (#97) — grok already paid for green once with `fix:headless`, so the same commit never earns a second local run. `gh pr checks <pr> --watch`, then move on. Local rerun only if CI itself is what's broken.
 2. **Diff matches brief**: read it. Nothing beyond scope, nothing missing, glossary words used.
 3. **It stayed home**: the transcript never touches paths outside its worktree.
 
