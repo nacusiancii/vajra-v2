@@ -319,16 +319,16 @@ export interface DrawerSummary {
   cashNet: number
   upiNet: number
   /** Goods sold on credit — sum of Sale `creditAmount` (customer owes us), paise. */
-  creditIssued: number
+  creditSales: number
   /** Goods bought on credit — sum of Purchase `creditAmount` (we owe supplier), paise. */
-  creditReceived: number
+  creditPurchases: number
 }
 
 /**
  * Aggregate the day's drawer from live (non-voided) transactions.
  * Cash/UPI come from the generic drawer columns on every type (including Receipts
- * and Payments). Credit issued/received are face totals on Sales/Purchases only —
- * Receipt money-in must not also inflate creditReceived.
+ * and Payments). Credit Sales/Credit Purchases are face totals on Sales/Purchases
+ * only — Receipt cash-in and Payment cash-out must never inflate these fields.
  */
 export function summariseDrawer(txns: Txn[]): DrawerSummary {
   const s: DrawerSummary = {
@@ -338,8 +338,8 @@ export function summariseDrawer(txns: Txn[]): DrawerSummary {
     upiOut: 0,
     cashNet: 0,
     upiNet: 0,
-    creditIssued: 0,
-    creditReceived: 0
+    creditSales: 0,
+    creditPurchases: 0
   }
   for (const t of txns) {
     if (t.voided) continue
@@ -347,8 +347,8 @@ export function summariseDrawer(txns: Txn[]): DrawerSummary {
     s.upiIn += t.upiIn
     s.cashOut += t.cashOut
     s.upiOut += t.upiOut
-    if (t.type === 'SA') s.creditIssued += t.creditAmount
-    if (t.type === 'PU') s.creditReceived += t.creditAmount
+    if (t.type === 'SA') s.creditSales += t.creditAmount
+    if (t.type === 'PU') s.creditPurchases += t.creditAmount
   }
   s.cashNet = s.cashIn - s.cashOut
   s.upiNet = s.upiIn - s.upiOut

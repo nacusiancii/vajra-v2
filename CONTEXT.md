@@ -123,13 +123,13 @@ _Avoid_: Discount % (as the stored entry), rebate, credit note.
 
 ### Day-book credit (drawer summary)
 
-**Credit issued**:
-The face total of goods sold on credit today — sum of Credit Sale amounts. Customers owe us this face. Not money in the drawer.
-_Avoid_: Credit sales total (as a synonym that invites counting cash Sales).
+**Credit Sales Total**:
+The face total of goods sold on credit today — sum of Credit Sale amounts only (cash Sales are excluded). Customers owe us this face. Not money in the drawer, and not the same as Receipts (cash/UPI actually collected from customers). Displayed as "Credit Sales" in the UI — the shorter label is used because the rupee amount is always shown directly beneath it.
+_Avoid_: Credit issued (superseded name), Credit sales revenue, Total sales.
 
-**Credit received**:
-The face total of goods bought on credit today — sum of Credit Purchase amounts. We owe suppliers this face. Not money in the drawer, and **not** money collected on Receipts (that is cash/UPI in).
-_Avoid_: Credit purchases total (as a synonym); do not use this phrase for Receipt inflows.
+**Credit Purchases Total**:
+The face total of goods bought on credit today — sum of Credit Purchase amounts only (cash Purchases are excluded). We owe suppliers this face. Not money in the drawer, and not the same as Payments (cash/UPI actually paid to suppliers). Displayed as "Credit Purchases" in the UI, for the same reason.
+_Avoid_: Credit received (superseded name), Credit purchases paid, Total purchases.
 
 ### Other money movements
 
@@ -169,7 +169,7 @@ _Avoid_: Rebranding, repack, conversion.
 
 **"Payment"**: The entity (cash/UPI out to a Customer) collides with the everyday meaning of "payment captured at the finish of a Cash Sale." When unambiguous in context, use Payment for the entity; for the cash/UPI a customer hands over during Sale finish, say _cash collected_ and _UPI collected_, not "payment."
 
-**"Credit received"**: In the day-book drawer summary this means **Credit Purchase** face (goods we took on credit). It must never mean money a customer paid on a **Receipt** — that money is cash/UPI in only. The everyday reading "credit money we received" is the trap; the pair is Credit issued (Sale) ↔ Credit received (Purchase).
+**"Credit Sales Total" / "Credit Purchases Total"**: These are face-value totals of today's credit-mode transactions only — they exclude cash Sales/Purchases, and they are never the same figure as Receipts (cash collected) or Payments (cash paid out). A Credit Sale's face lands in Credit Sales Total the day it's made; the cash that eventually settles it lands in Receipts, possibly on a different day entirely — the two numbers are unrelated in any given day's drawer.
 
 ## Example dialogue
 

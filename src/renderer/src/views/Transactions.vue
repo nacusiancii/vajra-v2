@@ -54,12 +54,12 @@ function edit(t: Txn): void {
         <p class="text-xl font-semibold tabular-nums">{{ formatRupees(drawer.upiNet) }}</p>
       </div>
       <div class="rounded-md border p-3">
-        <p class="text-xs uppercase text-muted-foreground">Credit issued</p>
-        <p class="text-xl font-semibold tabular-nums">{{ formatRupees(drawer.creditIssued) }}</p>
+        <p class="text-xs uppercase text-muted-foreground">Credit Sales</p>
+        <p class="text-xl font-semibold tabular-nums">{{ formatRupees(drawer.creditSales) }}</p>
       </div>
       <div class="rounded-md border p-3">
-        <p class="text-xs uppercase text-muted-foreground">Credit received</p>
-        <p class="text-xl font-semibold tabular-nums">{{ formatRupees(drawer.creditReceived) }}</p>
+        <p class="text-xs uppercase text-muted-foreground">Credit Purchases</p>
+        <p class="text-xl font-semibold tabular-nums">{{ formatRupees(drawer.creditPurchases) }}</p>
       </div>
     </div>
 

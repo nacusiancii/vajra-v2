@@ -46,8 +46,8 @@ export function buildEodReportHtml(
     ['UPI in', rupees(drawer.upiIn)],
     ['UPI out', rupees(drawer.upiOut)],
     ['UPI net', rupees(drawer.upiNet)],
-    ['Credit issued', rupees(drawer.creditIssued)],
-    ['Credit received', rupees(drawer.creditReceived)]
+    ['Credit Sales', rupees(drawer.creditSales)],
+    ['Credit Purchases', rupees(drawer.creditPurchases)]
   ]
     .map(([k, v]) => `<tr><th>${k}</th><td class="num">${v}</td></tr>`)
     .join('')
