@@ -44,8 +44,11 @@ test('receipt cash + UPI + discount stores and edits round-trip', async ({ page 
   await page.getByTestId('money-cash').fill('700')
   await page.getByTestId('money-upi').fill('200')
   await page.getByTestId('money-discount').fill('100')
+  // Realized cash+UPI, then settlement less — not face as a single total.
+  await expect(page.getByTestId('money-summary')).toContainText('Received')
   await expect(page.getByTestId('money-summary')).toContainText('900')
-  await expect(page.getByTestId('money-summary')).toContainText('1,000')
+  await expect(page.getByTestId('money-summary')).toContainText('Total Incl. less')
+  await expect(page.getByTestId('money-summary')).toContainText('100')
 
   await page.getByTestId('money-finish').click()
   await expect(page.getByTestId('home-page')).toBeVisible()
