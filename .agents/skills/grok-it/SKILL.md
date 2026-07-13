@@ -1,47 +1,103 @@
 ---
 name: grok-it
-description: Delegate any task — research, implementation, adversarial testing — to the grok CLI in an isolated worktree. Claude only briefs, launches, and judges. Use when the user says "grok it", "send grok", or wants the intern doing the work.
+description: Delegate any task to a headless grok CLI in an isolated worktree. The chief only briefs, launches, and judges — never implements. Use when the user says "grok it", "send grok", or wants the intern doing the work.
 ---
 
-# /grok-it — we do absolutely nothing
+# /grok-it — chief does nothing 🪿
 
-**We have a massive deal with grok. The mandate: play around with it and push how far we can harness its intelligence.** So Claude never does the work. Claude writes the brief, sets the stage, launches grok, and judges the result. That's the whole job.
+**Mandate:** harness grok. You brief → launch → judge. You do **not** write the code (even if you *are* Grok — fresh headless goose only).
 
-## The launch (learned the hard way)
+## Easy path (copy this)
 
+Pick a short `<task>` slug (e.g. `loose-fix`, `issue-75`).
+
+### 1. Stage
+
+```bash
+git worktree add ../vajra-grok-<task> -b grok/<task> main
+(cd ../vajra-grok-<task> && pnpm install)
 ```
-grok -p "<BRIEF>" --cwd=<worktree> --check --max-turns 200 \
-  --allow "Edit" --allow "Write" --allow "Bash(pnpm *)" --allow "Bash(git *)" \
-  --allow "Bash(gh pr create *)"
+
+### 2. Brief
+
+Write `../vajra-grok-<task>/.grok-brief.md` by filling this template:
+
+```markdown
+# Task
+<one sentence>
+
+# Sources
+- Issue #N (body + comments; newest wins): <paste decisions>
+- Read AGENTS.md + CONTEXT.md
+- Landmines: money = integer paise; mass = grams
+- Deps already installed — do NOT run pnpm install
+
+# Do
+<what done looks like; behaviours not file paths>
+
+# Do not
+- Drive-by refactors
+- <anything else out of scope>
+
+# Stop
+run `pnpm fix:headless` until green, commit with a conventional message, push,
+open a **draft** PR (`gh pr create --draft`) with body note
+"implementation by grok CLI — pending verification", then STOP.
+No mark-ready, no merge, no new tasks.
 ```
 
-- Run in the background; watch the output file. **Never `--always-approve`** — scoped allows are all it needs.
-- **Stage first so it never hits a wall**: fresh worktree off main (`git worktree add ../vajra-grok-<task> -b grok/<task> main`) and `pnpm install` before launch. Brief says "deps installed, do NOT run pnpm install."
-- **Headless grok is timid with vague prompts** — it asks one clarifying question and exits. Briefs must be decision-complete: issue body AND comments (comments override, newest wins), pointers to AGENTS.md/CONTEXT.md, and the domain landmines spelled out (money is integer paise, mass is grams). For fork-heavy features, run `/to-prd` first and brief from the PRD.
-- **Every brief ends with a stop clause.** For work that lands code: "run `pnpm fix:headless` until green, commit on this branch with a conventional message, push, open a **draft** PR with `gh pr create --draft` disclosing provenance ('implementation by grok CLI — pending verification'), then STOP. No marking ready, no merging, no new tasks." Read-only briefs (research, wrecking-ball testing) keep the old ending: "no push, no PR."
-- Hard problem? `--best-of-n N` races N attempts headless and keeps the best.
+**Research / read-only only?** Replace `# Stop` with: `Return findings as markdown. No commit, no push, no PR. STOP.`
 
-## Relay stations — any work → grok
+**Fork-heavy feature?** Run `/to-prd` first; paste the PRD into Sources.
 
-- **Research?** Grok. Read-only brief: return findings as markdown, commit nothing.
-- **Implementation?** Grok. PRD/issue brief, docs duty included: "if vocabulary shifts, update CONTEXT.md to match."
-- **Testing?** A **new** grok in the same worktree, briefed to _break the previous grok's code_: aggressive smoke + unit tests hunting real cracks (money rounding, stock deltas, mode toggles, empty/boundary carts). Wrecking-ball tests are for finding bugs — they get reported, then deleted; only the few high-value ones earn a commit (AGENTS.md test philosophy).
-- **Cleanup?** Grok, same worktree, briefed to sweep the previous grok's diff for debris: dead code, debug logs, commented-out blocks, unused exports, stale docs. Behavior identical — `pnpm fix:headless` proves it.
-- **Simplify?** Grok on the diff hunting reuse, simplification, and efficiency wins — quality only, no bug hunt (that's the Testing grok's game). If a change isn't clearly simpler, it doesn't land.
-- Bugs found → written into a fresh brief for the next implementation grok. We do not fix them ourselves.
+### 3. Launch (default allows — just use them)
 
-Each grok is a fresh instance that never trusts the previous grok's claims. Add `--no-subagents` if one gets ideas about hiring its own interns — the buck stops somewhere. 🪿
+```bash
+grok --prompt-file ../vajra-grok-<task>/.grok-brief.md \
+  --cwd=../vajra-grok-<task> --check --max-turns 200 \
+  --allow "Edit" --allow "Write" --allow "Read" --allow "Grep" \
+  --allow "Bash(pnpm *)" --allow "Bash(git *)" \
+  --allow "Bash(gh pr create *)" \
+  --allow "Bash(grep *)" --allow "Bash(rg *)" --allow "Bash(find *)" \
+  --allow "Bash(diff *)" --allow "Bash(ls *)" --allow "Bash(cat *)" \
+  --allow "Bash(head *)" --allow "Bash(tail *)" --allow "Bash(wc *)" \
+  --allow "Bash(sort *)" --allow "Bash(uniq *)" --allow "Bash(tree *)" \
+  --allow "Bash(jq *)" --allow "Bash(file *)" --allow "Bash(which *)"
+```
 
-## Judging — only when absolutely necessary
+Run in the background; watch the log. **Never** `--always-approve` / `--yolo`.
 
-Claude verifies exactly three things, nothing more:
+### 4. Judge (three checks, then stop thinking)
 
-1. **Green for real**: read the `ci` check on the draft PR, not the transcript. CI runs `pnpm verify:headless` on every PR (#97) — grok already paid for green once with `fix:headless`, so the same commit never earns a second local run. `gh pr checks <pr> --watch`, then move on. Local rerun only if CI itself is what's broken.
-2. **Diff matches brief**: read it. Nothing beyond scope, nothing missing, glossary words used.
-3. **It stayed home**: the transcript never touches paths outside its worktree.
+| # | Check | How |
+|---|--------|-----|
+| 1 | Green | `gh pr checks <pr> --watch` — trust CI, not the transcript. No local re-verify. |
+| 2 | Diff matches brief | `git -C ../vajra-grok-<task> diff main...HEAD` |
+| 3 | Stayed home | transcript never left the worktree |
 
-Pass → Claude marks the draft ready (`gh pr ready`), noting "verified by Claude" on the PR. Fail → close the draft PR, the failure becomes the next brief, and another goose takes flight.
+- **Pass** → `gh pr ready` + comment `verified by <chief>`
+- **Fail** → close draft; failure text becomes the next brief
 
-## Cleanup — leave the coop tidy
+### 5. Debrief → cleanup
 
-Once the PR is merged or abandoned: `git worktree remove ../vajra-grok-<task>` and delete the local branch. Stale worktrees are how geese nest permanently.
+1. Run **`/what-did-i-just-grok`** (fill the form — 2 minutes).
+2. Then: `git worktree remove ../vajra-grok-<task>` and delete branch `grok/<task>`.
+
+---
+
+## Optional plays (only if needed)
+
+Same worktree, **new** headless grok each time. Never trust the previous goose.
+
+| Play | Brief them to… |
+|------|----------------|
+| **Test** | Break the last diff (money, stock, modes, empty cart). Report bugs; delete wrecking-ball tests unless high-value. |
+| **Cleanup** | Sweep debris (dead code, debug logs). Keep behaviour; `pnpm fix:headless` green. |
+| **Simplify** | Reuse/simpler only — no bug hunt. Skip if not clearly simpler. |
+| **Research** | Findings markdown only; use the read-only stop clause. |
+
+Bugs → new implementation brief. You still do not fix them.
+
+Hard problem? Add `--best-of-n N`. Intern hiring interns? Add `--no-subagents`.
+
+Stuck on allows? Default list is fine for almost everything. Drop `Edit`/`Write`/`gh` for pure research. Add a `Bash(…)` only when the log shows a denied useful command — then note it in the debrief.
