@@ -186,7 +186,8 @@ describe('validateSale + bag membership', () => {
         mode: 'cash',
         hasCustomer: false,
         customerHasPhone: false,
-        isWalkin: true
+        isWalkin: true,
+        maxLineItems: DEFAULT_SETTINGS.maxLineItems
       })
     ).toBeNull()
   })

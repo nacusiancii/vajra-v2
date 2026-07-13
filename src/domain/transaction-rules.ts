@@ -131,6 +131,13 @@ export interface SaleValidationContext {
   /** Whether the chosen Customer Master entry has a phone (Credit Sale requirement). */
   customerHasPhone: boolean
   isWalkin: boolean
+  /** Max goods lines (from Settings); write + finish share this cap. */
+  maxLineItems: number
+}
+
+/** Cap exceeded message — shared by validation, repo write path, and UI. */
+export function maxLineItemsExceededMessage(cap: number): string {
+  return `Line item limit reached (${cap}). Remove a line or increase the limit in Settings to add more.`
 }
 
 /** Business rules for finishing a Sale. UI-level (qty/rate) reasons come first. */
@@ -140,6 +147,7 @@ export function validateSale(
   ctx: SaleValidationContext
 ): string | null {
   if (lines.length === 0) return 'Add at least one line before finishing'
+  if (lines.length > ctx.maxLineItems) return maxLineItemsExceededMessage(ctx.maxLineItems)
   for (const line of lines) {
     const reason = validateGoodsLine(line, products.get(line.productId))
     if (reason) return reason
@@ -153,9 +161,11 @@ export function validateSale(
 
 export function validatePurchase(
   lines: SaleLineInput[],
-  products: Map<number, LineProductLookup>
+  products: Map<number, LineProductLookup>,
+  maxLineItems: number
 ): string | null {
   if (lines.length === 0) return 'Add at least one line before finishing'
+  if (lines.length > maxLineItems) return maxLineItemsExceededMessage(maxLineItems)
   for (const line of lines) {
     const reason = validateGoodsLine(line, products.get(line.productId))
     if (reason) return reason

@@ -36,13 +36,24 @@ export interface CartLine {
 
 type Focusable = { focus: () => void }
 
-const props = defineProps<{
-  products: Product[]
-  /** Bag Types in grams. */
-  bagTypes: number[]
+const props = withDefaults(
+  defineProps<{
+    products: Product[]
+    /** Bag Types in grams. */
+    bagTypes: number[]
+    /** Max goods lines (from Settings). */
+    maxLineItems?: number
+  }>(),
+  { maxLineItems: 10 }
+)
+
+const emit = defineEmits<{
+  'line-limit-reached': [cap: number]
 }>()
 
 const lines = defineModel<CartLine[]>({ required: true })
+
+const atLineCap = computed(() => lines.value.length >= props.maxLineItems)
 
 const productMap = computed(() => new Map(props.products.map((p) => [p.id, p])))
 const productOptions = computed<ComboboxOption[]>(() =>
@@ -111,6 +122,10 @@ function rowMassG(line: CartLine): number {
 }
 
 function addLine(): void {
+  if (lines.value.length >= props.maxLineItems) {
+    emit('line-limit-reached', props.maxLineItems)
+    return
+  }
   lines.value = [...lines.value, emptyLine()]
 }
 
@@ -269,7 +284,13 @@ defineExpose({ ensureLineAndFocusProduct })
       </TableBody>
     </Table>
     <div class="border-t p-2">
-      <Button variant="outline" size="sm" data-testid="cart-add-line" @click="addLine">
+      <Button
+        variant="outline"
+        size="sm"
+        data-testid="cart-add-line"
+        :disabled="atLineCap"
+        @click="addLine"
+      >
         <Plus class="mr-2 size-4" />
         Add Line
       </Button>

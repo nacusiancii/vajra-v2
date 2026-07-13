@@ -18,9 +18,9 @@ export function registerIpcHandlers(): void {
     hasCustomerReferences: () => false,
     hasProductReferences: (id) => productHasReferences(db, id)
   })
-  const transactions = new TransactionRepo(db)
   const businessDay = new BusinessDayRepo(db)
   const settings = new SettingsRepo(db)
+  const transactions = new TransactionRepo(db, settings)
   const drafts = new DraftRepo(db, settings)
 
   // ── Customers ──────────────────────────────────────────────

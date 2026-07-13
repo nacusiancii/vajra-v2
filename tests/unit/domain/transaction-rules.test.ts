@@ -4,11 +4,14 @@ import {
   grandTotal,
   lineKg,
   lineTotal,
+  maxLineItemsExceededMessage,
   MoneyTxnSchema,
   SaleWriteSchema,
   suggestedTransferTargetQty,
+  validatePurchase,
   validateSale,
-  type LineProductLookup
+  type LineProductLookup,
+  type SaleValidationContext
 } from '@domain/transaction-rules'
 import {
   moneyDiscountPercent,
@@ -17,6 +20,15 @@ import {
   type SaleLineInput
 } from '@domain/transaction'
 import { DEFAULT_SETTINGS } from '@domain/settings'
+
+const cashCtx = (over: Partial<SaleValidationContext> = {}): SaleValidationContext => ({
+  mode: 'cash',
+  hasCustomer: false,
+  customerHasPhone: false,
+  isWalkin: true,
+  maxLineItems: DEFAULT_SETTINGS.maxLineItems,
+  ...over
+})
 
 describe('lineKg (display helper from grams)', () => {
   it('bag line kg is qty × bag size', () => {
@@ -121,100 +133,100 @@ describe('validateSale', () => {
   }
 
   it('rejects an empty cart', () => {
-    expect(
-      validateSale([], products, {
-        mode: 'cash',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
-    ).toMatch(/at least one line/)
+    expect(validateSale([], products, cashCtx())).toMatch(/at least one line/)
   })
 
   it('rejects a bag line without a quintal rate', () => {
     const bad: SaleLineInput = { ...bagLine, quintalRate: null }
-    expect(
-      validateSale([bad], products, {
-        mode: 'cash',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
-    ).toMatch(/Quintal Rate/)
+    expect(validateSale([bad], products, cashCtx())).toMatch(/Quintal Rate/)
   })
 
   it('rejects loose qty outside 1–50 kg', () => {
-    expect(
-      validateSale([{ ...looseLine, qty: 0.5 }], products, {
-        mode: 'cash',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
-    ).toMatch(/1 and 50/)
-    expect(
-      validateSale([{ ...looseLine, qty: 51 }], products, {
-        mode: 'cash',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
-    ).toMatch(/1 and 50/)
+    expect(validateSale([{ ...looseLine, qty: 0.5 }], products, cashCtx())).toMatch(/1 and 50/)
+    expect(validateSale([{ ...looseLine, qty: 51 }], products, cashCtx())).toMatch(/1 and 50/)
   })
 
   it('rejects loose without positive per-kg rate', () => {
-    expect(
-      validateSale([{ ...looseLine, perKgRate: null }], products, {
-        mode: 'cash',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
-    ).toMatch(/price per kg/)
+    expect(validateSale([{ ...looseLine, perKgRate: null }], products, cashCtx())).toMatch(
+      /price per kg/
+    )
   })
 
   it('accepts a valid loose line', () => {
-    expect(
-      validateSale([looseLine], products, {
-        mode: 'cash',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
-    ).toBeNull()
+    expect(validateSale([looseLine], products, cashCtx())).toBeNull()
   })
 
   it('rejects a credit sale to a walk-in', () => {
     expect(
-      validateSale([bagLine], products, {
-        mode: 'credit',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
+      validateSale(
+        [bagLine],
+        products,
+        cashCtx({ mode: 'credit', hasCustomer: false, customerHasPhone: false, isWalkin: true })
+      )
     ).toMatch(/Customer Master/)
   })
 
   it('rejects a credit sale to a customer with no phone', () => {
     expect(
-      validateSale([bagLine], products, {
-        mode: 'credit',
-        hasCustomer: true,
-        customerHasPhone: false,
-        isWalkin: false
-      })
+      validateSale(
+        [bagLine],
+        products,
+        cashCtx({ mode: 'credit', hasCustomer: true, customerHasPhone: false, isWalkin: false })
+      )
     ).toMatch(/phone/)
   })
 
   it('accepts a valid cash sale', () => {
-    expect(
-      validateSale([bagLine], products, {
-        mode: 'cash',
-        hasCustomer: false,
-        customerHasPhone: false,
-        isWalkin: true
-      })
-    ).toBeNull()
+    expect(validateSale([bagLine], products, cashCtx())).toBeNull()
+  })
+
+  it('accepts exactly the default max line items', () => {
+    const lines = Array.from({ length: DEFAULT_SETTINGS.maxLineItems }, () => ({ ...bagLine }))
+    expect(validateSale(lines, products, cashCtx())).toBeNull()
+  })
+
+  it('rejects one line over the default cap', () => {
+    const lines = Array.from({ length: DEFAULT_SETTINGS.maxLineItems + 1 }, () => ({ ...bagLine }))
+    const reason = validateSale(lines, products, cashCtx())
+    expect(reason).toBe(maxLineItemsExceededMessage(DEFAULT_SETTINGS.maxLineItems))
+  })
+
+  it('rejects over a custom maxLineItems setting', () => {
+    const lines = Array.from({ length: 3 }, () => ({ ...bagLine }))
+    const reason = validateSale(lines, products, cashCtx({ maxLineItems: 2 }))
+    expect(reason).toBe(maxLineItemsExceededMessage(2))
+    expect(validateSale(lines.slice(0, 2), products, cashCtx({ maxLineItems: 2 }))).toBeNull()
+  })
+})
+
+describe('validatePurchase — max line items', () => {
+  const products = new Map<number, LineProductLookup>([[1, { defaultBagSizeG: 50_000 }]])
+  const bagLine: SaleLineInput = {
+    productId: 1,
+    isLoose: false,
+    bagSizeG: 50_000,
+    quintalRate: 600_000,
+    perKgRate: null,
+    qty: 1
+  }
+
+  it('rejects over a custom cap with the shared message', () => {
+    const lines = Array.from({ length: 4 }, () => ({ ...bagLine }))
+    expect(validatePurchase(lines, products, 3)).toBe(maxLineItemsExceededMessage(3))
+  })
+
+  it('accepts at the cap', () => {
+    const lines = Array.from({ length: 3 }, () => ({ ...bagLine }))
+    expect(validatePurchase(lines, products, 3)).toBeNull()
+  })
+})
+
+describe('maxLineItemsExceededMessage', () => {
+  it('names the cap and points to Settings', () => {
+    const msg = maxLineItemsExceededMessage(10)
+    expect(msg).toMatch(/10/)
+    expect(msg).toMatch(/Line item limit/i)
+    expect(msg).toMatch(/Settings/i)
   })
 })
 
@@ -349,7 +361,7 @@ describe('validateSale — integer rates at write', () => {
           }
         ],
         products,
-        { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true }
+        cashCtx()
       )
     ).toMatch(/price per kg/)
   })
@@ -368,7 +380,7 @@ describe('validateSale — integer rates at write', () => {
           }
         ],
         products,
-        { mode: 'cash', hasCustomer: false, customerHasPhone: false, isWalkin: true }
+        cashCtx()
       )
     ).toMatch(/1 and 50/)
   })

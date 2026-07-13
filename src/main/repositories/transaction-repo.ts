@@ -22,6 +22,8 @@ import {
   validateSale,
   type LineProductLookup
 } from '../../domain/transaction-rules'
+import { DEFAULT_SETTINGS } from '../../domain/settings'
+import type { SettingsRepo } from './settings-repo'
 
 interface TxnRow {
   id: string
@@ -99,7 +101,10 @@ const ZERO_DRAWER: DrawerColumns = { cashIn: 0, upiIn: 0, cashOut: 0, upiOut: 0 
  * All money is integer paise; stock is integer grams.
  */
 export class TransactionRepo {
-  constructor(private db: Database) {}
+  constructor(
+    private db: Database,
+    private settings: SettingsRepo
+  ) {}
 
   // ── Reads ──────────────────────────────────────────────────────────────────
 
@@ -133,12 +138,14 @@ export class TransactionRepo {
     const parsed = SaleWriteSchema.parse(input)
     const products = this.productMeta()
     const productLookup = this.toLineProductLookup(products)
+    const maxLineItems = this.maxLineItems()
     const reason = validateSale(parsed.lines, productLookup, {
       mode: parsed.mode,
       hasCustomer: parsed.customerId != null,
       customerHasPhone:
         parsed.customerId != null ? this.customerHasPhone(parsed.customerId) : false,
-      isWalkin: parsed.walkin != null
+      isWalkin: parsed.walkin != null,
+      maxLineItems
     })
     if (reason) throw new Error(reason)
 
@@ -197,7 +204,7 @@ export class TransactionRepo {
     const parsed = PurchaseWriteSchema.parse(input)
     const products = this.productMeta()
     const productLookup = this.toLineProductLookup(products)
-    const reason = validatePurchase(parsed.lines, productLookup)
+    const reason = validatePurchase(parsed.lines, productLookup, this.maxLineItems())
     if (reason) throw new Error(reason)
 
     const resolved = parsed.lines.map((l) => this.resolveGoodsLine(l, products, 1))
@@ -467,6 +474,11 @@ export class TransactionRepo {
       | { phone: string | null }
       | undefined
     return !!(row?.phone && row.phone.trim() !== '')
+  }
+
+  private maxLineItems(): number {
+    const cap = this.settings.get().maxLineItems
+    return typeof cap === 'number' && cap > 0 ? Math.floor(cap) : DEFAULT_SETTINGS.maxLineItems
   }
 
   private currentDay(): { id: number; startDate: string } {

@@ -33,9 +33,11 @@ import {
 import {
   grandTotal,
   lineTotal,
+  maxLineItemsExceededMessage,
   validatePurchase,
   type LineProductLookup
 } from '@domain/transaction-rules'
+import { DEFAULT_SETTINGS } from '@domain/settings'
 import { validatePurchaseDraftCounterparty, type PurchaseDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
 import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
@@ -84,6 +86,7 @@ watch(customerId, (id) => {
 
 const productList = computed(() => products.value ?? [])
 const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_000])
+const maxLineItems = computed(() => settings.value?.maxLineItems ?? DEFAULT_SETTINGS.maxLineItems)
 
 const isCredit = computed(() => mode.value === 'credit')
 
@@ -268,6 +271,10 @@ function finishWithDraftCleanup(): void {
   })
 }
 
+function onLineLimitReached(cap: number): void {
+  error.value = maxLineItemsExceededMessage(cap)
+}
+
 function finish(): void {
   const m = mode.value
   if (!m) return
@@ -277,7 +284,7 @@ function finish(): void {
     error.value = 'Walk-in Purchases need a supplier name'
     return
   }
-  const reason = validatePurchase(input.lines, productLookup.value)
+  const reason = validatePurchase(input.lines, productLookup.value, maxLineItems.value)
   if (reason) {
     error.value = reason
     return
@@ -497,6 +504,8 @@ watch(
               v-model="lines"
               :products="productList"
               :bag-types="bagTypes"
+              :max-line-items="maxLineItems"
+              @line-limit-reached="onLineLimitReached"
             />
           </CardContent>
         </Card>

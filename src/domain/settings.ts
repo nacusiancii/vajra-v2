@@ -44,6 +44,11 @@ export interface AppSettings {
    * ADR-0010 — default 5; no per-type caps.
    */
   draftCap: number
+  /**
+   * Max goods line items on a Sale or Purchase cart (thermal slip fit).
+   * Default 10; enforced in UI, domain validation, and write boundary.
+   */
+  maxLineItems: number
 }
 
 /** Default: ≤10 kg → ₹0, ≤30 kg → ₹10, above → ₹12. */
@@ -64,7 +69,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
     ...DEFAULT_LOADING_CHARGE,
     breakpoints: [...DEFAULT_LOADING_CHARGE.breakpoints]
   },
-  draftCap: 5
+  draftCap: 5,
+  maxLineItems: 10
 }
 
 /**

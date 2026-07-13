@@ -178,6 +178,25 @@ function save(): void {
       </div>
     </section>
 
+    <section class="space-y-2">
+      <h2 class="font-semibold">Cart</h2>
+      <div class="grid gap-2">
+        <Label for="max-line-items">Maximum line items (Sale + Purchase)</Label>
+        <Input
+          id="max-line-items"
+          type="number"
+          min="1"
+          class="w-32"
+          :model-value="draft.maxLineItems"
+          data-testid="max-line-items-input"
+          @update:model-value="draft.maxLineItems = Math.max(1, Math.floor(Number($event) || 1))"
+        />
+        <p class="text-sm text-muted-foreground">
+          Cap on goods lines so the cart still fits a single-page thermal slip. Default is 10.
+        </p>
+      </div>
+    </section>
+
     <section class="space-y-3">
       <h2 class="font-semibold">Bag Types</h2>
       <p class="text-sm text-muted-foreground">

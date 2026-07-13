@@ -52,8 +52,10 @@ import {
   computeLoadingCharge,
   grandTotal,
   lineTotal,
+  maxLineItemsExceededMessage,
   validateSale
 } from '@domain/transaction-rules'
+import { DEFAULT_SETTINGS } from '@domain/settings'
 import { validateSaleDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
 import { formatRupees } from '@/lib/format'
 import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
@@ -117,6 +119,7 @@ const printGateOpen = ref(false)
 const productList = computed(() => products.value ?? [])
 const customerList = computed(() => customers.value ?? [])
 const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_000])
+const maxLineItems = computed(() => settings.value?.maxLineItems ?? DEFAULT_SETTINGS.maxLineItems)
 
 const isCredit = computed(() => mode.value === 'credit')
 
@@ -390,6 +393,10 @@ function finishWithDraftCleanup(txn: Txn): void {
   })
 }
 
+function onLineLimitReached(cap: number): void {
+  error.value = maxLineItemsExceededMessage(cap)
+}
+
 function finish(): void {
   const m = mode.value
   if (!m) return
@@ -399,7 +406,8 @@ function finish(): void {
     mode: m,
     hasCustomer: counterpartyMode.value === 'customer' && customerId.value != null,
     customerHasPhone: !!selectedCustomer.value?.phone,
-    isWalkin: counterpartyMode.value === 'walkin'
+    isWalkin: counterpartyMode.value === 'walkin',
+    maxLineItems: maxLineItems.value
   })
   if (
     counterpartyMode.value === 'walkin' &&
@@ -650,6 +658,8 @@ watch(
               v-model="lines"
               :products="productList"
               :bag-types="bagTypes"
+              :max-line-items="maxLineItems"
+              @line-limit-reached="onLineLimitReached"
             />
           </CardContent>
         </Card>
