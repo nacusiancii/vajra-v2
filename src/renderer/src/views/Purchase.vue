@@ -37,8 +37,9 @@ import {
   type LineProductLookup
 } from '@domain/transaction-rules'
 import { validatePurchaseDraftCounterparty, type PurchaseDraftPayload } from '@domain/draft'
+import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
-import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
+import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
 import type { CreatePurchaseInput, SaleMode } from '@domain/transaction'
 
@@ -516,34 +517,33 @@ watch(
             <div class="grid gap-4 sm:grid-cols-2">
               <div class="grid max-w-xs gap-2">
                 <Label>Additional Charges</Label>
-                <Input
-                  type="number"
-                  min="0"
-                  :model-value="paiseInputValue(additionalCharges)"
+                <NumericField
+                  mode="money"
+                  :model-value="additionalCharges"
                   placeholder="0"
-                  data-testid="purchase-additional"
-                  @update:model-value="additionalCharges = parseRupeesInput($event)"
+                  test-id="purchase-additional"
+                  @update:model-value="additionalCharges = $event"
                 />
               </div>
 
               <div v-if="!isCredit" class="grid grid-cols-2 gap-2">
                 <div class="grid gap-2">
                   <Label>UPI</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    :model-value="paiseInputValue(upiCollected)"
+                  <NumericField
+                    mode="money"
+                    :model-value="upiCollected"
                     placeholder="0"
-                    data-testid="purchase-upi"
-                    @update:model-value="upiCollected = parseRupeesInput($event)"
+                    test-id="purchase-upi"
+                    @update:model-value="upiCollected = $event"
                   />
                 </div>
                 <div class="grid gap-2">
                   <Label>Cash (auto)</Label>
                   <Input
-                    :model-value="paiseInputValue(cashDue)"
-                    type="number"
+                    :model-value="formatMoneyDomain(cashDue)"
+                    type="text"
                     disabled
+                    class="tabular-nums"
                     data-testid="purchase-cash"
                   />
                 </div>

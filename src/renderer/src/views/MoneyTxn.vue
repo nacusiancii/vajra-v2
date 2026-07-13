@@ -6,11 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
+import NumericField from '@/components/NumericField.vue'
 import { useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
 import { MoneyTxnSchema } from '@domain/transaction-rules'
 import { moneyFace, moneyRealized } from '@domain/transaction'
 import { formatRupees } from '@/lib/format'
-import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
+import { formatMoneyDomain } from '@/lib/numeric-field'
 import type { MoneyTxnType } from '@shared/api'
 
 const route = useRoute()
@@ -215,34 +216,33 @@ watch(
     <template v-if="!config.settlementEntry">
       <div class="grid gap-2">
         <Label>Amount</Label>
-        <Input
-          type="number"
-          min="0"
-          :model-value="paiseInputValue(amount)"
+        <NumericField
+          mode="money"
+          :model-value="amount"
           placeholder="0"
-          data-testid="money-amount"
-          @update:model-value="amount = parseRupeesInput($event)"
+          test-id="money-amount"
+          @update:model-value="amount = $event"
         />
       </div>
 
       <div class="grid grid-cols-2 gap-4">
         <div class="grid gap-2">
           <Label>UPI</Label>
-          <Input
-            type="number"
-            min="0"
-            :model-value="paiseInputValue(upiCollected)"
+          <NumericField
+            mode="money"
+            :model-value="upiCollected"
             placeholder="0"
-            data-testid="money-upi"
-            @update:model-value="upiCollected = parseRupeesInput($event)"
+            test-id="money-upi"
+            @update:model-value="upiCollected = $event"
           />
         </div>
         <div class="grid gap-2">
           <Label>Cash (auto)</Label>
           <Input
-            :model-value="paiseInputValue(cashDue)"
-            type="number"
+            :model-value="formatMoneyDomain(cashDue)"
+            type="text"
             disabled
+            class="tabular-nums"
             data-testid="money-cash"
           />
         </div>
@@ -254,37 +254,34 @@ watch(
       <div class="grid grid-cols-2 gap-4">
         <div class="grid gap-2">
           <Label>Cash</Label>
-          <Input
-            type="number"
-            min="0"
-            :model-value="paiseInputValue(cashCollected)"
+          <NumericField
+            mode="money"
+            :model-value="cashCollected"
             placeholder="0"
-            data-testid="money-cash"
-            @update:model-value="cashCollected = parseRupeesInput($event)"
+            test-id="money-cash"
+            @update:model-value="cashCollected = $event"
           />
         </div>
         <div class="grid gap-2">
           <Label>UPI</Label>
-          <Input
-            type="number"
-            min="0"
-            :model-value="paiseInputValue(upiCollected)"
+          <NumericField
+            mode="money"
+            :model-value="upiCollected"
             placeholder="0"
-            data-testid="money-upi"
-            @update:model-value="upiCollected = parseRupeesInput($event)"
+            test-id="money-upi"
+            @update:model-value="upiCollected = $event"
           />
         </div>
       </div>
 
       <div class="grid gap-2">
         <Label>Discount (₹)</Label>
-        <Input
-          type="number"
-          min="0"
-          :model-value="paiseInputValue(discountAmount)"
+        <NumericField
+          mode="money"
+          :model-value="discountAmount"
           placeholder="0"
-          data-testid="money-discount"
-          @update:model-value="discountAmount = parseRupeesInput($event)"
+          test-id="money-discount"
+          @update:model-value="discountAmount = $event"
         />
       </div>
 

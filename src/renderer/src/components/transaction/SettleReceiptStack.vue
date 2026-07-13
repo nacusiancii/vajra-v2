@@ -4,10 +4,9 @@
  * Loading Charge is a line item in the total story, not a free-floating checkbox.
  */
 import { Checkbox } from '@/components/ui/checkbox'
-import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import NumericField from '@/components/NumericField.vue'
 import { formatQty, formatRupees } from '@/lib/format'
-import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
 import type { LoadingWeightBucket } from './loading-buckets'
 
 const props = defineProps<{
@@ -77,14 +76,13 @@ function bucketLabel(b: LoadingWeightBucket): string {
 
     <div class="flex items-center justify-between gap-3 py-1">
       <Label class="text-muted-foreground">Additional Charges</Label>
-      <Input
-        type="number"
-        min="0"
-        class="h-8 w-28 text-right tabular-nums"
-        :model-value="paiseInputValue(props.additionalCharges)"
+      <NumericField
+        mode="money"
+        class="h-8 w-28 text-right"
+        :model-value="props.additionalCharges"
         placeholder="0"
-        data-testid="sale-additional"
-        @update:model-value="emit('update:additionalCharges', parseRupeesInput($event))"
+        test-id="sale-additional"
+        @update:model-value="emit('update:additionalCharges', $event)"
       />
     </div>
   </div>

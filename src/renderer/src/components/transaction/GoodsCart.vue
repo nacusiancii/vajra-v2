@@ -2,7 +2,6 @@
 import { computed, nextTick, ref } from 'vue'
 import { Plus, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import {
   Select,
   SelectContent,
@@ -19,8 +18,8 @@ import {
   TableRow
 } from '@/components/ui/table'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
+import NumericField from '@/components/NumericField.vue'
 import { formatBagKg, formatKgFromG, formatRupees } from '@/lib/format'
-import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
 import { lineMassGrams, lineTotal } from '@domain/transaction-rules'
 import type { Product } from '@domain/types'
 
@@ -67,8 +66,13 @@ function setQtyInputRef(index: number, el: unknown): void {
     qtyInputRefs.value[index] = null
     return
   }
-  // Input.vue is a single-root component — use $el when given a component instance.
-  const target = (el as { $el?: HTMLElement }).$el ?? el
+  // NumericField exposes focus(); fall back to $el for plain inputs.
+  const comp = el as Focusable & { $el?: HTMLElement }
+  if (typeof comp.focus === 'function') {
+    qtyInputRefs.value[index] = comp
+    return
+  }
+  const target = comp.$el ?? el
   qtyInputRefs.value[index] =
     target != null && typeof (target as Focusable).focus === 'function'
       ? (target as Focusable)
@@ -217,36 +221,31 @@ defineExpose({ ensureLineAndFocusProduct })
             </Select>
           </TableCell>
           <TableCell>
-            <Input
+            <NumericField
               :ref="(el) => setQtyInputRef(index, el)"
-              type="number"
-              :min="line.isLoose ? 1 : 0"
-              :max="line.isLoose ? 50 : undefined"
-              :step="line.isLoose ? 0.1 : 0.5"
-              :model-value="line.qty ?? ''"
+              mode="qty"
+              :model-value="line.qty"
               :placeholder="line.isLoose ? 'kg' : 'bags'"
-              data-testid="cart-qty"
-              @update:model-value="line.qty = $event === '' ? null : Number($event)"
+              test-id="cart-qty"
+              @update:model-value="line.qty = $event"
             />
           </TableCell>
           <TableCell>
-            <Input
+            <NumericField
               v-if="line.isLoose"
-              type="number"
-              min="0"
-              :model-value="paiseInputValue(line.perKgRate)"
+              mode="money"
+              :model-value="line.perKgRate"
               placeholder="₹/kg"
-              data-testid="cart-rate"
-              @update:model-value="line.perKgRate = parseRupeesInput($event)"
+              test-id="cart-rate"
+              @update:model-value="line.perKgRate = $event"
             />
-            <Input
+            <NumericField
               v-else
-              type="number"
-              min="0"
-              :model-value="paiseInputValue(line.quintalRate)"
+              mode="money"
+              :model-value="line.quintalRate"
               placeholder="₹/quintal"
-              data-testid="cart-rate"
-              @update:model-value="line.quintalRate = parseRupeesInput($event)"
+              test-id="cart-rate"
+              @update:model-value="line.quintalRate = $event"
             />
           </TableCell>
           <TableCell class="text-right tabular-nums">

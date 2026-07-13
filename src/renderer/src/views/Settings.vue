@@ -5,9 +5,10 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Checkbox } from '@/components/ui/checkbox'
+import NumericField from '@/components/NumericField.vue'
 import { useSettingsQuery, useUpdateSettings } from '@/queries/operations'
 import { loadingChargeForKg, type AppSettings, type LoadingChargeRules } from '@domain/settings'
-import { gToKg, kgToG, paiseToRupees, rupeesToPaise, type BagSizeG } from '@domain/units'
+import { gToKg, kgToG, type BagSizeG } from '@domain/units'
 import { formatBagKg, formatRupees } from '@/lib/format'
 
 const { data: settings } = useSettingsQuery()
@@ -44,32 +45,32 @@ const testChargePaise = computed(() => {
   return loadingChargeForKg(kg, loadingRules.value)
 })
 
-function bpUpToKg(index: number): number {
-  return draft.value?.loadingCharge.breakpoints[index]?.upToKg ?? 0
+function bpUpToKg(index: number): number | null {
+  return draft.value?.loadingCharge.breakpoints[index]?.upToKg ?? null
 }
 
-function setBpUpToKg(index: number, kg: number): void {
+function setBpUpToKg(index: number, kg: number | null): void {
   if (!draft.value) return
   const bp = draft.value.loadingCharge.breakpoints[index]
-  if (bp) bp.upToKg = kg
+  if (bp) bp.upToKg = kg ?? 0
 }
 
-function bpChargeRupees(index: number): number {
-  return paiseToRupees(draft.value?.loadingCharge.breakpoints[index]?.chargePaise ?? 0)
+function bpChargePaise(index: number): number | null {
+  return draft.value?.loadingCharge.breakpoints[index]?.chargePaise ?? null
 }
 
-function setBpChargeRupees(index: number, rupees: number): void {
+function setBpChargePaise(index: number, paise: number | null): void {
   if (!draft.value) return
   const bp = draft.value.loadingCharge.breakpoints[index]
-  if (bp) bp.chargePaise = rupeesToPaise(rupees)
+  if (bp) bp.chargePaise = paise ?? 0
 }
 
-function aboveLastRupees(): number {
-  return paiseToRupees(draft.value?.loadingCharge.aboveLastPaise ?? 0)
+function aboveLastPaise(): number | null {
+  return draft.value?.loadingCharge.aboveLastPaise ?? null
 }
 
-function setAboveLastRupees(rupees: number): void {
-  if (draft.value) draft.value.loadingCharge.aboveLastPaise = rupeesToPaise(rupees)
+function setAboveLastPaise(paise: number | null): void {
+  if (draft.value) draft.value.loadingCharge.aboveLastPaise = paise ?? 0
 }
 
 function addBreakpoint(): void {
@@ -163,14 +164,14 @@ function save(): void {
       <h2 class="font-semibold">Drafts</h2>
       <div class="grid gap-2">
         <Label for="draft-cap">Maximum Drafts (Sale + Purchase)</Label>
-        <Input
+        <NumericField
           id="draft-cap"
-          type="number"
-          min="1"
+          mode="integer"
           class="w-32"
           :model-value="draft.draftCap"
-          data-testid="draft-cap-input"
-          @update:model-value="draft.draftCap = Math.max(1, Math.floor(Number($event) || 1))"
+          :allow-empty="false"
+          test-id="draft-cap-input"
+          @update:model-value="draft.draftCap = Math.max(1, $event ?? 1)"
         />
         <p class="text-sm text-muted-foreground">
           Global cap for parked carts on the open Business Day. Default is 5.
@@ -203,14 +204,13 @@ function save(): void {
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <Input
-          type="number"
-          min="0"
+        <NumericField
+          mode="decimal"
           class="w-32"
-          :model-value="newBagSizeKg ?? ''"
+          :model-value="newBagSizeKg"
           placeholder="New kg"
-          data-testid="new-bag-size"
-          @update:model-value="newBagSizeKg = $event === '' ? null : Number($event)"
+          test-id="new-bag-size"
+          @update:model-value="newBagSizeKg = $event"
         />
         <Button variant="outline" size="sm" data-testid="add-bag-type" @click="addBagType">
           <Plus class="mr-2 size-4" /> Add Bag Type
@@ -232,23 +232,20 @@ function save(): void {
           data-testid="loading-breakpoint-row"
         >
           <Label class="text-xs text-muted-foreground">Up to (kg)</Label>
-          <Input
-            type="number"
-            min="0"
-            step="0.1"
+          <NumericField
+            mode="decimal"
             class="w-24"
             :model-value="bpUpToKg(index)"
-            :data-testid="`loading-bp-kg-${index}`"
-            @update:model-value="setBpUpToKg(index, Number($event) || 0)"
+            :test-id="`loading-bp-kg-${index}`"
+            @update:model-value="setBpUpToKg(index, $event)"
           />
           <Label class="text-xs text-muted-foreground">₹ / parcel</Label>
-          <Input
-            type="number"
-            min="0"
+          <NumericField
+            mode="money"
             class="w-28"
-            :model-value="bpChargeRupees(index)"
-            :data-testid="`loading-bp-rate-${index}`"
-            @update:model-value="setBpChargeRupees(index, Number($event) || 0)"
+            :model-value="bpChargePaise(index)"
+            :test-id="`loading-bp-rate-${index}`"
+            @update:model-value="setBpChargePaise(index, $event)"
           />
           <Button
             variant="ghost"
@@ -265,13 +262,12 @@ function save(): void {
         >
           <span class="text-sm font-medium">Above last breakpoint</span>
           <Label class="text-xs text-muted-foreground">₹ / parcel</Label>
-          <Input
-            type="number"
-            min="0"
+          <NumericField
+            mode="money"
             class="w-28"
-            :model-value="aboveLastRupees()"
-            data-testid="loading-above-rate"
-            @update:model-value="setAboveLastRupees(Number($event) || 0)"
+            :model-value="aboveLastPaise()"
+            test-id="loading-above-rate"
+            @update:model-value="setAboveLastPaise($event)"
           />
         </div>
       </div>
@@ -286,15 +282,13 @@ function save(): void {
           values, even if not saved).
         </p>
         <div class="flex flex-wrap items-center gap-3">
-          <Input
-            type="number"
-            min="0"
-            step="0.1"
+          <NumericField
+            mode="decimal"
             class="w-32"
-            :model-value="testWeightKg ?? ''"
+            :model-value="testWeightKg"
             placeholder="Weight kg"
-            data-testid="loading-test-kg"
-            @update:model-value="testWeightKg = $event === '' ? null : Number($event)"
+            test-id="loading-test-kg"
+            @update:model-value="testWeightKg = $event"
           />
           <span class="text-sm tabular-nums" data-testid="loading-test-result">
             <template v-if="testChargePaise != null">

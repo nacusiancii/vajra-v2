@@ -3,9 +3,9 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, RefreshCcw, RotateCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
+import NumericField from '@/components/NumericField.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useCreateStockTransfer, useEditStockTransfer } from '@/queries/transactions'
 import {
@@ -81,10 +81,6 @@ const canResuggestTargetQty = computed(() => {
   return target.value.qty !== suggested
 })
 
-function parseQty(value: string | number): number | null {
-  return value === '' ? null : Number(value)
-}
-
 function markTargetQtyManual(): void {
   targetQtyDirty.value = true
   targetQtySuggested.value = false
@@ -103,8 +99,8 @@ function onProduct(leg: LegRow, value: number | null, side: 'source' | 'target')
   if (side === 'target') resumeTargetQtySuggestion()
 }
 
-function onQtyInput(leg: LegRow, value: string | number, side: 'source' | 'target'): void {
-  leg.qty = parseQty(value)
+function onQtyCommit(leg: LegRow, value: number | null, side: 'source' | 'target'): void {
+  leg.qty = value
   if (side === 'target') markTargetQtyManual()
 }
 
@@ -231,15 +227,13 @@ watch(
           >
             {{ formatBagKg(side.leg.bagSizeG) }}
           </span>
-          <Input
-            type="number"
-            min="0"
-            step="0.5"
-            class="w-28 shrink-0 tabular-nums"
-            :model-value="side.leg.qty ?? ''"
+          <NumericField
+            mode="qty"
+            class="w-28 shrink-0"
+            :model-value="side.leg.qty"
             placeholder="Qty"
-            data-testid="transfer-qty"
-            @update:model-value="onQtyInput(side.leg, $event, side.key)"
+            test-id="transfer-qty"
+            @update:model-value="onQtyCommit(side.leg, $event, side.key)"
           />
           <span
             class="w-24 shrink-0 text-right text-sm text-muted-foreground tabular-nums"

@@ -55,8 +55,9 @@ import {
   validateSale
 } from '@domain/transaction-rules'
 import { validateSaleDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
+import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
-import { parseRupeesInput, paiseInputValue } from '@/lib/money-input'
+import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
 import type { CreateSaleInput, SaleMode, Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
@@ -680,21 +681,21 @@ watch(
               <div v-if="!isCredit" class="grid grid-cols-2 gap-2">
                 <div class="grid gap-2">
                   <Label>UPI</Label>
-                  <Input
-                    type="number"
-                    min="0"
-                    :model-value="paiseInputValue(upiCollected)"
+                  <NumericField
+                    mode="money"
+                    :model-value="upiCollected"
                     placeholder="0"
-                    data-testid="sale-upi"
-                    @update:model-value="upiCollected = parseRupeesInput($event)"
+                    test-id="sale-upi"
+                    @update:model-value="upiCollected = $event"
                   />
                 </div>
                 <div class="grid gap-2">
                   <Label>Cash (auto)</Label>
                   <Input
-                    :model-value="paiseInputValue(cashDue)"
-                    type="number"
+                    :model-value="formatMoneyDomain(cashDue)"
+                    type="text"
                     disabled
+                    class="tabular-nums"
                     data-testid="sale-cash"
                   />
                 </div>

@@ -33,6 +33,15 @@ export function paiseToRupees(paise: number): number {
   return paise / PAISE_PER_RUPEE
 }
 
+/**
+ * Quantize a quantity to one decimal place (half-away via roundHalfAway).
+ * Bags and loose kg both commit at 1dp — matches counter step habits (0.5 bags, 0.1 kg).
+ */
+export function quantizeQty(n: number): number {
+  if (!Number.isFinite(n)) return 0
+  return roundHalfAway(n * 10) / 10
+}
+
 /** Kilograms → grams (integer). */
 export function kgToG(kg: number): number {
   return roundHalfAway(kg * G_PER_KG)
