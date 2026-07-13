@@ -15,10 +15,9 @@ pnpm test:smoke:headless
 pnpm verify:headless
 ```
 
-Requires Xvfb once on Linux: `sudo apt install xvfb`. Smoke tests default to 1 worker
-locally (CI defaults to 4) — override with `PLAYWRIGHT_WORKERS=<n>` or
-`pnpm test:smoke:headless -- --workers=<n>`. CI runs on every push, so prefer pushing
-and checking `gh run watch` / `gh pr checks --watch` over running the full suite locally.
+Requires Xvfb once on Linux: `sudo apt install xvfb`. Smoke defaults to 1 worker locally
+(4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
+`pnpm test:smoke:headless -- --workers=<n>`.
 
 **Visible UI** (when debugging a smoke failure and you want to see the app):
 
@@ -53,7 +52,7 @@ The fixture provides `electronApp` and `page`. You write assertions against `pag
 5. **Few tests, high signal.** Smoke tests should cover "the app starts and navigates" — not every edge case. Keep the suite under 30 seconds.
 6. **Collect artifacts on failure.** Playwright config enables screenshots on failure and traces on retry. Check `test-results/artifacts/` after a red run.
 7. **Handle Linux sandbox.** The fixture sets `ELECTRON_DISABLE_SANDBOX=1` so tests run on Linux without `--no-sandbox` flags leaking into production code.
-8. **Prefer CI over local runs.** CI runs the full smoke suite on every push; check it with `gh run watch` / `gh pr checks --watch` instead of running the Electron suite locally, especially across multiple worktrees at once — local runs share one box's RAM. When you do need to run locally, prefer `:headless` scripts so Electron windows do not flash on the desktop; use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows. On Wayland desktops, headless must unset `WAYLAND_DISPLAY` and force X11 (`GDK_BACKEND` / `--ozone-platform=x11`); Xvfb alone is not enough.
+8. **Prefer headless.** Use `:headless` so Electron windows do not flash. Use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows. On Wayland desktops, headless must unset `WAYLAND_DISPLAY` and force X11 (`GDK_BACKEND` / `--ozone-platform=x11`); Xvfb alone is not enough.
 
 ## Adding a new smoke test
 

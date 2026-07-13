@@ -29,7 +29,7 @@ v1 became prototype-as-architecture. v2 rebuilds the foundation:
 
 And most importantly, if you do end up touching code, leave it in a better state than what you started with 😄.
 
-Before considering a change done, run **`pnpm fix`** (lint:fix + format), then push and let CI verify — CI runs on every push (not just PRs), so `gh run watch` / `gh pr checks --watch` is the fast, resource-light way to confirm green. Reserve `pnpm verify` / `pnpm verify:headless` / `pnpm test:smoke` for local debugging when you can't rely on CI: running the full Electron smoke suite locally is expensive, and several agents/worktrees running it in parallel can exhaust a dev box's RAM.
+Before considering a change done, run **`pnpm fix`** (lint:fix + format only), then push and let CI verify. CI runs on every push — watch with `gh run watch` / `gh pr checks --watch`. Reserve `pnpm verify` / `pnpm test:smoke` for local debugging when you can't rely on CI.
 
 ## Agent skills
 

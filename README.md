@@ -44,17 +44,17 @@ ELECTRON_DISABLE_SANDBOX=1 pnpm dev
 
 ## Verification
 
-Push and let CI verify — CI runs on every push (not just PRs), so `gh run watch` (or
-`gh pr checks --watch` once a PR exists) is the fast, resource-light way to confirm green:
+Default path — `pnpm fix` is lint:fix + format only; CI runs the full suite on every push
+(not just PRs). Prefer this over local `pnpm verify` so local smoke does not compete for
+RAM across worktrees:
 
 ```bash
-pnpm fix   # lint:fix + format
+pnpm fix
 git push
-gh run watch
+gh run watch   # or: gh pr checks --watch once a PR exists
 ```
 
-Local verification is for when you can't rely on CI (e.g. debugging a CI-only failure).
-The headless variant needs `xvfb`:
+Local verification is for debugging when you can't rely on CI. Headless needs `xvfb`:
 
 ```bash
 sudo apt install xvfb   # once, Linux
@@ -63,10 +63,10 @@ pnpm verify:headless
 pnpm verify
 ```
 
-This runs lint, typecheck, unit tests (domain validation, pricing, and the Inventory
-projection), and Playwright smoke tests (master data + the full transactional core).
-Smoke tests default to 1 worker locally (CI defaults to 4, since its runners are
-otherwise idle) — override with `PLAYWRIGHT_WORKERS=<n>` or `pnpm test:smoke -- --workers=<n>`.
+That runs lint, typecheck, unit tests (domain validation, pricing, Inventory projection),
+and Playwright smoke (master data + transactional core). Smoke defaults to 1 worker
+locally (4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
+`pnpm test:smoke -- --workers=<n>`.
 
 ### Scripts
 
@@ -76,15 +76,11 @@ otherwise idle) — override with `PLAYWRIGHT_WORKERS=<n>` or `pnpm test:smoke -
 - `pnpm test:smoke:headless` — same, under Xvfb (no window flash)
 - `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
 - `pnpm verify` / `pnpm verify:headless` — static then smoke
-- `pnpm fix` — lint:fix → format (no verify — push and let CI confirm)
+- `pnpm fix` — lint:fix → format (no verify)
 ```
 
-CI runs `static` and `smoke` as parallel jobs (eslint cache + Playwright workers) on every
-push and PR.
-
-Prefer `pnpm fix` + push + CI over local `pnpm verify` — it's faster and doesn't compete
-for the same box's RAM as other work. Refer to @package.json for the complete list; use
-pnpm, avoid npm and npx.
+CI runs `static` and `smoke` as parallel jobs on every push and PR. Refer to
+@package.json for the complete list; use pnpm, avoid npm and npx.
 
 ## Adding shadcn-vue components
 
