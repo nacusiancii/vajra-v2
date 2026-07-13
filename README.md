@@ -44,26 +44,29 @@ ELECTRON_DISABLE_SANDBOX=1 pnpm dev
 
 ## Verification
 
-Default gate (no Electron windows on screen — needs `xvfb`):
+Default path — `pnpm fix` is lint:fix + format only; CI runs the full suite on every push
+(not just PRs). Prefer this over local `pnpm verify` so local smoke does not compete for
+RAM across worktrees:
+
+```bash
+pnpm fix
+git push
+gh run watch   # or: gh pr checks --watch once a PR exists
+```
+
+Local verification is for debugging when you can't rely on CI. Headless needs `xvfb`:
 
 ```bash
 sudo apt install xvfb   # once, Linux
 pnpm verify:headless
-# or after local edits:
-pnpm fix:headless
-```
-
-This runs lint, typecheck, unit tests (domain validation, pricing, and the Inventory
-projection), and Playwright smoke tests (master data + the full transactional core)
-on a virtual display.
-
-To watch the app UI while smoke tests run (debugging):
-
-```bash
-pnpm test:smoke
-# or full suite with visible Electron:
+# or with visible Electron windows:
 pnpm verify
 ```
+
+That runs lint, typecheck, unit tests (domain validation, pricing, Inventory projection),
+and Playwright smoke (master data + transactional core). Smoke defaults to 1 worker
+locally (4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
+`pnpm test:smoke -- --workers=<n>`.
 
 ### Scripts
 
@@ -73,12 +76,11 @@ pnpm verify
 - `pnpm test:smoke:headless` — same, under Xvfb (no window flash)
 - `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
 - `pnpm verify` / `pnpm verify:headless` — static then smoke
-- `pnpm fix` / `pnpm fix:headless` — lint:fix → format → verify
+- `pnpm fix` — lint:fix → format (no verify)
 ```
 
-CI runs `static` and `smoke` as parallel jobs (eslint cache + Playwright workers).
-
-Agents default to the `:headless` variants. Refer to @package.json for the complete list; use pnpm, avoid npm and npx.
+CI runs `static` and `smoke` as parallel jobs on every push and PR. Refer to
+@package.json for the complete list; use pnpm, avoid npm and npx.
 
 ## Adding shadcn-vue components
 

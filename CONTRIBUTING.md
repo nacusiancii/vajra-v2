@@ -41,14 +41,9 @@ pnpm approve-builds   # if prompted for native modules
 pnpm dev              # or ELECTRON_DISABLE_SANDBOX=1 pnpm dev on Linux
 ```
 
-Before opening a PR, run:
-
-```bash
-pnpm fix:headless
-```
-
-That formats, lints, typechecks, unit-tests, and runs Playwright smoke tests under
-Xvfb (no flashing Electron windows).
+Before opening a PR, run `pnpm fix` (lint:fix + format), then push. CI runs the full
+suite on every push — watch with `gh pr checks --watch`. See
+[README.md](./README.md#verification) for local verify/smoke details.
 
 ## Pull requests
 

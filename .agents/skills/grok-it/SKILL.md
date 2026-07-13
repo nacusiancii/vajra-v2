@@ -5,7 +5,7 @@ description: Delegate any task to a headless grok CLI in an isolated worktree. T
 
 # /grok-it — chief does nothing 🪿
 
-**Mandate:** harness grok. You brief → launch → judge. You do **not** write the code (even if you *are* Grok — fresh headless goose only).
+**Mandate:** harness grok. You brief → launch → judge. You do **not** write the code (even if you _are_ Grok — fresh headless goose only).
 
 ## Easy path (copy this)
 
@@ -40,10 +40,11 @@ Write `../vajra-grok-<task>/.grok-brief.md` by filling this template:
 - <anything else out of scope>
 
 # Stop
-run `pnpm fix:headless` until green, commit with a conventional message, push,
-open a **draft** PR (`gh pr create --draft`) with body note
+run `pnpm fix` (lint:fix + format only), commit with a conventional message,
+push, open a **draft** PR (`gh pr create --draft`) with body note
 "implementation by grok CLI — pending verification", then STOP.
-No mark-ready, no merge, no new tasks.
+Do not run `pnpm verify` / `pnpm test:smoke` locally — CI runs on every push,
+so pushing is the check. No mark-ready, no merge, no new tasks.
 ```
 
 **Research / read-only only?** Replace `# Stop` with: `Return findings as markdown. No commit, no push, no PR. STOP.`
@@ -71,7 +72,7 @@ Run in the background; watch the log. **Never** `--always-approve` / `--yolo`.
 
 | # | Check | How |
 |---|--------|-----|
-| 1 | Green | `gh pr checks <pr> --watch` — trust CI, not the transcript. No local re-verify. |
+| 1 | Green | `gh pr checks <pr> --watch` (or `gh run watch` after first push, before the draft PR) — trust CI, not the transcript. No local re-verify. |
 | 2 | Diff matches brief | `git -C ../vajra-grok-<task> diff main...HEAD` |
 | 3 | Stayed home | transcript never left the worktree |
 
@@ -92,7 +93,7 @@ Same worktree, **new** headless grok each time. Never trust the previous goose.
 | Play | Brief them to… |
 |------|----------------|
 | **Test** | Break the last diff (money, stock, modes, empty cart). Report bugs; delete wrecking-ball tests unless high-value. |
-| **Cleanup** | Sweep debris (dead code, debug logs). Keep behaviour; `pnpm fix:headless` green. |
+| **Cleanup** | Sweep debris (dead code, debug logs). Keep behaviour; `pnpm fix` clean and CI green on push. |
 | **Simplify** | Reuse/simpler only — no bug hunt. Skip if not clearly simpler. |
 | **Research** | Findings markdown only; use the read-only stop clause. |
 

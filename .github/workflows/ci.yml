@@ -5,13 +5,17 @@
 # runner restricts unprivileged user namespaces, so Electron's Chromium sandbox
 # fails to launch without it. GitHub's image ships xvfb-run, so the headless
 # smoke script works as-is.
+#
+# push runs on every branch (not just main) so an implementing agent can push
+# and check CI (`gh run watch`) instead of running the Electron smoke suite
+# locally — local boxes bottleneck fast when several agents/worktrees run
+# smoke in parallel. Revisit scoping this (e.g. to `grok/**`) if Action
+# minutes become a concern.
 name: ci
 
 on:
   pull_request:
   push:
-    branches:
-      - main
   workflow_dispatch:
 
 concurrency:
