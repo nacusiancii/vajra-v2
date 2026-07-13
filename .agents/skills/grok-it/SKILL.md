@@ -54,17 +54,12 @@ so pushing is the check. No mark-ready, no merge, no new tasks.
 ### 3. Launch (default allows — just use them)
 
 ```bash
-grok --prompt-file ../vajra-grok-<task>/.grok-brief.md \
-  --cwd=../vajra-grok-<task> --check --max-turns 200 \
-  --allow "Edit" --allow "Write" --allow "Read" --allow "Grep" \
-  --allow "Bash(pnpm *)" --allow "Bash(git *)" \
-  --allow "Bash(gh *)" \
-  --allow "Bash(grep *)" --allow "Bash(rg *)" --allow "Bash(find *)" \
-  --allow "Bash(diff *)" --allow "Bash(ls *)" --allow "Bash(cat *)" \
-  --allow "Bash(head *)" --allow "Bash(tail *)" --allow "Bash(wc *)" \
-  --allow "Bash(sort *)" --allow "Bash(uniq *)" --allow "Bash(tree *)" \
-  --allow "Bash(jq *)" --allow "Bash(file *)" --allow "Bash(which *)"
+grok-headless ../vajra-grok-<task>
+# optional 2nd arg if the brief isn't <worktree>/.grok-brief.md:
+# grok-headless ../vajra-grok-<task> /path/to/brief.md
 ```
+
+The allow-list and `--check` / `--max-turns 200` (plus `--output-format streaming-json`) are baked into the `grok-headless` shell alias — extend it by editing your shell config, not by passing extra flags. What it grants: `Edit`, `Write`, `Read`, `Grep`, `Bash(pnpm *)`, `Bash(git *)`, `Bash(gh *)`, `Bash(grep *)`, `Bash(rg *)`, `Bash(find *)`, `Bash(diff *)`, `Bash(ls *)`, `Bash(cat *)`, `Bash(head *)`, `Bash(tail *)`, `Bash(wc *)`, `Bash(sort *)`, `Bash(uniq *)`, `Bash(tree *)`, `Bash(jq *)`, `Bash(file *)`, `Bash(which *)`.
 
 Run in the background; watch the log. **Never** `--always-approve` / `--yolo`.
 
