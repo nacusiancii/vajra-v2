@@ -1,9 +1,10 @@
 import { test, expect, dismissAutoPicker } from './fixtures'
-import type { Page } from '@playwright/test'
+import type { Locator, Page } from '@playwright/test'
 
 /**
- * High-value cashier paths for NumericField (issue #21):
- * replace-all typing, intermediate strings, qty 1dp, invalid blur revert.
+ * High-value cashier paths for NumericField (issue #21 / #108):
+ * replace-all on keyboard/programmatic focus, click-to-place caret,
+ * intermediate strings, qty 1dp, invalid blur revert.
  */
 
 async function goHome(page: Page): Promise<void> {
@@ -38,6 +39,21 @@ async function openCashSaleCart(page: Page): Promise<void> {
   await expect(page.getByTestId('cart-qty')).toBeFocused()
 }
 
+async function selectionState(locator: Locator): Promise<{
+  start: number
+  end: number
+  length: number
+}> {
+  return locator.evaluate((el) => {
+    const input = el as HTMLInputElement
+    return {
+      start: input.selectionStart ?? 0,
+      end: input.selectionEnd ?? 0,
+      length: input.value.length
+    }
+  })
+}
+
 test('money field: replace-all retype commits intended amount (no 2000→0→3 jank)', async ({
   page
 }) => {
@@ -51,8 +67,14 @@ test('money field: replace-all retype commits intended amount (no 2000→0→3 j
   await rate.blur()
   await expect(rate).toHaveValue('2000')
 
-  // Counter habit: focus selects all, type full new amount, blur commits.
-  await rate.click()
+  // Counter habit: programmatic / keyboard focus selects all; type full new amount.
+  await rate.focus()
+  await expect
+    .poll(async () => {
+      const s = await selectionState(rate)
+      return s.start === 0 && s.end === s.length && s.length > 0
+    })
+    .toBe(true)
   await page.keyboard.type('3000')
   await rate.blur()
   await expect(rate).toHaveValue('3000')
@@ -60,6 +82,66 @@ test('money field: replace-all retype commits intended amount (no 2000→0→3 j
   await page.getByTestId('cart-qty').fill('1')
   // 1 bag × 50kg = 0.5 quintal × ₹3000 = ₹1500
   await expect(page.getByTestId('sale-total')).toContainText('1,500')
+})
+
+test('money field: mouse click places caret (no select-all)', async ({ page }) => {
+  test.setTimeout(60_000)
+  await seedBulkProduct(page)
+  await openCashSaleCart(page)
+
+  const rate = page.getByTestId('cart-rate')
+  await rate.fill('2000')
+  await rate.blur()
+  await expect(rate).toHaveValue('2000')
+
+  // Click toward the start of the value so the caret is not a full selection.
+  const box = await rate.boundingBox()
+  expect(box).not.toBeNull()
+  await rate.click({ position: { x: 14, y: (box?.height ?? 20) / 2 } })
+
+  await expect
+    .poll(async () => {
+      const s = await selectionState(rate)
+      // Caret (collapsed), not the whole string selected.
+      return s.start === s.end && s.length === 4
+    })
+    .toBe(true)
+
+  // Insert at caret — must not replace the whole value.
+  await page.keyboard.type('9')
+  await rate.blur()
+  const value = await rate.inputValue()
+  expect(value).toContain('9')
+  expect(value).not.toBe('9')
+  expect(value.length).toBe(5)
+})
+
+test('money field: Tab focus still selects all', async ({ page }) => {
+  test.setTimeout(60_000)
+  await seedBulkProduct(page)
+  await openCashSaleCart(page)
+
+  const qty = page.getByTestId('cart-qty')
+  const rate = page.getByTestId('cart-rate')
+  await rate.fill('2000')
+  await rate.blur()
+  await expect(rate).toHaveValue('2000')
+
+  // qty → Tab → rate (bag select is between product and qty; rate follows qty).
+  await qty.focus()
+  await page.keyboard.press('Tab')
+  await expect(rate).toBeFocused()
+
+  await expect
+    .poll(async () => {
+      const s = await selectionState(rate)
+      return s.start === 0 && s.end === s.length && s.length === 4
+    })
+    .toBe(true)
+
+  await page.keyboard.type('3500')
+  await rate.blur()
+  await expect(rate).toHaveValue('3500')
 })
 
 test('qty field: 3.7 commits and drives line math', async ({ page }) => {
@@ -92,7 +174,8 @@ test('invalid blur reverts money field to last good value', async ({ page }) => 
   await rate.blur()
   await expect(rate).toHaveValue('2500')
 
-  await rate.click()
+  // Programmatic focus → select-all; replace with unparseable fragment.
+  await rate.focus()
   await page.keyboard.type('.')
   await rate.blur()
   // Unparseable → last good domain value, not garbage.
@@ -111,7 +194,7 @@ test('empty money field commits null; finish still requires a positive amount', 
   await expect(amount).toHaveValue('50')
 
   // Focus select-alls; clear and blur → null, not a garbage number.
-  await amount.click()
+  await amount.focus()
   await page.keyboard.press('Backspace')
   await amount.blur()
   await expect(amount).toHaveValue('')
