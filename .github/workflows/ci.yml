@@ -1,6 +1,5 @@
-# Single source of truth for "green": run the full verification suite once per
-# commit on every PR and every push to main, so agents and humans do not need
-# to re-run `pnpm verify` locally on the same commit.
+# Green gate for PRs and main. Two parallel jobs on free public ubuntu-latest
+# (4 vCPU / 16 GB) so static checks and Electron smoke do not block each other.
 #
 # ELECTRON_DISABLE_SANDBOX=1 is required on ubuntu-latest (Ubuntu 24.04): the
 # runner restricts unprivileged user namespaces, so Electron's Chromium sandbox
@@ -20,9 +19,44 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  verify:
+  # Lint (type-aware ESLint), typecheck, unit — no Electron / no build.
+  static:
     runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
 
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      # Type-aware ESLint is ~2 min cold on CI; restore per-file cache so
+      # unchanged files skip re-analysis. Coarse key is intentional — eslint's
+      # own cache file invalidates entries when source content changes.
+      - name: Cache ESLint
+        uses: actions/cache@v4
+        with:
+          path: .eslintcache
+          # v2: content-strategy cache (v1 used mtime and was always cold after checkout)
+          key: eslint-${{ runner.os }}-v2-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs') }}
+          restore-keys: |
+            eslint-${{ runner.os }}-v2-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint, typecheck, unit
+        run: pnpm verify:static
+
+  # Production build + Playwright against Electron (Xvfb headless).
+  smoke:
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -41,8 +75,8 @@ jobs:
         # Rebuilds native modules (better-sqlite3) for the Electron ABI via postinstall.
         run: pnpm install --frozen-lockfile
 
-      - name: Verify
-        run: pnpm verify:headless
+      - name: Build + smoke
+        run: pnpm test:smoke:headless
         env:
           ELECTRON_DISABLE_SANDBOX: '1'
 
@@ -56,3 +90,15 @@ jobs:
             test-results/
           if-no-files-found: ignore
           retention-days: 7
+
+  # Single required check name for branch protection (aggregates static + smoke).
+  verify:
+    name: verify
+    needs: [static, smoke]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require static and smoke
+        run: |
+          test "${{ needs.static.result }}" = "success"
+          test "${{ needs.smoke.result }}" = "success"
