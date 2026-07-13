@@ -1,25 +1,59 @@
 ---
 name: grok-it
-description: Delegate any task — research, implementation, adversarial testing — to the grok CLI in an isolated worktree. Claude only briefs, launches, and judges. Use when the user says "grok it", "send grok", or wants the intern doing the work.
+description: Delegate any task — research, implementation, adversarial testing — to a headless grok CLI in an isolated worktree. The manager only briefs, launches, and judges (never implements). Use when the user says "grok it", "send grok", or wants the intern doing the work.
 ---
 
-# /grok-it — we do absolutely nothing
+# /grok-it — the manager does absolutely nothing
 
-**We have a massive deal with grok. The mandate: play around with it and push how far we can harness its intelligence.** So Claude never does the work. Claude writes the brief, sets the stage, launches grok, and judges the result. That's the whole job.
+**We have a massive deal with grok. The mandate: play around with it and push how far we can harness its intelligence.** So the manager — Claude, Grok Build, whoever is reading this — never does the work. Write the brief, stage the coop, launch a headless grok, judge the result. That's the whole job.
+
+If *you* are Grok: still the manager. Launch a **fresh** headless goose into a worktree. Do not "save a hop" by implementing in this session. Isolation is the product; self-trust is the bug. 🪿
 
 ## The launch (learned the hard way)
 
-```
-grok -p "<BRIEF>" --cwd=<worktree> --check --max-turns 200 \
+```bash
+# 1. Stage the coop (house style — sibling path, not grok --worktree)
+git worktree add ../vajra-grok-<task> -b grok/<task> main
+(cd ../vajra-grok-<task> && pnpm install)
+
+# 2. Write the brief to disk (shell quoting eats inline -p briefs)
+#    → ../vajra-grok-<task>/.grok-brief.md
+
+# 3. Launch headless; run in background and watch the output
+grok --prompt-file ../vajra-grok-<task>/.grok-brief.md \
+  --cwd=../vajra-grok-<task> --check --max-turns 200 \
   --allow "Edit" --allow "Write" --allow "Bash(pnpm *)" --allow "Bash(git *)" \
   --allow "Bash(gh pr create *)"
 ```
 
-- Run in the background; watch the output file. **Never `--always-approve`** — scoped allows are all it needs.
-- **Stage first so it never hits a wall**: fresh worktree off main (`git worktree add ../vajra-grok-<task> -b grok/<task> main`) and `pnpm install` before launch. Brief says "deps installed, do NOT run pnpm install."
-- **Headless grok is timid with vague prompts** — it asks one clarifying question and exits. Briefs must be decision-complete: issue body AND comments (comments override, newest wins), pointers to AGENTS.md/CONTEXT.md, and the domain landmines spelled out (money is integer paise, mass is grams). For fork-heavy features, run `/to-prd` first and brief from the PRD.
-- **Every brief ends with a stop clause.** For work that lands code: "run `pnpm fix:headless` until green, commit on this branch with a conventional message, push, open a **draft** PR with `gh pr create --draft` disclosing provenance ('implementation by grok CLI — pending verification'), then STOP. No marking ready, no merging, no new tasks." Read-only briefs (research, wrecking-ball testing) keep the old ending: "no push, no PR."
+- **Never `--always-approve` / `--yolo`** — scoped allows are all it needs.
+- Brief says "deps installed, do NOT run `pnpm install`."
+- Prefer `--prompt-file` over `grok -p "..."`. Long decision-complete briefs die in shell quoting.
+- Skip `grok --worktree` here — sibling `../vajra-grok-<task>` is findable, cleanable, and matches existing coops. Stage + `pnpm install` yourself so the intern never hits a wall on wake.
+- **Headless grok is timid with vague prompts** — one clarifying question and exits. Briefs must be decision-complete: issue body AND comments (comments override, newest wins), pointers to `AGENTS.md` / `CONTEXT.md`, domain landmines (money is integer paise, mass is grams). Fork-heavy features: `/to-prd` first, brief from the PRD.
+- **Every brief ends with a stop clause.** Code work: "run `pnpm fix:headless` until green, commit on this branch with a conventional message, push, open a **draft** PR with `gh pr create --draft` disclosing provenance ('implementation by grok CLI — pending verification'), then STOP. No marking ready, no merging, no new tasks." Read-only (research, wrecking-ball testing): "no push, no PR."
 - Hard problem? `--best-of-n N` races N attempts headless and keeps the best.
+
+### Brief skeleton (required shape)
+
+```markdown
+# Task
+<one sentence>
+
+# Sources
+- Issue #N body + comments (newest wins): <paste or summarize decisions>
+- CONTEXT.md vocabulary; AGENTS.md rules
+- Landmines: money = integer paise; mass = grams
+
+# Do
+<decision-complete steps; name behaviours, not file paths unless essential>
+
+# Do not
+<out of scope; no drive-by refactors>
+
+# Stop
+<stop clause from above>
+```
 
 ## Relay stations — any work → grok
 
@@ -34,14 +68,14 @@ Each grok is a fresh instance that never trusts the previous grok's claims. Add 
 
 ## Judging — only when absolutely necessary
 
-Claude verifies exactly three things, nothing more:
+The manager verifies exactly three things, nothing more:
 
 1. **Green for real**: read the `ci` check on the draft PR, not the transcript. CI runs `pnpm verify:headless` on every PR (#97) — grok already paid for green once with `fix:headless`, so the same commit never earns a second local run. `gh pr checks <pr> --watch`, then move on. Local rerun only if CI itself is what's broken.
 2. **Diff matches brief**: read it. Nothing beyond scope, nothing missing, glossary words used.
 3. **It stayed home**: the transcript never touches paths outside its worktree.
 
-Pass → Claude marks the draft ready (`gh pr ready`), noting "verified by Claude" on the PR. Fail → close the draft PR, the failure becomes the next brief, and another goose takes flight.
+Pass → manager marks the draft ready (`gh pr ready`), noting "verified by \<manager\>" on the PR (Claude, Grok Build, …). Fail → close the draft PR, the failure becomes the next brief, and another goose takes flight.
 
 ## Cleanup — leave the coop tidy
 
-Once the PR is merged or abandoned: `git worktree remove ../vajra-grok-<task>` and delete the local branch. Stale worktrees are how geese nest permanently.
+Once the PR is merged or abandoned: `git worktree remove ../vajra-grok-<task>` and delete the local branch. Stale worktrees are how geese nest permanently. Drop `.grok-brief.md` with the worktree — it is not product source.
