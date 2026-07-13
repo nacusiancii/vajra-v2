@@ -12,7 +12,15 @@ v1 became prototype-as-architecture. v2 rebuilds the foundation:
 
 ## How we work
 
-- **PRDs are generated, not hand-written — and optional.** No PRD-before-code mandate. When a feature has enough design forks to deserve one, run `/to-prd` to expand the one-line idea or issue into a decision-complete PRD on the issue tracker; small clear changes go straight to code.
+### Design & exploration
+
+- **Weigh prior art, systems, and what's practical.** A design fork deserves real thought before a decision, not one produced on demand.
+- **Grilling assumes a plan.** `/grill-me` / `/grill-with-docs` pressure-test a plan that already exists; they don't form one.
+- **Prototype for a hands-on feel** (`/prototype`) when the fork is about how something should feel, not just what it should do.
+- Small, clear changes skip all this and go straight to code.
+
+### Development
+
 - **Decisions are durable** — architectural choices → ADRs in `docs/adr/`. Domain vocabulary → `CONTEXT.md`. Both created lazily by `/grill-with-docs`. Don't pre-populate.
 - **Use the glossary's words.** Missing term = flag it, don't invent a synonym.
 - **Contradicting an ADR?** Say so explicitly. Don't silently override.

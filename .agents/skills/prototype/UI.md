@@ -43,6 +43,10 @@ Write down the plan in one line, in the prototype's location or a top-of-file co
 
 This works whether the user is here to push back or not.
 
+### 1a. Screenshot the "before"
+
+Grab a real screenshot of the page as it looks today, before touching anything — it's the only honest baseline for judging whether a variant is actually better. This project's Electron/Playwright smoke harness (`tests/smoke/fixtures.ts`, run headlessly like `test:smoke:headless` does) already boots the app and hands back a `page` — `page.screenshot()` works on it with no new plumbing. There's no dedicated tool for this yet, so improvise a throwaway spec that gets you a PNG; see the note at the end of this file before you start.
+
 ### 2. Generate radically different variants
 
 Draft each variant. Hold each one to:
@@ -93,7 +97,7 @@ Put the switcher in a single shared component so both sub-shapes can reuse it. L
 
 ### 5. Hand it over
 
-Surface the URL (and the `?variant=` keys). The user will flip through whenever they get to it. The interesting feedback is usually **"I want the header from B with the sidebar from C"** — that's the actual design they want.
+Screenshot each variant the same way you got the "before" shot, then surface the URL (and the `?variant=` keys) alongside them. A picture beats a paragraph when the user isn't at the keyboard right now. The interesting feedback is usually **"I want the header from B with the sidebar from C"** — that's the actual design they want.
 
 ### 6. Capture the answer and clean up
 
@@ -110,3 +114,7 @@ Don't leave variant components or the switcher lying around. They rot fast and c
 - **Sharing too much code between variants.** A shared `<Header>` is fine; a shared `<Layout>` defeats the point. Each variant should be free to throw out the layout.
 - **Wiring variants to real mutations.** Read-only prototypes are fine. If a variant needs to mutate, point it at a stub — the question is "what should this look like", not "does the backend work".
 - **Promoting the prototype directly to production.** The variant code was written under prototype constraints (no tests, minimal error handling). Rewrite it properly when you fold it in.
+
+## Screenshots: no tool yet, so report back
+
+There's no dedicated screenshot harness for this yet ([issue #106](https://github.com/nacusiancii/vajra-v2/issues/106) is tracking it) — until one exists, figure out your own way each time, using whatever's fastest (the Electron/Playwright smoke fixture is the obvious starting point). Read #106 first in case a good approach is already written up. Whatever you land on, comment on #106 with two things: what you actually did to get the screenshot, and one wish — what you wish this flow were like instead. That issue is a running megathread until someone (probably not you) reads it and decides what to build.
