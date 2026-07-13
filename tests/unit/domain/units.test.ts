@@ -8,6 +8,7 @@ import {
   looseLineTotalPaise,
   looseStockDeltaG,
   paiseToRupees,
+  quantizeQty,
   roundHalfAway,
   rupeesToPaise,
   stockGToDefaultBags
@@ -51,6 +52,16 @@ describe('bulk pricing', () => {
     // mass that produces a half-paise intermediate should round
     expect(roundHalfAway(1.5)).toBe(2)
     expect(roundHalfAway(-1.5)).toBe(-2)
+  })
+})
+
+describe('quantizeQty (1 decimal place)', () => {
+  it('keeps one decimal and half-away rounds', () => {
+    expect(quantizeQty(3.7)).toBe(3.7)
+    expect(quantizeQty(3.74)).toBe(3.7)
+    // 3.75 → 37.5 ×10 → half-away → 38 → 3.8
+    expect(quantizeQty(3.75)).toBe(3.8)
+    expect(quantizeQty(0.5)).toBe(0.5)
   })
 })
 
