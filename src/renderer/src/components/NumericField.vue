@@ -4,8 +4,11 @@
  *
  * Unfocused: shows the canonical domain value (paise→rupees, qty, etc.).
  * Focused: owns a local string buffer (editText) so intermediate strings like
- * "", "3.", "0.7" do not fight a number rebind. Select-all on focus so
- * replace-all is the default counter habit.
+ * "", "3.", "0.7" do not fight a number rebind.
+ * Focus selection: mouse/pointer click keeps the browser caret at the click
+ * point (precise in-place edits). Keyboard / programmatic focus (Tab,
+ * .focus() from cart advance) still select-all so replace-all stays the
+ * default counter habit (#21 / #102).
  * Typing: only editText mutates the visible value; when the buffer parses as a
  * complete number (or empty), also soft-emit the domain value so cart totals
  * stay live — without rebinding the string from the parent.
@@ -45,6 +48,11 @@ const inputEl = ref<HTMLInputElement | null>(null)
 const focused = ref(false)
 /** Local string while focused — not domain state. */
 const editText = ref('')
+/**
+ * mousedown/pointerdown fire before focus. When set, onFocus skips select-all
+ * so the browser's click-to-place-caret behavior stands.
+ */
+const focusFromPointer = ref(false)
 
 const displayText = computed(() => formatDomainValue(props.mode, props.modelValue))
 
@@ -68,10 +76,24 @@ function emitIfParsed(): void {
   // invalid intermediate (e.g. "-", "."): keep last good modelValue
 }
 
+function onPointerDown(): void {
+  if (props.disabled) return
+  // Only mark pointer-origin when this interaction will move focus here.
+  // Re-clicks while already focused do not re-fire focus; leaving the flag
+  // set would wrongly skip select-all on a later Tab/programmatic focus.
+  if (!focused.value) {
+    focusFromPointer.value = true
+  }
+}
+
 function onFocus(event: FocusEvent): void {
   if (props.disabled) return
+  const fromPointer = focusFromPointer.value
+  focusFromPointer.value = false
   focused.value = true
   editText.value = displayText.value
+  if (fromPointer) return
+  // Tab / programmatic .focus(): select-all for replace-all counter habit.
   const el = event.target as HTMLInputElement
   void nextTick(() => {
     el.select()
@@ -113,6 +135,7 @@ function commitFromEditText(): void {
 }
 
 function onBlur(): void {
+  focusFromPointer.value = false
   if (props.disabled) {
     focused.value = false
     return
@@ -154,6 +177,7 @@ defineExpose({ focus })
         props.class
       )
     "
+    @pointerdown="onPointerDown"
     @focus="onFocus"
     @input="onInput"
     @blur="onBlur"
