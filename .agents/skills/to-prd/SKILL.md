@@ -1,9 +1,11 @@
 ---
 name: to-prd
-description: Expand a one-line idea or a bare GitHub issue into a decision-complete PRD on the issue tracker, ready for an agent to implement without asking anything. Use when the user gives an issue number or a rough idea and wants the mountain made from their molehill.
+description: Package already-decided work into one shared PRD when an idea is ready to fan out into multiple related tasks. Not a substitute for exploration — use once research/prototyping/discussion already happened and the user wants it written up for implementation.
 ---
 
 # /to-prd — molehill in, mountain out
+
+_This skill's process still bakes research → decide → interview into one flow. Now that exploration lives upstream (see AGENTS.md's "Design & exploration"), by the time this runs the thinking has usually already happened elsewhere — steps 1–4 below probably want a trim to assume that rather than re-deriving it. Flag it if the grilling reflex kicks in here instead of just writing up what's already decided._
 
 Input: an issue number (`/to-prd 75`), a raw one-liner (`/to-prd "sell loose by kg"`), or nothing (use the current conversation). Output: a PRD published to the issue tracker that an implementing agent can execute **without asking a single question**.
 
