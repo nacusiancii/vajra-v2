@@ -57,7 +57,7 @@ grok --prompt-file ../vajra-grok-<task>/.grok-brief.md \
   --cwd=../vajra-grok-<task> --check --max-turns 200 \
   --allow "Edit" --allow "Write" --allow "Read" --allow "Grep" \
   --allow "Bash(pnpm *)" --allow "Bash(git *)" \
-  --allow "Bash(gh pr create *)" \
+  --allow "Bash(gh *)" \
   --allow "Bash(grep *)" --allow "Bash(rg *)" --allow "Bash(find *)" \
   --allow "Bash(diff *)" --allow "Bash(ls *)" --allow "Bash(cat *)" \
   --allow "Bash(head *)" --allow "Bash(tail *)" --allow "Bash(wc *)" \
