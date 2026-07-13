@@ -1,8 +1,9 @@
 import { defineConfig } from '@playwright/test'
 
-// Public ubuntu-latest is 4 vCPU / 16 GB. Electron is heavy; 2 workers on CI
-// balances wall-clock vs memory. Local defaults to 4 for a faster feedback loop.
-const workers = process.env.CI ? 2 : 4
+// Public ubuntu-latest is 4 vCPU / 16 GB. Each smoke test launches its own
+// Electron with an isolated VAJRA_USER_DATA dir (no single-instance clash), so
+// 4 workers match the runner width. Dial back only if CI OOMs or flakes.
+const workers = 4
 
 export default defineConfig({
   testDir: './tests/smoke',
