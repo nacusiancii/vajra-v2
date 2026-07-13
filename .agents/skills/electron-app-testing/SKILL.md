@@ -11,13 +11,14 @@ description: Write and maintain Playwright smoke/e2e tests for the Vajra Electro
 
 ```bash
 pnpm test:smoke:headless
-# full gate after changes:
-pnpm fix:headless
 # or verify only:
 pnpm verify:headless
 ```
 
-Requires Xvfb once on Linux: `sudo apt install xvfb`.
+Requires Xvfb once on Linux: `sudo apt install xvfb`. Smoke tests default to 1 worker
+locally (CI defaults to 4) — override with `PLAYWRIGHT_WORKERS=<n>` or
+`pnpm test:smoke:headless -- --workers=<n>`. CI runs on every push, so prefer pushing
+and checking `gh run watch` / `gh pr checks --watch` over running the full suite locally.
 
 **Visible UI** (when debugging a smoke failure and you want to see the app):
 
@@ -25,7 +26,6 @@ Requires Xvfb once on Linux: `sudo apt install xvfb`.
 pnpm test:smoke
 # or
 pnpm verify
-pnpm fix
 ```
 
 Both paths build the app first (`electron-vite build`) then launch Playwright against the production bundle. Headless wraps Playwright in `xvfb-run` via `scripts/run-playwright-headless.sh`.
@@ -53,7 +53,7 @@ The fixture provides `electronApp` and `page`. You write assertions against `pag
 5. **Few tests, high signal.** Smoke tests should cover "the app starts and navigates" — not every edge case. Keep the suite under 30 seconds.
 6. **Collect artifacts on failure.** Playwright config enables screenshots on failure and traces on retry. Check `test-results/artifacts/` after a red run.
 7. **Handle Linux sandbox.** The fixture sets `ELECTRON_DISABLE_SANDBOX=1` so tests run on Linux without `--no-sandbox` flags leaking into production code.
-8. **Prefer headless.** Agents and day-to-day runs use `:headless` scripts so Electron windows do not flash on the desktop. Use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows. On Wayland desktops, headless must unset `WAYLAND_DISPLAY` and force X11 (`GDK_BACKEND` / `--ozone-platform=x11`); Xvfb alone is not enough.
+8. **Prefer CI over local runs.** CI runs the full smoke suite on every push; check it with `gh run watch` / `gh pr checks --watch` instead of running the Electron suite locally, especially across multiple worktrees at once — local runs share one box's RAM. When you do need to run locally, prefer `:headless` scripts so Electron windows do not flash on the desktop; use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows. On Wayland desktops, headless must unset `WAYLAND_DISPLAY` and force X11 (`GDK_BACKEND` / `--ozone-platform=x11`); Xvfb alone is not enough.
 
 ## Adding a new smoke test
 

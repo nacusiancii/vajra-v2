@@ -57,8 +57,8 @@ that restate the implementation.
 
 ## Acceptance
 
-Checkboxes an agent can self-verify: `pnpm fix:headless` green plus the named
-behaviours observable in the named smokes.
+Checkboxes an agent can self-verify: `pnpm fix` clean, CI green on push, plus
+the named behaviours observable in the named smokes.
 
 ## Vetoable defaults
 

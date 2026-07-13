@@ -44,11 +44,12 @@ pnpm dev              # or ELECTRON_DISABLE_SANDBOX=1 pnpm dev on Linux
 Before opening a PR, run:
 
 ```bash
-pnpm fix:headless
+pnpm fix
 ```
 
-That formats, lints, typechecks, unit-tests, and runs Playwright smoke tests under
-Xvfb (no flashing Electron windows).
+That fixes lint issues and formats. Push and open the PR — CI lints, typechecks,
+unit-tests, and runs Playwright smoke tests on every push, so `gh pr checks --watch`
+confirms green without running the Electron suite on your own machine.
 
 ## Pull requests
 

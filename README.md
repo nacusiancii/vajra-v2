@@ -44,26 +44,29 @@ ELECTRON_DISABLE_SANDBOX=1 pnpm dev
 
 ## Verification
 
-Default gate (no Electron windows on screen — needs `xvfb`):
+Push and let CI verify — CI runs on every push (not just PRs), so `gh run watch` (or
+`gh pr checks --watch` once a PR exists) is the fast, resource-light way to confirm green:
+
+```bash
+pnpm fix   # lint:fix + format
+git push
+gh run watch
+```
+
+Local verification is for when you can't rely on CI (e.g. debugging a CI-only failure).
+The headless variant needs `xvfb`:
 
 ```bash
 sudo apt install xvfb   # once, Linux
 pnpm verify:headless
-# or after local edits:
-pnpm fix:headless
+# or with visible Electron windows:
+pnpm verify
 ```
 
 This runs lint, typecheck, unit tests (domain validation, pricing, and the Inventory
-projection), and Playwright smoke tests (master data + the full transactional core)
-on a virtual display.
-
-To watch the app UI while smoke tests run (debugging):
-
-```bash
-pnpm test:smoke
-# or full suite with visible Electron:
-pnpm verify
-```
+projection), and Playwright smoke tests (master data + the full transactional core).
+Smoke tests default to 1 worker locally (CI defaults to 4, since its runners are
+otherwise idle) — override with `PLAYWRIGHT_WORKERS=<n>` or `pnpm test:smoke -- --workers=<n>`.
 
 ### Scripts
 
@@ -73,12 +76,15 @@ pnpm verify
 - `pnpm test:smoke:headless` — same, under Xvfb (no window flash)
 - `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
 - `pnpm verify` / `pnpm verify:headless` — static then smoke
-- `pnpm fix` / `pnpm fix:headless` — lint:fix → format → verify
+- `pnpm fix` — lint:fix → format (no verify — push and let CI confirm)
 ```
 
-CI runs `static` and `smoke` as parallel jobs (eslint cache + Playwright workers).
+CI runs `static` and `smoke` as parallel jobs (eslint cache + Playwright workers) on every
+push and PR.
 
-Agents default to the `:headless` variants. Refer to @package.json for the complete list; use pnpm, avoid npm and npx.
+Prefer `pnpm fix` + push + CI over local `pnpm verify` — it's faster and doesn't compete
+for the same box's RAM as other work. Refer to @package.json for the complete list; use
+pnpm, avoid npm and npx.
 
 ## Adding shadcn-vue components
 
