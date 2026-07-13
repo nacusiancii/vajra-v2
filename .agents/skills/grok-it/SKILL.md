@@ -53,8 +53,14 @@ No mark-ready, no merge, no new tasks.
 ### 3. Launch (default allows — just use them)
 
 ```bash
-grok --prompt-file ../vajra-grok-<task>/.grok-brief.md \
-  --cwd=../vajra-grok-<task> --check --max-turns 200 \
+grok-headless ../vajra-grok-<task> > ../vajra-grok-<task>/.grok-run.jsonl
+```
+
+`grok-headless` is a zsh function (`~/.zshrc`) wrapping the full `grok` invocation — prompt file, cwd, `--check --max-turns 200`, the default `--allow` list below, and `--output-format streaming-json` so output flushes line-by-line instead of buffering silently until exit:
+
+```bash
+grok --prompt-file "$brief" --cwd="$worktree" --check --max-turns 200 \
+  --output-format streaming-json \
   --allow "Edit" --allow "Write" --allow "Read" --allow "Grep" \
   --allow "Bash(pnpm *)" --allow "Bash(git *)" \
   --allow "Bash(gh pr create *)" \
@@ -65,7 +71,16 @@ grok --prompt-file ../vajra-grok-<task>/.grok-brief.md \
   --allow "Bash(jq *)" --allow "Bash(file *)" --allow "Bash(which *)"
 ```
 
-Run in the background; watch the log. **Never** `--always-approve` / `--yolo`.
+Hand the `grok-headless ...` line to your backgrounded-shell tool **as one command, verbatim** — do **not** wrap it in your own `nohup ... &`. Backgrounding it yourself makes the wrapper shell (not grok) the thing that gets tracked, so "command finished" fires the instant the wrapper detaches — before grok has done anything. Let the harness's own backgrounding track the real `grok` process, so its completion notification actually means grok is done.
+
+Watch progress and detect real completion from the log:
+
+```bash
+jq -r 'select(.type=="text") | .data' ../vajra-grok-<task>/.grok-run.jsonl   # readable transcript so far
+tail -5 ../vajra-grok-<task>/.grok-run.jsonl | jq .                          # look for "type":"end"
+```
+
+A `"type":"end"` event (carries `stopReason`, `sessionId`, `usage`) is the real completion signal — its absence means grok is still running even if the launch command already reported done. **Never** `--always-approve` / `--yolo` (already excluded from `grok-headless`).
 
 ### 4. Judge (three checks, then stop thinking)
 
