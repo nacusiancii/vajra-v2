@@ -5,10 +5,27 @@
 # .exe and the app dies on launch. Building here, `postinstall`'s
 # `electron-builder install-app-deps` rebuilds them against Electron's ABI for
 # win32, so the installer actually runs.
+#
+# Triggers:
+#   - push of tags matching v*
+#   - workflow_dispatch (optional ref)
+#   - workflow_call (e.g. from release-alpha; GITHUB_TOKEN tag pushes do not
+#     start new workflows, so alphas call this directly)
 name: build-win
 
 on:
   workflow_dispatch:
+    inputs:
+      ref:
+        description: 'Git ref to build (branch, tag, or SHA). Empty = triggering ref.'
+        required: false
+        type: string
+  workflow_call:
+    inputs:
+      ref:
+        description: 'Git ref to build (branch, tag, or SHA). Empty = triggering ref.'
+        required: false
+        type: string
   push:
     tags:
       - 'v*'
@@ -19,6 +36,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
 
       - name: Install pnpm
         uses: pnpm/action-setup@v4
@@ -35,13 +54,21 @@ jobs:
         # Rebuilds native modules for the Windows/Electron ABI via postinstall.
         run: pnpm install --frozen-lockfile
 
+      - name: Read version
+        id: version
+        shell: bash
+        run: |
+          version=$(node -p "require('./package.json').version")
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "Building version $version"
+
       - name: Build Windows installer
         run: pnpm build:win
 
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: vajra-windows-installer
+          name: vajra-windows-installer-${{ steps.version.outputs.version }}
           path: |
             dist/*-setup.exe
             dist/*-setup.exe.blockmap
