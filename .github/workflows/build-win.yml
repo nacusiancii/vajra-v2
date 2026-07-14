@@ -1,16 +1,9 @@
 # Windows installer on a real win32 runner (native modules cannot be cross-built
-# from Linux). Also called by release-alpha — GITHUB_TOKEN tag pushes do not
-# start other workflows, so alphas invoke this via workflow_call.
+# from Linux). Triggered by v* tags (e.g. pnpm release:alpha) or manually.
 name: build-win
 
 on:
   workflow_dispatch:
-    inputs:
-      ref:
-        description: 'Branch, tag, or SHA (default: triggering ref)'
-        required: false
-        type: string
-  workflow_call:
     inputs:
       ref:
         description: 'Branch, tag, or SHA (default: triggering ref)'
