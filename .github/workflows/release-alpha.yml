@@ -1,4 +1,4 @@
-# Manual alpha cut: bump package.json on main, tag, build Windows installer.
+# Manual alpha cut: bump package.json via PR (main is PR-only), tag, build Windows.
 # Calls build-win directly — GITHUB_TOKEN tag pushes do not start other workflows.
 name: release-alpha
 
@@ -14,6 +14,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      pull-requests: write
     outputs:
       version: ${{ steps.bump.outputs.version }}
 
@@ -26,20 +27,47 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Bump, commit, tag, push
+      - name: Bump via PR, merge, tag
         id: bump
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           set -euo pipefail
+
           version=$(node scripts/bump-alpha-version.mjs)
           tag="v${version}"
+          branch="release/${tag}"
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+          if git ls-remote --exit-code --tags origin "refs/tags/${tag}" >/dev/null 2>&1; then
+            echo "Tag ${tag} already exists — aborting"
+            exit 1
+          fi
 
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git checkout -b "$branch"
           git add package.json
           git commit -m "chore(release): ${version}"
+          git push -u origin HEAD
+
+          gh pr create \
+            --base main \
+            --head "$branch" \
+            --title "chore(release): ${version}" \
+            --body "Automated alpha version bump. Merged by release-alpha; then tagged ${tag} and built."
+
+          # Main ruleset: PR required, squash only, 0 approvals, no required checks.
+          gh pr merge --squash --delete-branch
+
+          git fetch origin main
+          git checkout main
+          git reset --hard origin/main
+
+          # Tag the squash commit on main (not the pre-merge branch tip).
           git tag "$tag"
-          git push origin HEAD:main "$tag"
+          git push origin "$tag"
 
   build:
     needs: bump
