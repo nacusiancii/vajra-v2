@@ -33,7 +33,13 @@ const router = createRouter({
     },
     { path: '/inventory', name: 'inventory', component: () => import('./views/Inventory.vue') },
     { path: '/settings', name: 'settings', component: () => import('./views/Settings.vue') },
-    { path: '/rollover', name: 'rollover', component: () => import('./views/Rollover.vue') }
+    { path: '/rollover', name: 'rollover', component: () => import('./views/Rollover.vue') },
+    // PROTOTYPE ONLY — dual-panel Credit Sale finish layouts (#115 / #78). Safe to delete.
+    {
+      path: '/prototype/credit-finish',
+      name: 'prototype-credit-finish',
+      component: () => import('./views/prototype/CreditFinishPrototype.vue')
+    }
   ]
 })
 
