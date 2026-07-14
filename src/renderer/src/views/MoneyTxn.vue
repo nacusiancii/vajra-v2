@@ -9,7 +9,7 @@ import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import NumericField from '@/components/NumericField.vue'
 import { useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
 import { MoneyTxnSchema } from '@domain/transaction-rules'
-import { moneyRealized } from '@domain/transaction'
+import { moneyFace, moneyRealized } from '@domain/transaction'
 import { formatRupees } from '@/lib/format'
 import { formatMoneyDomain } from '@/lib/numeric-field'
 import type { MoneyTxnType } from '@shared/api'
@@ -90,6 +90,9 @@ const cashDue = computed(() => Math.max((amount.value ?? 0) - (upiCollected.valu
 
 // RE/PA live summary only (cash + UPI + optional write-off).
 const realized = computed(() => moneyRealized(cashCollected.value ?? 0, upiCollected.value ?? 0))
+const face = computed(() =>
+  moneyFace(cashCollected.value ?? 0, upiCollected.value ?? 0, discountAmount.value ?? 0)
+)
 
 /** Drawer cash/UPI for a money txn (only one side is non-zero). */
 function drawerCash(txn: { cashIn: number; cashOut: number }): number {
@@ -291,7 +294,7 @@ watch(
           {{ type === 'PA' ? 'Paid' : 'Received' }}
           <span class="font-medium tabular-nums">{{ formatRupees(realized) }}</span>
           – Total Incl. less
-          <span class="font-medium tabular-nums">{{ formatRupees(discountAmount ?? 0) }}</span>
+          <span class="font-medium tabular-nums">{{ formatRupees(face) }}</span>
         </span>
         <span v-else>
           Total
