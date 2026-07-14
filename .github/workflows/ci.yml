@@ -1,4 +1,5 @@
-# Green gate for PRs and main. Two parallel jobs on free public ubuntu-latest
+# Green gate for branch pushes (and thus same-repo PRs). Two parallel jobs on
+# free public ubuntu-latest
 # (4 vCPU / 16 GB) so static checks and Electron smoke do not block each other.
 #
 # ELECTRON_DISABLE_SANDBOX=1 is required on ubuntu-latest (Ubuntu 24.04): the
@@ -11,10 +12,13 @@
 # locally — local boxes bottleneck fast when several agents/worktrees run
 # smoke in parallel. Revisit scoping this (e.g. to `grok/**`) if Action
 # minutes become a concern.
+#
+# No pull_request trigger: same-repo PR updates already fire push on the head
+# branch, and those runs show up as PR checks. Fork PRs would need pull_request
+# (push does not land here) — add it back only if external contributors ship.
 name: ci
 
 on:
-  pull_request:
   push:
   workflow_dispatch:
 
