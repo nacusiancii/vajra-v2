@@ -1,10 +1,5 @@
-# Cut a new alpha: bump package.json, land it on main, tag, then build Windows.
-#
-# Manual only (workflow_dispatch). First run from 1.0.0 → 1.0.0-alpha.1; later
-# runs increment the alpha counter.
-#
-# GITHUB_TOKEN commits/tags do not trigger other workflows, so this calls
-# build-win via workflow_call instead of relying on the tag push alone.
+# Manual alpha cut: bump package.json on main, tag, build Windows installer.
+# Calls build-win directly — GITHUB_TOKEN tag pushes do not start other workflows.
 name: release-alpha
 
 on:
@@ -21,44 +16,33 @@ jobs:
       contents: write
     outputs:
       version: ${{ steps.bump.outputs.version }}
-      tag: ${{ steps.bump.outputs.tag }}
 
     steps:
       - uses: actions/checkout@v4
         with:
           ref: main
-          # Full history so push is less surprising if main moved; not strictly required.
-          fetch-depth: 0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
 
-      - name: Bump alpha version
+      - name: Bump, commit, tag, push
         id: bump
-        run: node scripts/bump-alpha-version.mjs
-
-      - name: Commit, tag, and push to main
-        env:
-          VERSION: ${{ steps.bump.outputs.version }}
-          TAG: ${{ steps.bump.outputs.tag }}
         run: |
           set -euo pipefail
+          version=$(node scripts/bump-alpha-version.mjs)
+          tag="v${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-
           git add package.json
-          git commit -m "chore(release): ${VERSION}"
-          git tag "$TAG"
-
-          git push origin HEAD:main
-          git push origin "$TAG"
-
-          echo "Released ${TAG} on main (version ${VERSION})"
+          git commit -m "chore(release): ${version}"
+          git tag "$tag"
+          git push origin HEAD:main "$tag"
 
   build:
     needs: bump
     uses: ./.github/workflows/build-win.yml
     with:
-      ref: ${{ needs.bump.outputs.tag }}
+      ref: v${{ needs.bump.outputs.version }}

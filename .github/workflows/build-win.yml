@@ -1,29 +1,19 @@
-# Builds the Windows installer on a real Windows runner.
-#
-# Native modules (better-sqlite3, lightningcss) cannot be cross-compiled from
-# Linux — packaging `build:win` on Linux ships Linux ELF binaries inside the
-# .exe and the app dies on launch. Building here, `postinstall`'s
-# `electron-builder install-app-deps` rebuilds them against Electron's ABI for
-# win32, so the installer actually runs.
-#
-# Triggers:
-#   - push of tags matching v*
-#   - workflow_dispatch (optional ref)
-#   - workflow_call (e.g. from release-alpha; GITHUB_TOKEN tag pushes do not
-#     start new workflows, so alphas call this directly)
+# Windows installer on a real win32 runner (native modules cannot be cross-built
+# from Linux). Also called by release-alpha — GITHUB_TOKEN tag pushes do not
+# start other workflows, so alphas invoke this via workflow_call.
 name: build-win
 
 on:
   workflow_dispatch:
     inputs:
       ref:
-        description: 'Git ref to build (branch, tag, or SHA). Empty = triggering ref.'
+        description: 'Branch, tag, or SHA (default: triggering ref)'
         required: false
         type: string
   workflow_call:
     inputs:
       ref:
-        description: 'Git ref to build (branch, tag, or SHA). Empty = triggering ref.'
+        description: 'Branch, tag, or SHA (default: triggering ref)'
         required: false
         type: string
   push:
@@ -39,28 +29,23 @@ jobs:
         with:
           ref: ${{ inputs.ref || github.ref }}
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@v4
         with:
           version: 11.4.0
 
-      - name: Setup Node
-        uses: actions/setup-node@v4
+      - uses: actions/setup-node@v4
         with:
           node-version-file: .nvmrc
           cache: pnpm
 
       - name: Install dependencies
-        # Rebuilds native modules for the Windows/Electron ABI via postinstall.
+        # postinstall rebuilds native modules for the Windows/Electron ABI
         run: pnpm install --frozen-lockfile
 
-      - name: Read version
-        id: version
+      - name: Version for artifact name
+        id: meta
         shell: bash
-        run: |
-          version=$(node -p "require('./package.json').version")
-          echo "version=$version" >> "$GITHUB_OUTPUT"
-          echo "Building version $version"
+        run: echo "version=$(node -p "require('./package.json').version")" >> "$GITHUB_OUTPUT"
 
       - name: Build Windows installer
         run: pnpm build:win
@@ -68,7 +53,7 @@ jobs:
       - name: Upload installer
         uses: actions/upload-artifact@v4
         with:
-          name: vajra-windows-installer-${{ steps.version.outputs.version }}
+          name: vajra-windows-installer-${{ steps.meta.outputs.version }}
           path: |
             dist/*-setup.exe
             dist/*-setup.exe.blockmap
