@@ -77,6 +77,7 @@ locally (4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
 - `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
 - `pnpm verify` / `pnpm verify:headless` — static then smoke
 - `pnpm fix` — lint:fix → format (no verify)
+- `pnpm release:alpha` — maintainer: bump alpha, PR, tag, trigger Windows build
 ```
 
 CI runs `static` and `smoke` as parallel jobs on every push and PR. Refer to
