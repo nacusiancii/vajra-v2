@@ -1,4 +1,5 @@
-# Manual alpha cut: bump package.json via PR (main is PR-only), tag, build Windows.
+# Manual alpha cut: bump package.json via PR (main is PR-only), wait for checks,
+# squash-merge, tag, build Windows.
 # Calls build-win directly — GITHUB_TOKEN tag pushes do not start other workflows.
 name: release-alpha
 
@@ -27,7 +28,7 @@ jobs:
         with:
           node-version-file: .nvmrc
 
-      - name: Bump via PR, merge, tag
+      - name: Bump via PR, wait for checks, squash-merge, tag
         id: bump
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -56,10 +57,26 @@ jobs:
             --base main \
             --head "$branch" \
             --title "chore(release): ${version}" \
-            --body "Automated alpha version bump. Merged by release-alpha; then tagged ${tag} and built."
+            --body "Automated alpha version bump. Squash-merged after checks pass; then tagged ${tag} and built."
 
-          # Main ruleset: PR required, squash only, 0 approvals, no required checks.
-          gh pr merge --squash --delete-branch
+          pr=$(gh pr view --json number -q .number)
+
+          # gh exits 8 when no checks are registered yet — wait for Actions to queue.
+          for _ in $(seq 1 60); do
+            set +e
+            gh pr checks "$pr" >/dev/null 2>&1
+            code=$?
+            set -e
+            if [ "$code" -ne 8 ]; then
+              break
+            fi
+            sleep 5
+          done
+
+          # Blocks until all checks finish; non-zero if any fail.
+          gh pr checks "$pr" --watch
+
+          gh pr merge "$pr" --squash --delete-branch
 
           git fetch origin main
           git checkout main
