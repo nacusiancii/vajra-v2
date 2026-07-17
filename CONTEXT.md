@@ -89,25 +89,29 @@ _Avoid_: Other charges, expenses, sundry.
 ### Sales and payment
 
 **Sale**:
-A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods, and the face lands in **Credit issued** for the day book. A new Sale starts by explicitly picking Cash or Credit before any customer or goods entry — nothing is chosen for the cashier, but Cash is pre-focused so the common case is a single key press — and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher.
+A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods, and the Sale total (after any **Discount**) lands in **Credit Sales Total** for the day book. A new Sale starts by explicitly picking Cash or Credit before any customer or goods entry — nothing is chosen for the cashier, but Cash is pre-focused so the common case is a single key press — and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher. An optional cart-level **Discount** (display name exactly "Discount") may reduce the Sale total on both Cash and Credit Sales — a simple rupee amount off the total, not a percent and not Settlement Discount.
 _Avoid_: Bill, transaction (as a synonym for Sale).
 
+**Discount** (on Sale):
+A cashier-entered rupee amount that reduces the Sale total on Cash and Credit Sales. Display name is **Discount**. It is not Settlement Discount, not a percent, and does not introduce a separate face/realized split on the Sale — the Sale total is simply lower by this amount. Loading Charges and Additional Charges still apply as today; Discount reduces the final total the customer owes / pays.
+_Avoid_: Less (on Sale), Settlement Discount (on Sale), face value (for Sale Discount), rebate %.
+
 **Draft**:
-An unfinished Sale or Purchase the cashier has explicitly parked mid-entry so they can leave the cart, do other work, and resume later. Only Sales and Purchases are draftable. Only an explicit Save creates a Draft; resuming a Draft replaces any open unfinished cart without saving it. Saving requires a counterparty — a Customer Master entry, or walk-in name and place where that Sale or Purchase allows walk-ins. A Draft does not affect Inventory, does not receive a Sale Number or Voucher Number, and is discarded at Rollover. Clearing a Draft is free deletion, not a Void.
+An unfinished Sale or Purchase the cashier has explicitly parked mid-entry so they can leave the cart, do other work, and resume later. Only Sales and Purchases are draftable. Only an explicit Save creates a Draft; resuming a Draft replaces any open unfinished cart without saving it. Saving requires a counterparty — a Customer Master entry, or walk-in name and place where that Sale or Purchase allows walk-ins. A Draft does not affect Inventory, does not receive a transaction ID, and is discarded at Rollover. Clearing a Draft is free deletion, not a Void.
 _Avoid_: held cart, parked bill, incomplete transaction, temporary sale.
 
 **Sale Invoice**:
-The paper artifact produced when a Sale finishes — one business copy always, one customer copy by default (customer can opt-out). Carries the line items, totals, payment captured (cash and UPI), Customer details where available, and a user-visible **Sale Number** that resets to 1 each Business Day. Reprintable from the cashier UI until the next transaction starts; not reprintable thereafter.
+The paper artifact produced when a Sale finishes. **Two copies by default** (business + customer); the cashier may opt out of the extra copy during the Sale. Carries the line items, totals (including any Discount), payment captured (cash and UPI on Cash Sales), **place** and **phone** when known, optional **remarks**, Customer details where available, and the Sale's **transaction ID** (the only identifier — see ADR-0009). Reprintable from the cashier UI until the next transaction starts; not reprintable thereafter.
 _Avoid_: Bill, slip, receipt (collides with the Receipt entity).
 
 **Credit Voucher**:
-The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in lieu of cash. Carries a Vajra-generated **Voucher Number** (user-visible, resets each Business Day) printed on the voucher and recorded against the Sale for traceability. The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Finishing a Credit Sale requires explicit confirmation that the voucher has been signed. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
+The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in lieu of cash. Prints the **same transaction ID** as that Credit Sale's invoice (one sequence, one source of truth — not a second voucher-only number). The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Finishing a Credit Sale requires explicit confirmation that the voucher has been signed. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
 
 Two-sided layout:
 
-- **Front** — Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), Voucher Number, Customer name, total Amount, and the signature line.
-- **Back** — Chosen Products as line items: bag lines in the form `quantity × ratio × price = line total` (bags × bag-kg/100 × Quintal Rate); Loose lines as `kg × price/kg = line total`; plus Loading Charges and Additional Charges as their own lines, then the Total.
-  _Avoid_: IOU, credit note, due slip.
+- **Front** — Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), transaction ID, Customer name, total Amount (after Discount), and the signature line.
+- **Back** — Chosen Products as line items: bag lines in the form `quantity × ratio × price = line total` (bags × bag-kg/100 × Quintal Rate); Loose lines as `kg × price/kg = line total`; plus Loading Charges, Additional Charges, and Discount as their own lines when present, then the Total.
+  _Avoid_: IOU, credit note, due slip; separate Voucher Number.
 
 **Receipt**:
 Money a customer brings in _after_ a Credit Sale was finished — possibly that same day, possibly weeks later. The cashier enters **Cash**, **UPI**, and an optional **Settlement Discount** (rupees) independently against a Customer. Pure write-off (discount only, no cash or UPI) is allowed; all three zero is not. Drawer impact is cash/UPI in only — never **Credit received**. Receipts do _not_ reference a specific Voucher ID because they may be paying against a voucher issued in a past Business Day, which Vajra no longer holds; matching is the shopkeeper's paper-side job. Receipts can be partial or full. Like all other transactional entries, Receipts are wiped at Rollover.
@@ -118,17 +122,17 @@ Money paid _out_ to a Customer — the shop settling a past Credit Purchase, or 
 _Avoid_: Payout, supplier payment, settlement, refund.
 
 **Settlement Discount**:
-A rupee write-off recorded on a Receipt or Payment only — never on Sale, Purchase, Expense, or Income. Cashier-entered as an amount (not a percent). Realized money moved is cash + UPI; face is cash + UPI + Settlement Discount (derived when a view needs it); discount percent is derived from face when needed for reports. Pure write-off (Settlement Discount with zero cash and UPI) is valid.
-_Avoid_: Discount % (as the stored entry), rebate, credit note.
+A rupee write-off recorded on a Receipt or Payment only — never on Sale, Purchase, Expense, or Income. Distinct from Sale **Discount**. Cashier-entered as an amount (not a percent). Realized money moved is cash + UPI; face is cash + UPI + Settlement Discount (derived when a view needs it); discount percent is derived from face when needed for reports. Pure write-off (Settlement Discount with zero cash and UPI) is valid.
+_Avoid_: Discount % (as the stored entry), rebate, credit note; using "Discount" alone when Settlement Discount is meant.
 
 ### Day-book credit (drawer summary)
 
 **Credit Sales Total**:
-The face total of goods sold on credit today — sum of Credit Sale amounts only (cash Sales are excluded). Customers owe us this face. Not money in the drawer, and not the same as Receipts (cash/UPI actually collected from customers). Displayed as "Credit Sales" in the UI — the shorter label is used because the rupee amount is always shown directly beneath it.
+The total of goods sold on credit today — sum of Credit Sale totals only (after each Sale's Discount; cash Sales are excluded). Customers owe us this amount. Not money in the drawer, and not the same as Receipts (cash/UPI actually collected from customers). Displayed as "Credit Sales" in the UI — the shorter label is used because the rupee amount is always shown directly beneath it.
 _Avoid_: Credit issued (superseded name), Credit sales revenue, Total sales.
 
 **Credit Purchases Total**:
-The face total of goods bought on credit today — sum of Credit Purchase amounts only (cash Purchases are excluded). We owe suppliers this face. Not money in the drawer, and not the same as Payments (cash/UPI actually paid to suppliers). Displayed as "Credit Purchases" in the UI, for the same reason.
+The total of goods bought on credit today — sum of Credit Purchase amounts only (cash Purchases are excluded). We owe suppliers this amount. Not money in the drawer, and not the same as Payments (cash/UPI actually paid to suppliers). Displayed as "Credit Purchases" in the UI, for the same reason.
 _Avoid_: Credit received (superseded name), Credit purchases paid, Total purchases.
 
 ### Other money movements
@@ -157,7 +161,13 @@ The non-voided transaction that supersedes a voided one. A chain may grow arbitr
 ### Printing
 
 **Printerless Mode**:
-A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Sale Invoice / Credit Voucher details on screen — including the Sale Number and Voucher Number — so the cashier can write a manual copy by hand. Distinct from the per-transaction _"printer not responding — continue without slip?"_ prompt that handles a single transient print failure without changing the mode.
+A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Sale Invoice / Credit Voucher details on screen — including the transaction ID — so the cashier can write a manual copy by hand. Distinct from the per-transaction _"printer not responding — continue without slip?"_ prompt that handles a single transient print failure without changing the mode.
+
+### Identifiers
+
+**Transaction ID**:
+The single identifier for a finished transactional row (Sale, Purchase, Receipt, Payment, Expense, Income, Stock Transfer). There is no separate user-visible number field — UI, invoices, vouchers, and chains all display or store this ID (ADR-0009). Shape encodes type, Cash/Credit mode where relevant, per-day sequence, optional edit revision, and Business Day date. Edit successors keep the same sequence and append `.1`, `.2`, … Cash and Credit Sales (and Purchases) use **separate sequences**. A Credit Sale's invoice and Credit Voucher share the same ID.
+_Avoid_: Sale Number / Voucher Number as a second stored field; dual counters for display vs storage.
 
 ### Stock-only movements
 
@@ -169,7 +179,9 @@ _Avoid_: Rebranding, repack, conversion.
 
 **"Payment"**: The entity (cash/UPI out to a Customer) collides with the everyday meaning of "payment captured at the finish of a Cash Sale." When unambiguous in context, use Payment for the entity; for the cash/UPI a customer hands over during Sale finish, say _cash collected_ and _UPI collected_, not "payment."
 
-**"Credit Sales Total" / "Credit Purchases Total"**: These are face-value totals of today's credit-mode transactions only — they exclude cash Sales/Purchases, and they are never the same figure as Receipts (cash collected) or Payments (cash paid out). A Credit Sale's face lands in Credit Sales Total the day it's made; the cash that eventually settles it lands in Receipts, possibly on a different day entirely — the two numbers are unrelated in any given day's drawer.
+**"Credit Sales Total" / "Credit Purchases Total"**: These are totals of today's credit-mode transactions only (Credit Sales after Discount) — they exclude cash Sales/Purchases, and they are never the same figure as Receipts (cash collected) or Payments (cash paid out). A Credit Sale's total lands in Credit Sales Total the day it's made; the cash that eventually settles it lands in Receipts, possibly on a different day entirely — the two numbers are unrelated in any given day's drawer.
+
+**"Discount" vs "Settlement Discount"**: On a Sale the label is **Discount** (simple total reduction). On a Receipt or Payment the concept is **Settlement Discount** (write-off with face/realized semantics). Do not mix the terms.
 
 ## Example dialogue
 
