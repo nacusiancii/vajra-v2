@@ -589,7 +589,7 @@ watch(
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="customer">Customer Master</SelectItem>
-                    <SelectItem value="walkin">Walk-in</SelectItem>
+                    <SelectItem value="walkin">Walk in</SelectItem>
                   </SelectContent>
                 </Select>
               </div>

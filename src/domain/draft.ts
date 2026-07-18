@@ -107,7 +107,7 @@ export function validatePurchaseDraftCounterparty(payload: PurchaseDraftPayload)
 function validateWalkinOrCustomer(payload: DraftCartFields): string | null {
   if (payload.counterpartyMode === 'customer') {
     if (payload.customerId == null) {
-      return 'Save Draft needs a Customer Master entry, or Walk-in mode'
+      return 'Save Draft needs a Customer Master entry, or Walk in mode'
     }
     return null
   }
