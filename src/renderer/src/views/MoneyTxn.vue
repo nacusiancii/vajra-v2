@@ -96,9 +96,11 @@ function focusCashField(): void {
   })
 }
 
-// Receipt/Payment: after Customer pick, cashier types cash next.
-watch(customerId, (id) => {
-  if (id != null && config.value.settlementEntry) focusCashField()
+// Receipt/Payment: first Customer pick only — hand off to Cash so the cashier
+// can type immediately. Switching A→B (or re-pick after cash is filled) must
+// not yank focus; clear then pick again (null → id) still focuses.
+watch(customerId, (id, prev) => {
+  if (id != null && prev == null && config.value.settlementEntry) focusCashField()
 })
 
 // EX/IN: cashier types UPI; cash is the remainder of the amount.
