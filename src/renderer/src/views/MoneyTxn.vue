@@ -304,8 +304,13 @@ watch(
     </template>
 
     <div class="grid gap-2">
-      <Label>Remarks</Label>
-      <Input v-model="remarks" placeholder="Optional" />
+      <Label for="money-remarks">Remarks</Label>
+      <Input
+        id="money-remarks"
+        v-model="remarks"
+        placeholder="Optional"
+        data-testid="money-remarks"
+      />
     </div>
 
     <div class="flex items-center justify-between border-t pt-4">

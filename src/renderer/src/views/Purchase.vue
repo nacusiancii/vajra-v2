@@ -549,6 +549,16 @@ watch(
                 </div>
               </div>
             </div>
+
+            <div class="mt-4 grid gap-2">
+              <Label for="purchase-remarks">Remarks</Label>
+              <Input
+                id="purchase-remarks"
+                v-model="remarks"
+                placeholder="Optional"
+                data-testid="purchase-remarks"
+              />
+            </div>
           </CardContent>
           <CardFooter class="flex flex-wrap items-center justify-between gap-3 border-t pt-4">
             <div>
