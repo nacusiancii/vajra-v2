@@ -1,16 +1,43 @@
-### Transaction ID strategy — user-visible per-day numbers, internally type-and-date-qualified
+### Transaction ID strategy — one ID for storage and display
 
-Every transactional entity (Sale, Purchase, Receipt, Payment, Expense, Income, Stock Transfer) carries two identifiers:
+Status: accepted (revises the earlier dual-number design). Clean databases are acceptable while we are still in fast alpha development.
 
-- A **user-visible number** that resets to 1 at the start of each Business Day and increments per transaction of that type within the day. The Sale Invoice shows the Sale Number; the Credit Voucher shows the Voucher Number; the cashier UI labels every row by this short number.
-- A **globally-unique internal ID** of the form `TT-NNNN-DDMMYYYY`, where `TT` is a two-letter transaction-type code (SA = Sale, PU = Purchase, RE = Receipt, PA = Payment, EX = Expense, IN = Income, ST = Stock Transfer), `NNNN` is the per-day number, and `DDMMYYYY` is the Business Day's start date. The internal ID is what the Successor reference in a Void chain points to, what the End of Day Report's audit sheet joins on, and what any cross-sheet formula in the EOD XLSX uses to anchor a row. The internal ID is never shown to the cashier or printed on paper.
+Every finished transactional entity carries **one** identifier: the **transaction ID**. That same string is stored, shown in the cashier UI, printed on the Sale Invoice and Credit Voucher, and used as the Successor pointer in a Void chain and on the End of Day Report audit sheet. We do **not** keep a parallel short "Sale Number" / "Voucher Number" field — two sources of truth drifted in practice and complicated Edit revisions.
 
-We chose this split because the cashier's mental model is short, day-local, and rooted in physical paper (Sale 42, Voucher 7) — a long opaque ID at the counter would slow recognition and look bureaucratic. But Vajra needs a globally-unique identifier inside its data so chains, formulas, and audit records survive the day's growth without ambiguity. Encoding the type and date into the ID — rather than relying on a global counter or a UUID — keeps the identifier human-readable even when it does surface (in logs, in the audit sheet, in support conversations), and removes any ambiguity about which day a referenced row belongs to.
+#### Shape
+
+```
+TT[-MODE]-SEQ[.REV]-DDMMYYYY
+```
+
+| Part       | Meaning                                                                                                                                        |
+| ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| `TT`       | Type code: `SA` Sale, `PU` Purchase, `RE` Receipt, `PA` Payment, `EX` Expense, `IN` Income, `ST` Stock Transfer                                |
+| `MODE`     | For `SA` and `PU` only: `C` (Cash) or `R` (Credit). Omitted for other types                                                                    |
+| `SEQ`      | Per-Business-Day sequence for that `(TT, MODE)` (or `TT` alone when no mode), starting at 1                                                    |
+| `REV`      | Optional edit revision. The first finished row has no `.REV`. Each Edit successor of that sequence keeps the same `SEQ` and uses `.1`, `.2`, … |
+| `DDMMYYYY` | Business Day start date (not wall-clock), same as before                                                                                       |
+
+Examples:
+
+- `SA-C-20-18072026` — Cash Sale sequence 20
+- `SA-C-20.1-18072026` — first Edit successor of that sale
+- `SA-R-3-18072026` — Credit Sale sequence 3 (invoice **and** voucher both print this ID)
+- `PU-C-1-18072026` / `PU-R-2-18072026` — Cash / Credit Purchases, separate sequences
+- `RE-4-18072026` — Receipt (no mode segment)
+
+Cash and Credit sequences for Sales are independent; same for Purchases. Credit Voucher does not allocate a second sequence.
+
+#### Why
+
+- Cashiers still see a short day-local sequence inside the ID (`C-20`, `C-20.1`) without a second column to keep in sync.
+- Edit-as-void-plus-successor (ADR-0007) needs a stable chain key; the ID is already that key.
+- Separate Cash/Credit sequences match how the shop reads paper piles.
+- Alpha: we can ship the new shape without migrating old rows.
 
 #### Consequences
 
-- The user-visible Sale Number resets at Rollover, matching the per-day reset of all transactional data. The shopkeeper's paper credit book keys its rows by Voucher Number + date — Vajra's choice mirrors that habit.
-- Per-day numbering means there is no global notion of "we've done N sales since launch." That is deliberate; zero-retention (ADR-0001) already rules out aggregating across days.
-- The internal ID's date suffix is the Business Day's _start date_, not the wall-clock date — so a Business Day that runs past midnight still produces IDs anchored to the day it began.
-- Two-letter type codes are a closed set, listed above. Adding a new transactional entity (the rare case) means picking a new two-letter code and updating this ADR — collisions are impossible by enumeration.
-- The Successor pointer on a Voided transaction stores the full internal ID of the replacement, so the audit sheet can render the chain unambiguously and Excel-side joins are straightforward.
+- UI and prints format/display the transaction ID (or a readable substring derived only by parsing it — never a separately stored number).
+- Implementing Edit revisions and mode-split sequences is one scheme, not two features with two counters.
+- Adding a transactional type means picking a new `TT` code and updating this ADR.
+- Code and docs that still say "Sale Number" / "Voucher Number" as stored fields are stale and should be updated toward transaction ID.

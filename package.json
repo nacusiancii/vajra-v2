@@ -27,6 +27,7 @@
     "verify": "pnpm verify:static && pnpm test:smoke",
     "verify:headless": "pnpm verify:static && pnpm test:smoke:headless",
     "fix": "pnpm lint:fix && pnpm format",
+    "agent:check:autofix": "sh scripts/agent-check-autofix.sh",
     "start": "electron-vite preview",
     "dev": "electron-vite dev",
     "dev:linux": "ELECTRON_DISABLE_SANDBOX=1 pnpm dev",
