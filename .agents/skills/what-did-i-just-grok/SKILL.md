@@ -18,10 +18,12 @@ Do this **before** deleting the worktree. Do **not** re-implement anything. Past
 **PR / CI:** <link or n/a> — green | red | n/a
 
 **Brief:** good enough | too vague | too narrow
+
 - Fix next time: <one line or "none">
 
 **Allows:** default list fine | needed more | too open
-- Change next time: <e.g. add Bash(foo *) / none>
+
+- Change next time: <e.g. add Bash(foo \*) / none>
 
 **Wander?** no | yes — <scope creep / left worktree / glossary / other>
 

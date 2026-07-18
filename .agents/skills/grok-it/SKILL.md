@@ -24,22 +24,27 @@ Write `../vajra-grok-<task>/.grok-brief.md` by filling this template:
 
 ```markdown
 # Task
+
 <one sentence>
 
 # Sources
+
 - Issue #N (body + comments; newest wins): <paste decisions>
 - Read AGENTS.md + CONTEXT.md
 - Landmines: money = integer paise; mass = grams
 - Deps already installed — do NOT run pnpm install
 
 # Do
+
 <what done looks like; behaviours not file paths>
 
 # Do not
+
 - Drive-by refactors
 - <anything else out of scope>
 
 # Stop
+
 run `pnpm fix` (lint:fix + format only), commit with a conventional message,
 push, open a **draft** PR (`gh pr create --draft`) with body note
 "implementation by grok CLI — pending verification", then STOP.
@@ -65,11 +70,11 @@ Run in the background; watch the log. **Never** `--always-approve` / `--yolo`.
 
 ### 4. Judge (three checks, then stop thinking)
 
-| # | Check | How |
-|---|--------|-----|
-| 1 | Green | `gh pr checks <pr> --watch` (or `gh run watch` after first push, before the draft PR) — trust CI, not the transcript. No local re-verify. |
-| 2 | Diff matches brief | `git -C ../vajra-grok-<task> diff main...HEAD` |
-| 3 | Stayed home | transcript never left the worktree |
+| #   | Check              | How                                                                                                                                       |
+| --- | ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------- |
+| 1   | Green              | `gh pr checks <pr> --watch` (or `gh run watch` after first push, before the draft PR) — trust CI, not the transcript. No local re-verify. |
+| 2   | Diff matches brief | `git -C ../vajra-grok-<task> diff main...HEAD`                                                                                            |
+| 3   | Stayed home        | transcript never left the worktree                                                                                                        |
 
 - **Pass** → `gh pr ready` + comment `verified by <chief>`
 - **Fail** → close draft; failure text becomes the next brief
@@ -85,12 +90,12 @@ Run in the background; watch the log. **Never** `--always-approve` / `--yolo`.
 
 Same worktree, **new** headless grok each time. Never trust the previous goose.
 
-| Play | Brief them to… |
-|------|----------------|
-| **Test** | Break the last diff (money, stock, modes, empty cart). Report bugs; delete wrecking-ball tests unless high-value. |
-| **Cleanup** | Sweep debris (dead code, debug logs). Keep behaviour; `pnpm fix` clean and CI green on push. |
-| **Simplify** | Reuse/simpler only — no bug hunt. Skip if not clearly simpler. |
-| **Research** | Findings markdown only; use the read-only stop clause. |
+| Play         | Brief them to…                                                                                                    |
+| ------------ | ----------------------------------------------------------------------------------------------------------------- |
+| **Test**     | Break the last diff (money, stock, modes, empty cart). Report bugs; delete wrecking-ball tests unless high-value. |
+| **Cleanup**  | Sweep debris (dead code, debug logs). Keep behaviour; `pnpm fix` clean and CI green on push.                      |
+| **Simplify** | Reuse/simpler only — no bug hunt. Skip if not clearly simpler.                                                    |
+| **Research** | Findings markdown only; use the read-only stop clause.                                                            |
 
 Bugs → new implementation brief. You still do not fix them.
 

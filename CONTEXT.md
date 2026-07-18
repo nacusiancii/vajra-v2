@@ -40,7 +40,7 @@ UX-only flags about a Customer — e.g., "has ever supplied" used to bias Purcha
 _Avoid_: Supplier Master, Vendor, Party.
 
 **Walk-in Customer**:
-A counter customer not held in the Customer Master. A Cash Sale (or Purchase) to a walk-in may capture **name**, **place**, and optionally **phone** directly on the transaction — these values live with the Sale/Purchase itself, not as a new Customer Master entry. Name and place are **optional**; when left blank, Vajra stores the placeholder **"Walk in"** for each missing field so lists, drafts, and slips always have a non-empty label. Place is still useful when captured because it carries business meaning to the shopkeeper when they review the End of Day Report, even though Vajra itself does not classify or interpret it. Credit Sales reject walk-ins; they require a Customer Master entry.
+A counter customer not held in the Customer Master. A Cash Sale (or Purchase) to a walk-in may capture **name**, **place**, and optionally **phone** directly on the transaction — these values live with the Sale/Purchase itself, not as a new Customer Master entry. Name and place are **optional**; when left blank, Vajra stores the placeholder **"Walk in"** for each missing field so lists, drafts, and slips always have a non-empty label. Place is still useful when captured because it carries business meaning to the shopkeeper when they review the End of Day Report, even though Vajra itself does not classify or interpret it. A Cash Sale opens with **Walk-in selected by default** — the cashier switches to a Customer Master entry only when needed. Credit Sales reject walk-ins; they require a Customer Master entry.
 _Avoid_: Anonymous customer, guest customer.
 
 ### Products
@@ -79,7 +79,7 @@ _Avoid_: Hamali, handling fee.
 ### Stock movements
 
 **Purchase**:
-A transactional entry for stock arriving at the shop. Always either fully Cash or fully Credit — never partial — picked up front like a Sale. Cash mode pays the supplier now (cash and/or UPI at finish). Credit mode records goods received with nothing paid today; the face lands in **Credit received** for the day book. The cashier records bag lines (Quintal Rate) and/or Loose lines (per-kg rate) plus any Additional Charges, and stock for the affected Products is bumped immediately. Like Sales, Purchases are wiped at Rollover — only their stock impact survives, carried forward as the next day's Opening Stock. Cost is never stored on the Product Master.
+A transactional entry for stock arriving at the shop. Always either fully Cash or fully Credit — never partial — started from the first screen's **Cash Purchase** / **Credit Purchase** entry points with the mode pre-chosen, still toggleable during the cart (like a Sale). Cash mode pays the supplier now (cash and/or UPI at finish). Credit mode records goods received with nothing paid today; the face lands in **Credit received** for the day book. The cashier records bag lines (Quintal Rate) and/or Loose lines (per-kg rate) plus any Additional Charges, and stock for the affected Products is bumped immediately. Like Sales, Purchases are wiped at Rollover — only their stock impact survives, carried forward as the next day's Opening Stock. Cost is never stored on the Product Master.
 _Avoid_: Stock-in, GRN.
 
 **Additional Charges**:
@@ -89,7 +89,7 @@ _Avoid_: Other charges, expenses, sundry.
 ### Sales and payment
 
 **Sale**:
-A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods, and the Sale total (after any **Discount**) lands in **Credit Sales Total** for the day book. A new Sale starts by explicitly picking Cash or Credit before any customer or goods entry — nothing is chosen for the cashier, but Cash is pre-focused so the common case is a single key press — and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher. An optional cart-level **Discount** (display name exactly "Discount") may reduce the Sale total on both Cash and Credit Sales — a simple rupee amount off the total, not a percent and not Settlement Discount.
+A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods, and the Sale total (after any **Discount**) lands in **Credit Sales Total** for the day book. A new Sale starts from one of the first screen's entry points — **Cash Sale** or **Credit Sale** — so the mode is already chosen when the cart opens (the separate pick-Cash-or-Credit gate is deprecated), and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher. An optional cart-level **Discount** (display name exactly "Discount") may reduce the Sale total on both Cash and Credit Sales — a simple rupee amount off the total, not a percent and not Settlement Discount.
 _Avoid_: Bill, transaction (as a synonym for Sale).
 
 **Discount** (on Sale):
@@ -105,7 +105,7 @@ The paper artifact produced when a Sale finishes. **Two copies by default** (bus
 _Avoid_: Bill, slip, receipt (collides with the Receipt entity).
 
 **Credit Voucher**:
-The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in lieu of cash. Prints the **same transaction ID** as that Credit Sale's invoice (one sequence, one source of truth — not a second voucher-only number). The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Finishing a Credit Sale requires explicit confirmation that the voucher has been signed. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
+The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in lieu of cash. Prints the **same transaction ID** as that Credit Sale's invoice (one sequence, one source of truth — not a second voucher-only number). The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Collecting the signature is the shopkeeper's paper-side responsibility — Vajra does not ask for a signed-voucher confirmation at finish. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
 
 Two-sided layout:
 
