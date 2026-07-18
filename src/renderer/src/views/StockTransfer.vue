@@ -3,6 +3,8 @@ import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ArrowRight, RefreshCcw, RotateCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
 import NumericField from '@/components/NumericField.vue'
@@ -278,6 +280,16 @@ watch(
       <p v-if="targetQtySuggested" class="text-xs" data-testid="transfer-qty-suggested">
         Target qty suggested from source kg — edit to set a yield difference.
       </p>
+    </div>
+
+    <div class="grid gap-2">
+      <Label for="transfer-remarks">Remarks</Label>
+      <Input
+        id="transfer-remarks"
+        v-model="remarks"
+        placeholder="Optional"
+        data-testid="transfer-remarks"
+      />
     </div>
 
     <div class="flex items-center justify-between border-t pt-4">

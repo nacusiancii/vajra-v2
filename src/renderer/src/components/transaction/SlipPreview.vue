@@ -112,6 +112,10 @@ const counterparty = computed(() => {
             <span>Credit Voucher</span>
             <span class="tabular-nums">#{{ txn.voucherSeq }}</span>
           </div>
+          <div v-if="txn.remarks" class="mt-2 border-t pt-2" data-testid="slip-remarks">
+            <p class="text-muted-foreground">Remarks</p>
+            <p class="whitespace-pre-wrap">{{ txn.remarks }}</p>
+          </div>
         </div>
       </div>
 
