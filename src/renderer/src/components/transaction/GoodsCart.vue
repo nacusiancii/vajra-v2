@@ -213,7 +213,11 @@ defineExpose({ ensureLineAndFocusProduct })
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableRow v-for="(line, index) in lines" :key="index" data-testid="cart-line">
+        <TableRow
+          v-for="(line, index) in lines"
+          :key="index"
+          :data-testid="isLineBlank(line) ? 'cart-line-blank' : 'cart-line'"
+        >
           <TableCell>
             <EntityCombobox
               :ref="(el) => setProductComboRef(index, el)"
@@ -222,7 +226,7 @@ defineExpose({ ensureLineAndFocusProduct })
               placeholder="Select product"
               search-placeholder="Type a product name…"
               empty-text="No product matches."
-              test-id="cart-product"
+              :test-id="isLineBlank(line) ? 'cart-product-blank' : 'cart-product'"
               @update:model-value="onProductChange(line, $event, index)"
             />
           </TableCell>
@@ -231,7 +235,10 @@ defineExpose({ ensureLineAndFocusProduct })
               :model-value="bagOrLooseValue(line)"
               @update:model-value="onBagOrLooseChange(line, $event)"
             >
-              <SelectTrigger class="w-full" data-testid="cart-bag">
+              <SelectTrigger
+                class="w-full"
+                :data-testid="isLineBlank(line) ? undefined : 'cart-bag'"
+              >
                 <SelectValue placeholder="Bag / Loose" />
               </SelectTrigger>
               <SelectContent>
@@ -248,7 +255,7 @@ defineExpose({ ensureLineAndFocusProduct })
               mode="qty"
               :model-value="line.qty"
               :placeholder="line.isLoose ? 'kg' : 'bags'"
-              test-id="cart-qty"
+              :test-id="isLineBlank(line) ? undefined : 'cart-qty'"
               @update:model-value="line.qty = $event"
             />
           </TableCell>
@@ -258,7 +265,7 @@ defineExpose({ ensureLineAndFocusProduct })
               mode="money"
               :model-value="line.perKgRate"
               placeholder="₹/kg"
-              test-id="cart-rate"
+              :test-id="isLineBlank(line) ? undefined : 'cart-rate'"
               @update:model-value="line.perKgRate = $event"
             />
             <NumericField
@@ -266,7 +273,7 @@ defineExpose({ ensureLineAndFocusProduct })
               mode="money"
               :model-value="line.quintalRate"
               placeholder="₹/quintal"
-              test-id="cart-rate"
+              :test-id="isLineBlank(line) ? undefined : 'cart-rate'"
               @update:model-value="line.quintalRate = $event"
             />
           </TableCell>

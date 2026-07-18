@@ -33,8 +33,7 @@ async function openCashSaleCart(page: Page): Promise<void> {
   await page.getByRole('option', { name: 'Walk in' }).click()
   await page.getByTestId('sale-walkin-name').fill('Counter')
   await page.getByTestId('sale-walkin-place').fill('Guntur')
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
+  await page.getByTestId('cart-product-blank').click()
   await page.getByRole('option', { name: 'Numeric Dal' }).click()
   await expect(page.getByTestId('cart-qty')).toBeFocused()
 }

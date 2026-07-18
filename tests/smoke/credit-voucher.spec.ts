@@ -45,7 +45,8 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await page.getByPlaceholder(/Type a customer name/).fill('Ravi')
   await page.getByRole('option', { name: /Ravi Kumar/ }).click()
 
-  await expect(page.getByTestId('cart-line')).toHaveCount(1)
+  // Customer pick focuses the always-present trailing blank product row.
+  await expect(page.getByTestId('cart-line-blank')).toHaveCount(1)
   await expect(page.getByRole('option', { name: 'Toor Dal' })).toBeVisible()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   await page.getByTestId('cart-rate').fill('6000')

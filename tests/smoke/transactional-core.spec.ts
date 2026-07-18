@@ -50,8 +50,8 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('purchase-gate-cash')).toBeFocused()
   await page.getByTestId('purchase-gate-credit').click()
   await dismissAutoPicker(page) // supplier CustomerSelect auto-opens
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
+  // Trailing blank product row is always present — pick product on it.
+  await page.getByTestId('cart-product-blank').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // After product pick, qty should be focused so the cashier can type immediately.
   await expect(page.getByTestId('cart-qty')).toBeFocused()
@@ -81,8 +81,7 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await page.getByRole('option', { name: 'Walk in' }).click()
   await page.getByTestId('sale-walkin-name').fill('Counter Customer')
   await page.getByTestId('sale-walkin-place').fill('Guntur')
-  await page.getByTestId('cart-add-line').click()
-  await page.getByTestId('cart-product').click()
+  await page.getByTestId('cart-product-blank').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Same product → qty handoff on Sale.
   await expect(page.getByTestId('cart-qty')).toBeFocused()
