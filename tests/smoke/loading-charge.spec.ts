@@ -62,9 +62,8 @@ async function purchaseBulk(
   rate: string,
   qty: string
 ): Promise<void> {
-  await page.getByTestId('open-purchase').click()
-  // Cash/Credit gate comes first — pick Credit so stock-in has no drawer impact.
-  await page.getByTestId('purchase-gate-credit').click()
+  // Credit Purchase from Home — stock-in with no drawer impact.
+  await page.getByTestId('open-credit-purchase').click()
   await dismissAutoPicker(page)
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
@@ -76,9 +75,8 @@ async function purchaseBulk(
 }
 
 async function startWalkinSale(page: Page, name: string, place: string): Promise<void> {
-  await page.getByTestId('open-sale').click()
-  // Cash/Credit gate comes first — walk-in is only available on Cash Sales.
-  await page.getByTestId('sale-gate-cash').click()
+  // Cash Sale from Home — walk-in is only available on Cash Sales.
+  await page.getByTestId('open-cash-sale').click()
   // Customer mode auto-opens its picker; dismiss before switching to walk-in.
   await dismissAutoPicker(page)
   await page.getByTestId('sale-counterparty-mode').click()

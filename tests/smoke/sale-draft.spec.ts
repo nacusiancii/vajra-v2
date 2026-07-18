@@ -35,8 +35,7 @@ async function seedProduct(page: Page): Promise<void> {
 }
 
 async function purchaseStock(page: Page): Promise<void> {
-  await page.getByTestId('open-purchase').click()
-  await page.getByTestId('purchase-gate-credit').click()
+  await page.getByTestId('open-credit-purchase').click()
   await dismissAutoPicker(page)
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
@@ -62,9 +61,7 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
   await goHome(page)
 
   // Start a Cash Sale for a walk-in, park it mid-entry.
-  await page.getByTestId('open-sale').click()
-  await expect(page.getByTestId('sale-gate')).toBeVisible()
-  await page.getByTestId('sale-gate-cash').click()
+  await page.getByTestId('open-cash-sale').click()
   await dismissAutoPicker(page)
   await expect(page.getByTestId('sale-save-draft')).toBeVisible()
   await page.getByTestId('sale-counterparty-mode').click()
@@ -115,9 +112,7 @@ test('Save Draft blocked without counterparty', async ({ page }) => {
   test.setTimeout(60_000)
 
   await seedProduct(page)
-  await page.getByTestId('open-sale').click()
-  await expect(page.getByTestId('sale-gate')).toBeVisible()
-  await page.getByTestId('sale-gate-cash').click()
+  await page.getByTestId('open-cash-sale').click()
   await dismissAutoPicker(page)
   await expect(page.getByTestId('sale-save-draft')).toBeVisible()
   // Customer mode selected but no customer picked — save must fail clearly.

@@ -42,13 +42,10 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await goHome(page)
 
   // ── Purchase 10 bags @ ₹6000/quintal on credit (stock-in, no drawer impact) ──
-  await page.getByTestId('open-purchase').click()
-  // The Cash/Credit gate comes first — no supplier or goods until a mode is picked.
-  await expect(page.getByTestId('purchase-gate')).toBeVisible()
-  await expect(page.getByTestId('cart-add-line')).not.toBeVisible()
-  // The Cash tile is pre-focused as the common case — pick Credit for this narrative.
-  await expect(page.getByTestId('purchase-gate-cash')).toBeFocused()
-  await page.getByTestId('purchase-gate-credit').click()
+  await page.getByTestId('open-credit-purchase').click()
+  // Mode is pre-chosen from Home; cart opens with the workspace ready.
+  await expect(page.getByTestId('purchase-page')).toHaveAttribute('data-mode', 'credit')
+  await expect(page.getByTestId('purchase-mode')).toBeVisible()
   await dismissAutoPicker(page) // supplier CustomerSelect auto-opens
   await page.getByTestId('cart-add-line').click()
   await page.getByTestId('cart-product').click()
@@ -68,13 +65,10 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await goHome(page)
 
   // ── Sale: 2 bags cash to a walk-in (100kg = 1 quintal = ₹6000) ──
-  await page.getByTestId('open-sale').click()
-  // The Cash/Credit gate comes first — no customer or goods until a mode is picked.
-  await expect(page.getByTestId('sale-gate')).toBeVisible()
-  await expect(page.getByTestId('cart-add-line')).not.toBeVisible()
-  // The Cash tile is pre-focused as the common case — a bare Enter picks it.
-  await expect(page.getByTestId('sale-gate-cash')).toBeFocused()
-  await page.keyboard.press('Enter')
+  await page.getByTestId('open-cash-sale').click()
+  // Mode is pre-chosen from Home; cart opens with the workspace ready.
+  await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'cash')
+  await expect(page.getByTestId('sale-mode')).toBeVisible()
   // Customer mode auto-opens its picker; dismiss it before switching to walk-in.
   await dismissAutoPicker(page)
   await page.getByTestId('sale-counterparty-mode').click()

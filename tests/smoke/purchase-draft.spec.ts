@@ -49,9 +49,7 @@ test('park Purchase Draft → other work → resume → finish; inventory waits 
   await goHome(page)
 
   // Start a Cash Purchase for a walk-in supplier, park mid-entry.
-  await page.getByTestId('open-purchase').click()
-  await expect(page.getByTestId('purchase-gate')).toBeVisible()
-  await page.getByTestId('purchase-gate-cash').click()
+  await page.getByTestId('open-cash-purchase').click()
   await dismissAutoPicker(page)
   await expect(page.getByTestId('purchase-save-draft')).toBeVisible()
   await page.getByTestId('purchase-counterparty-mode').click()
@@ -100,9 +98,7 @@ test('Save Purchase Draft blocked without counterparty', async ({ page }) => {
   test.setTimeout(60_000)
 
   await seedProduct(page)
-  await page.getByTestId('open-purchase').click()
-  await expect(page.getByTestId('purchase-gate')).toBeVisible()
-  await page.getByTestId('purchase-gate-cash').click()
+  await page.getByTestId('open-cash-purchase').click()
   await dismissAutoPicker(page)
   await expect(page.getByTestId('purchase-save-draft')).toBeVisible()
   await page.getByTestId('purchase-save-draft').click()
