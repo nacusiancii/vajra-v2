@@ -10,7 +10,7 @@
  * Loose qty is kg; perKgRate is paise per kg.
  */
 
-import type { SaleMode } from './transaction'
+import { WALKIN_PLACEHOLDER, type SaleMode } from './transaction'
 
 /** Only Sales and Purchases are draftable. */
 export type DraftType = 'SA' | 'PU'
@@ -79,7 +79,8 @@ export interface SavePurchaseDraftInput {
 
 /**
  * Counterparty required before parking a Sale (CONTEXT.md / ADR-0010):
- * Customer Master entry, or walk-in name + place on Cash Sale.
+ * Customer Master entry, or walk-in mode on Cash Sale (name/place optional — blank
+ * fields become {@link WALKIN_PLACEHOLDER} on save).
  * Credit Sales always need a Customer Master entry (no walk-ins).
  * Returns a human-readable reason, or null when save is allowed.
  */
@@ -95,7 +96,8 @@ export function validateSaleDraftCounterparty(payload: SaleDraftPayload): string
 
 /**
  * Counterparty required before parking a Purchase (CONTEXT.md / ADR-0010):
- * Customer Master entry, or walk-in name + place (walk-ins allowed on Cash and Credit).
+ * Customer Master entry, or walk-in mode (name/place optional; blank fields become
+ * {@link WALKIN_PLACEHOLDER} on save). Walk-ins allowed on Cash and Credit Purchases.
  * Returns a human-readable reason, or null when save is allowed.
  */
 export function validatePurchaseDraftCounterparty(payload: PurchaseDraftPayload): string | null {
@@ -105,14 +107,26 @@ export function validatePurchaseDraftCounterparty(payload: PurchaseDraftPayload)
 function validateWalkinOrCustomer(payload: DraftCartFields): string | null {
   if (payload.counterpartyMode === 'customer') {
     if (payload.customerId == null) {
-      return 'Save Draft needs a Customer Master entry, or a walk-in name and place'
+      return 'Save Draft needs a Customer Master entry, or Walk in mode'
     }
     return null
   }
-  if (!payload.walkinName.trim() || !payload.walkinPlace.trim()) {
-    return 'Save Draft needs a walk-in name and place'
-  }
+  // Walk-in mode alone is enough — name and place are optional.
   return null
+}
+
+/**
+ * When parking a walk-in Draft, store {@link WALKIN_PLACEHOLDER} for blank name/place
+ * so list UIs and a later Finish always have a non-empty counterparty label.
+ * Customer-mode payloads are left unchanged.
+ */
+export function normalizeDraftWalkinFields<T extends DraftCartFields>(payload: T): T {
+  if (payload.counterpartyMode !== 'walkin') return payload
+  return {
+    ...payload,
+    walkinName: payload.walkinName.trim() || WALKIN_PLACEHOLDER,
+    walkinPlace: payload.walkinPlace.trim() || WALKIN_PLACEHOLDER
+  }
 }
 
 /** Cap exceeded message — shared by repo and any thin unit tests. */

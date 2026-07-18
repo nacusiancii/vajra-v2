@@ -68,7 +68,7 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
   await dismissAutoPicker(page)
   await expect(page.getByTestId('sale-save-draft')).toBeVisible()
   await page.getByTestId('sale-counterparty-mode').click()
-  await page.getByRole('option', { name: 'Walk-in' }).click()
+  await page.getByRole('option', { name: 'Walk in' }).click()
   await page.getByTestId('sale-walkin-name').fill('Parked Customer')
   await page.getByTestId('sale-walkin-place').fill('Tenali')
   await page.getByTestId('cart-add-line').click()

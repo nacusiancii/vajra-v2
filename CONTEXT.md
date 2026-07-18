@@ -40,7 +40,7 @@ UX-only flags about a Customer — e.g., "has ever supplied" used to bias Purcha
 _Avoid_: Supplier Master, Vendor, Party.
 
 **Walk-in Customer**:
-A counter customer not held in the Customer Master. A Cash Sale to a walk-in may still capture **name**, **place**, and optionally **phone** directly on the Sale — these values live with the Sale itself, not as a new Customer Master entry. Place is captured because it carries business meaning to the shopkeeper when they review the End of Day Report, even though Vajra itself does not classify or interpret it. Credit Sales reject walk-ins; they require a Customer Master entry.
+A counter customer not held in the Customer Master. A Cash Sale (or Purchase) to a walk-in may capture **name**, **place**, and optionally **phone** directly on the transaction — these values live with the Sale/Purchase itself, not as a new Customer Master entry. Name and place are **optional**; when left blank, Vajra stores the placeholder **"Walk in"** for each missing field so lists, drafts, and slips always have a non-empty label. Place is still useful when captured because it carries business meaning to the shopkeeper when they review the End of Day Report, even though Vajra itself does not classify or interpret it. Credit Sales reject walk-ins; they require a Customer Master entry.
 _Avoid_: Anonymous customer, guest customer.
 
 ### Products
@@ -97,7 +97,7 @@ A cashier-entered rupee amount that reduces the Sale total on Cash and Credit Sa
 _Avoid_: Less (on Sale), Settlement Discount (on Sale), face value (for Sale Discount), rebate %.
 
 **Draft**:
-An unfinished Sale or Purchase the cashier has explicitly parked mid-entry so they can leave the cart, do other work, and resume later. Only Sales and Purchases are draftable. Only an explicit Save creates a Draft; resuming a Draft replaces any open unfinished cart without saving it. Saving requires a counterparty — a Customer Master entry, or walk-in name and place where that Sale or Purchase allows walk-ins. A Draft does not affect Inventory, does not receive a transaction ID, and is discarded at Rollover. Clearing a Draft is free deletion, not a Void.
+An unfinished Sale or Purchase the cashier has explicitly parked mid-entry so they can leave the cart, do other work, and resume later. Only Sales and Purchases are draftable. Only an explicit Save creates a Draft; resuming a Draft replaces any open unfinished cart without saving it. Saving requires a counterparty — a Customer Master entry, or Walk-in mode where that Sale or Purchase allows walk-ins (walk-in name and place are optional; blank fields store as **"Walk in"**). A Draft does not affect Inventory, does not receive a transaction ID, and is discarded at Rollover. Clearing a Draft is free deletion, not a Void.
 _Avoid_: held cart, parked bill, incomplete transaction, temporary sale.
 
 **Sale Invoice**:

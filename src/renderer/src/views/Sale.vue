@@ -59,7 +59,7 @@ import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
 import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
-import type { CreateSaleInput, SaleMode, Txn } from '@domain/transaction'
+import { normalizeWalkin, type CreateSaleInput, type SaleMode, type Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
 
 const route = useRoute()
@@ -259,11 +259,11 @@ function buildInput(m: SaleMode): CreateSaleInput {
     customerId: counterpartyMode.value === 'customer' ? customerId.value : null,
     walkin:
       counterpartyMode.value === 'walkin'
-        ? {
-            name: walkinName.value.trim(),
-            place: walkinPlace.value.trim(),
+        ? normalizeWalkin({
+            name: walkinName.value,
+            place: walkinPlace.value,
             phone: walkinPhone.value.trim() || null
-          }
+          })
         : null,
     lines: lines.value
       .filter((l) => l.productId != null)
@@ -402,13 +402,6 @@ function finish(): void {
     customerHasPhone: !!selectedCustomer.value?.phone,
     isWalkin: counterpartyMode.value === 'walkin'
   })
-  if (
-    counterpartyMode.value === 'walkin' &&
-    (!walkinName.value.trim() || !walkinPlace.value.trim())
-  ) {
-    error.value = 'Walk-in Sales need a name and place'
-    return
-  }
   if (reason) {
     error.value = reason
     return
@@ -582,7 +575,7 @@ watch(
               {{
                 isCredit
                   ? 'Credit Sales need a Customer Master entry with a phone number.'
-                  : 'A Customer Master entry, or a walk-in captured on the Sale itself.'
+                  : 'A Customer Master entry, or a walk-in (name and place optional).'
               }}
             </CardDescription>
           </CardHeader>
@@ -597,7 +590,7 @@ watch(
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="customer">Customer Master</SelectItem>
-                    <SelectItem value="walkin">Walk-in</SelectItem>
+                    <SelectItem value="walkin">Walk in</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -616,7 +609,7 @@ watch(
                   <Label>Name</Label>
                   <Input
                     v-model="walkinName"
-                    placeholder="Name"
+                    placeholder="Optional"
                     autofocus
                     data-testid="sale-walkin-name"
                   />
@@ -625,7 +618,7 @@ watch(
                   <Label>Place</Label>
                   <Input
                     v-model="walkinPlace"
-                    placeholder="Place"
+                    placeholder="Optional"
                     data-testid="sale-walkin-place"
                   />
                 </div>

@@ -1,6 +1,7 @@
 import type { Database } from 'better-sqlite3'
 import {
   draftCapExceededMessage,
+  normalizeDraftWalkinFields,
   validatePurchaseDraftCounterparty,
   validateSaleDraftCounterparty,
   type Draft,
@@ -12,6 +13,7 @@ import {
   type SavePurchaseDraftInput,
   type SaveSaleDraftInput
 } from '../../domain/draft'
+import { WALKIN_PLACEHOLDER } from '../../domain/transaction'
 import { DEFAULT_SETTINGS } from '../../domain/settings'
 import type { SettingsRepo } from './settings-repo'
 
@@ -63,13 +65,13 @@ export class DraftRepo {
   saveSale(input: SaveSaleDraftInput): Draft {
     const reason = validateSaleDraftCounterparty(input.payload)
     if (reason) throw new Error(reason)
-    return this.save('SA', input.id ?? null, input.payload)
+    return this.save('SA', input.id ?? null, normalizeDraftWalkinFields(input.payload))
   }
 
   savePurchase(input: SavePurchaseDraftInput): Draft {
     const reason = validatePurchaseDraftCounterparty(input.payload)
     if (reason) throw new Error(reason)
-    return this.save('PU', input.id ?? null, input.payload)
+    return this.save('PU', input.id ?? null, normalizeDraftWalkinFields(input.payload))
   }
 
   clear(id: number): void {
@@ -144,9 +146,10 @@ export class DraftRepo {
         labelTe: c?.name_te?.trim() || null
       }
     }
-    const name = payload.walkinName.trim()
+    const name = payload.walkinName.trim() || WALKIN_PLACEHOLDER
     const place = payload.walkinPlace.trim()
-    const label = name && place ? `${name} (${place})` : name || place || '—'
+    // Omit placeholder place so blank walk-ins list as "Walk in", not "Walk in (Walk in)".
+    const label = place && place !== WALKIN_PLACEHOLDER ? `${name} (${place})` : name
     return { label, labelTe: null }
   }
 

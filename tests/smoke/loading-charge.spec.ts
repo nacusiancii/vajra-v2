@@ -82,7 +82,7 @@ async function startWalkinSale(page: Page, name: string, place: string): Promise
   // Customer mode auto-opens its picker; dismiss before switching to walk-in.
   await dismissAutoPicker(page)
   await page.getByTestId('sale-counterparty-mode').click()
-  await page.getByRole('option', { name: 'Walk-in' }).click()
+  await page.getByRole('option', { name: 'Walk in' }).click()
   await page.getByTestId('sale-walkin-name').fill(name)
   await page.getByTestId('sale-walkin-place').fill(place)
 }

@@ -1,11 +1,13 @@
 import { describe, it, expect } from 'vitest'
 import {
   draftCapExceededMessage,
+  normalizeDraftWalkinFields,
   validatePurchaseDraftCounterparty,
   validateSaleDraftCounterparty,
   type PurchaseDraftPayload,
   type SaleDraftPayload
 } from '@domain/draft'
+import { WALKIN_PLACEHOLDER } from '@domain/transaction'
 
 function salePayload(over: Partial<SaleDraftPayload> = {}): SaleDraftPayload {
   return {
@@ -64,17 +66,17 @@ describe('validateSaleDraftCounterparty', () => {
     ).toBeNull()
   })
 
-  it('blocks walk-in missing place', () => {
+  it('allows walk-in with blank name and place (placeholder filled on save)', () => {
     expect(
       validateSaleDraftCounterparty(
         salePayload({
           counterpartyMode: 'walkin',
           customerId: null,
-          walkinName: 'Ravi',
+          walkinName: '',
           walkinPlace: '  '
         })
       )
-    ).toMatch(/walk-in name and place/i)
+    ).toBeNull()
   })
 
   it('blocks credit Sale without Customer Master', () => {
@@ -132,17 +134,50 @@ describe('validatePurchaseDraftCounterparty', () => {
     ).toBeNull()
   })
 
-  it('blocks walk-in missing place', () => {
+  it('allows walk-in with blank name and place on Purchase', () => {
     expect(
       validatePurchaseDraftCounterparty(
         purchasePayload({
           counterpartyMode: 'walkin',
           customerId: null,
-          walkinName: 'Supplier Co',
+          walkinName: '',
           walkinPlace: ''
         })
       )
-    ).toMatch(/walk-in name and place/i)
+    ).toBeNull()
+  })
+})
+
+describe('normalizeDraftWalkinFields', () => {
+  it('fills blank walk-in name and place with the placeholder', () => {
+    const out = normalizeDraftWalkinFields(
+      salePayload({
+        counterpartyMode: 'walkin',
+        customerId: null,
+        walkinName: '  ',
+        walkinPlace: ''
+      })
+    )
+    expect(out.walkinName).toBe(WALKIN_PLACEHOLDER)
+    expect(out.walkinPlace).toBe(WALKIN_PLACEHOLDER)
+  })
+
+  it('preserves typed walk-in values', () => {
+    const out = normalizeDraftWalkinFields(
+      salePayload({
+        counterpartyMode: 'walkin',
+        customerId: null,
+        walkinName: ' Ravi ',
+        walkinPlace: 'Guntur'
+      })
+    )
+    expect(out.walkinName).toBe('Ravi')
+    expect(out.walkinPlace).toBe('Guntur')
+  })
+
+  it('leaves customer-mode payloads unchanged', () => {
+    const inPayload = salePayload({ walkinName: '', walkinPlace: '' })
+    expect(normalizeDraftWalkinFields(inPayload)).toEqual(inPayload)
   })
 })
 

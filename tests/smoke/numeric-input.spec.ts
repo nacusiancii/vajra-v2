@@ -30,7 +30,7 @@ async function openCashSaleCart(page: Page): Promise<void> {
   await page.keyboard.press('Enter')
   await dismissAutoPicker(page)
   await page.getByTestId('sale-counterparty-mode').click()
-  await page.getByRole('option', { name: 'Walk-in' }).click()
+  await page.getByRole('option', { name: 'Walk in' }).click()
   await page.getByTestId('sale-walkin-name').fill('Counter')
   await page.getByTestId('sale-walkin-place').fill('Guntur')
   await page.getByTestId('cart-add-line').click()

@@ -41,7 +41,7 @@ import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
 import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
-import type { CreatePurchaseInput, SaleMode } from '@domain/transaction'
+import { normalizeWalkin, type CreatePurchaseInput, type SaleMode } from '@domain/transaction'
 
 const route = useRoute()
 const router = useRouter()
@@ -146,11 +146,11 @@ function buildInput(m: SaleMode): CreatePurchaseInput {
     customerId: counterpartyMode.value === 'customer' ? customerId.value : null,
     walkin:
       counterpartyMode.value === 'walkin'
-        ? {
-            name: walkinName.value.trim(),
-            place: walkinPlace.value.trim(),
+        ? normalizeWalkin({
+            name: walkinName.value,
+            place: walkinPlace.value,
             phone: walkinPhone.value.trim() || null
-          }
+          })
         : null,
     lines: lines.value
       .filter((l) => l.productId != null)
@@ -274,10 +274,6 @@ function finish(): void {
   if (!m) return
   error.value = null
   const input = buildInput(m)
-  if (counterpartyMode.value === 'walkin' && !walkinName.value.trim()) {
-    error.value = 'Walk-in Purchases need a supplier name'
-    return
-  }
   const reason = validatePurchase(input.lines, productLookup.value)
   if (reason) {
     error.value = reason
@@ -448,7 +444,7 @@ watch(
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="customer">Customer Master</SelectItem>
-                    <SelectItem value="walkin">Walk-in</SelectItem>
+                    <SelectItem value="walkin">Walk in</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
@@ -467,7 +463,7 @@ watch(
                   <Label>Name</Label>
                   <Input
                     v-model="walkinName"
-                    placeholder="Supplier name"
+                    placeholder="Optional"
                     autofocus
                     data-testid="purchase-walkin-name"
                   />

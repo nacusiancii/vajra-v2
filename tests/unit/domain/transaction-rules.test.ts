@@ -311,6 +311,26 @@ describe('SaleWriteSchema (goods write boundary — integer paise)', () => {
     expect(SaleWriteSchema.safeParse(validSale).success).toBe(true)
   })
 
+  it('fills blank walk-in name and place with "Walk in"', () => {
+    const result = SaleWriteSchema.safeParse({
+      ...validSale,
+      walkin: { name: '  ', place: '', phone: null }
+    })
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.walkin).toEqual({ name: 'Walk in', place: 'Walk in', phone: null })
+  })
+
+  it('preserves typed walk-in values and trims phone', () => {
+    const result = SaleWriteSchema.safeParse({
+      ...validSale,
+      walkin: { name: ' Ravi ', place: 'Guntur', phone: ' 987 ' }
+    })
+    expect(result.success).toBe(true)
+    if (!result.success) return
+    expect(result.data.walkin).toEqual({ name: 'Ravi', place: 'Guntur', phone: '987' })
+  })
+
   it('rejects float paise loading charge', () => {
     const result = SaleWriteSchema.safeParse({
       ...validSale,
