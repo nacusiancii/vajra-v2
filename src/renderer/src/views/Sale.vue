@@ -97,7 +97,9 @@ const activeDraftId = ref<number | null>(null)
 /** Id already applied into the cart — prevents query re-fires from wiping dirty edits. */
 const draftHydratedId = ref<number | null>(null)
 
-const counterpartyMode = ref<'customer' | 'walkin'>('customer')
+// Cash Sale opens with Walk-in selected by default (CONTEXT.md Walk-in Customer).
+// Credit snaps to Customer Master via the mode watch below.
+const counterpartyMode = ref<'customer' | 'walkin'>('walkin')
 const customerId = ref<number | null>(null)
 const walkinName = ref('')
 const walkinPlace = ref('')
@@ -147,11 +149,29 @@ const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_
 
 const isCredit = computed(() => mode.value === 'credit')
 
-// Credit Sales reject walk-ins — flipping to credit snaps the counterparty back to
-// the Customer Master; the walk-in fields keep their values in case the cashier flips back.
-watch(mode, (m) => {
-  if (m === 'credit' && counterpartyMode.value === 'walkin') counterpartyMode.value = 'customer'
-})
+/**
+ * Choose Cash or Credit (mid-cart toggle; Home pre-sets via query `mode`).
+ * Cash → Walk-in by default when no Customer Master entry is selected.
+ * Credit → always Customer Master (walk-in fields keep values if the cashier flips back).
+ */
+function setSaleMode(m: SaleMode): void {
+  mode.value = m
+  if (m === 'credit') {
+    counterpartyMode.value = 'customer'
+  } else if (customerId.value == null) {
+    counterpartyMode.value = 'walkin'
+  }
+}
+
+// Credit from Home (`?mode=credit`) or any path that assigns mode without setSaleMode —
+// never leave walk-in selected on Credit (walk-in fields keep values if cashier flips back).
+watch(
+  mode,
+  (m) => {
+    if (m === 'credit' && counterpartyMode.value === 'walkin') counterpartyMode.value = 'customer'
+  },
+  { immediate: true }
+)
 
 const shellTint = computed(() => {
   if (mode.value === 'cash') return 'bg-emerald-50/60 dark:bg-emerald-950/20'
@@ -604,7 +624,7 @@ watch(
             type="button"
             :class="segmentClass('cash')"
             data-testid="sale-mode-cash"
-            @click="mode = 'cash'"
+            @click="setSaleMode('cash')"
           >
             <Banknote class="size-4" />
             Cash
@@ -613,7 +633,7 @@ watch(
             type="button"
             :class="segmentClass('credit')"
             data-testid="sale-mode-credit"
-            @click="mode = 'credit'"
+            @click="setSaleMode('credit')"
           >
             <FileSignature class="size-4" />
             Credit

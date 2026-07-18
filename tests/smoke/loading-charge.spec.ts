@@ -75,12 +75,9 @@ async function purchaseBulk(
 }
 
 async function startWalkinSale(page: Page, name: string, place: string): Promise<void> {
-  // Cash Sale from Home — walk-in is only available on Cash Sales.
+  // Cash Sale from Home — walk-in is only available on Cash Sales; defaults to Walk-in.
   await page.getByTestId('open-cash-sale').click()
-  // Customer mode auto-opens its picker; dismiss before switching to walk-in.
-  await dismissAutoPicker(page)
-  await page.getByTestId('sale-counterparty-mode').click()
-  await page.getByRole('option', { name: 'Walk in' }).click()
+  await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')
   await page.getByTestId('sale-walkin-name').fill(name)
   await page.getByTestId('sale-walkin-place').fill(place)
 }
