@@ -2,9 +2,9 @@ import { test, expect } from './fixtures'
 
 /**
  * A Credit Sale can't finish until a voucher is printed at the current price for the
- * customer to sign. Each print mints a fresh Voucher Number; the Sale records the one
- * printed at the final price. The voucher is two-sided: front carries shop identity +
- * signature; back lists chosen products as qty × ratio × price.
+ * customer to sign. The voucher and Sale Invoice share one transaction ID (ADR-0009).
+ * The voucher is two-sided: front carries shop identity + signature; back lists chosen
+ * products as qty × ratio × price.
  */
 
 test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
@@ -61,10 +61,11 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('voucher-gate')).toBeVisible()
 
-  // Print mints Voucher #1 and shows the two-sided preview.
+  // Print reserves Credit Sale sequence 1 and shows the two-sided preview with that ID.
   await page.getByTestId('voucher-gate-print').click()
   await expect(page.getByTestId('voucher-preview')).toBeVisible()
-  await expect(page.getByTestId('voucher-number')).toHaveText('1')
+  await expect(page.getByTestId('voucher-number')).toHaveText(/^SA-R-1-\d{8}$/)
+  const voucherId = await page.getByTestId('voucher-number').innerText()
 
   // Front: company, date, place, mobile, customer, amount.
   await expect(page.getByTestId('voucher-front')).toBeVisible()
@@ -85,10 +86,11 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
 
   await page.getByTestId('voucher-preview-done').click()
 
-  // Now the Sale finishes and shows its invoice.
+  // Now the Sale finishes and shows its invoice — same transaction ID as the voucher.
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('slip-preview')).toBeVisible()
-  await expect(page.getByTestId('sale-number')).toHaveText('1')
+  await expect(page.getByTestId('sale-number')).toHaveText(voucherId)
+  await expect(page.getByTestId('slip-voucher-id')).toHaveText(voucherId)
   await page.getByTestId('slip-done').click()
 
   // Done returns Home; open ledger for the one credit Sale.

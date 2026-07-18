@@ -8,6 +8,7 @@ import {
   type CreateSaleInput,
   type CreateStockTransferInput,
   type SaleLineInput,
+  type SaleMode,
   type Txn,
   type TxnLine,
   type TxnType
@@ -27,7 +28,7 @@ interface TxnRow {
   id: string
   type: TxnType
   seq: number
-  voucher_seq: number | null
+  rev: number
   sale_mode: 'cash' | 'credit' | null
   customer_id: number | null
   customer_name: string | null
@@ -129,7 +130,7 @@ export class TransactionRepo {
 
   // ── Creates ──────────────────────────────────────────────────────────────────
 
-  createSale(input: CreateSaleInput): Txn {
+  createSale(input: CreateSaleInput, inherit?: { seq: number; rev: number }): Txn {
     const parsed = SaleWriteSchema.parse(input)
     const products = this.productMeta()
     const productLookup = this.toLineProductLookup(products)
@@ -164,41 +165,48 @@ export class TransactionRepo {
         ? { cashIn: parsed.cashCollected, upiIn: parsed.upiCollected, cashOut: 0, upiOut: 0 }
         : ZERO_DRAWER
 
-    return this.insert('SA', resolved, {
-      saleMode: parsed.mode,
-      customerId: parsed.customerId,
-      walkin: parsed.walkin,
-      additionalCharges: parsed.additionalCharges,
-      loadingCharges,
-      loadingApplied,
-      total,
-      creditAmount: parsed.mode === 'credit' ? total : 0,
-      discountAmount,
-      drawer,
-      voucherSeq: parsed.mode === 'credit' ? parsed.voucherSeq : null,
-      remarks: parsed.remarks
-    })
+    return this.insert(
+      'SA',
+      resolved,
+      {
+        saleMode: parsed.mode,
+        customerId: parsed.customerId,
+        walkin: parsed.walkin,
+        additionalCharges: parsed.additionalCharges,
+        loadingCharges,
+        loadingApplied,
+        total,
+        creditAmount: parsed.mode === 'credit' ? total : 0,
+        discountAmount,
+        drawer,
+        // Credit voucher print pre-reserves the same sequence the invoice will use (ADR-0009).
+        reservedSeq: parsed.mode === 'credit' ? parsed.reservedSeq : null,
+        remarks: parsed.remarks
+      },
+      inherit
+    )
   }
 
   /**
-   * Mint the next Credit Voucher number for the open day. Called once per voucher print,
-   * so reprints burn the previous number (the day's voucher_counter only ever advances).
+   * Reserve the next Credit Sale sequence for a voucher print before finish.
+   * Invoice and voucher share this sequence as one transaction ID (ADR-0009).
+   * Reprints at the same cart should reuse the returned seq (caller responsibility).
    */
-  reserveVoucherSeq(): number {
+  reserveCreditSaleSeq(): number {
     const dayId = this.currentDayId()
     const reserve = this.db.transaction(() => {
+      const seq = this.nextSeq('SA', 'credit')
       this.db
-        .prepare(`UPDATE business_day SET voucher_counter = voucher_counter + 1 WHERE id = ?`)
-        .run(dayId)
-      const row = this.db
-        .prepare(`SELECT voucher_counter AS n FROM business_day WHERE id = ?`)
-        .get(dayId) as { n: number }
-      return row.n
+        .prepare(
+          `UPDATE business_day SET credit_sale_reserved = MAX(credit_sale_reserved, ?) WHERE id = ?`
+        )
+        .run(seq, dayId)
+      return seq
     })
     return reserve()
   }
 
-  createPurchase(input: CreatePurchaseInput): Txn {
+  createPurchase(input: CreatePurchaseInput, inherit?: { seq: number; rev: number }): Txn {
     const parsed = PurchaseWriteSchema.parse(input)
     const products = this.productMeta()
     const productLookup = this.toLineProductLookup(products)
@@ -215,34 +223,48 @@ export class TransactionRepo {
       parsed.mode === 'cash'
         ? { cashIn: 0, upiIn: 0, cashOut: parsed.cashCollected, upiOut: parsed.upiCollected }
         : ZERO_DRAWER
-    return this.insert('PU', resolved, {
-      saleMode: parsed.mode,
-      customerId: parsed.customerId,
-      walkin: parsed.walkin,
-      additionalCharges: parsed.additionalCharges,
-      total,
-      creditAmount: parsed.mode === 'credit' ? total : 0,
-      drawer,
-      remarks: parsed.remarks
-    })
+    return this.insert(
+      'PU',
+      resolved,
+      {
+        saleMode: parsed.mode,
+        customerId: parsed.customerId,
+        walkin: parsed.walkin,
+        additionalCharges: parsed.additionalCharges,
+        total,
+        creditAmount: parsed.mode === 'credit' ? total : 0,
+        drawer,
+        remarks: parsed.remarks
+      },
+      inherit
+    )
   }
 
-  createStockTransfer(input: CreateStockTransferInput): Txn {
+  createStockTransfer(
+    input: CreateStockTransferInput,
+    inherit?: { seq: number; rev: number }
+  ): Txn {
     const products = this.productMeta()
     const resolved: ResolvedLine[] = [
       ...input.source.map((leg) => this.resolveTransferLeg(leg, products, 'source', -1)),
       ...input.target.map((leg) => this.resolveTransferLeg(leg, products, 'target', 1))
     ]
-    return this.insert('ST', resolved, {
-      total: 0,
-      drawer: ZERO_DRAWER,
-      remarks: input.remarks
-    })
+    return this.insert(
+      'ST',
+      resolved,
+      {
+        total: 0,
+        drawer: ZERO_DRAWER,
+        remarks: input.remarks
+      },
+      inherit
+    )
   }
 
   createMoneyTxn(
     type: Extract<TxnType, 'RE' | 'PA' | 'EX' | 'IN'>,
-    input: CreateMoneyTxnInput
+    input: CreateMoneyTxnInput,
+    inherit?: { seq: number; rev: number }
   ): Txn {
     const parsed = MoneyTxnSchema.parse(input)
     if ((type === 'EX' || type === 'IN') && parsed.discountAmount > 0) {
@@ -255,28 +277,33 @@ export class TransactionRepo {
       cashOut: moneyIn ? 0 : parsed.cashCollected,
       upiOut: moneyIn ? 0 : parsed.upiCollected
     }
-    return this.insert(type, [], {
-      customerId: parsed.customerId,
-      label: parsed.label,
-      total: moneyRealized(parsed.cashCollected, parsed.upiCollected),
-      discountAmount: type === 'RE' || type === 'PA' ? parsed.discountAmount : 0,
-      drawer,
-      remarks: parsed.remarks
-    })
+    return this.insert(
+      type,
+      [],
+      {
+        customerId: parsed.customerId,
+        label: parsed.label,
+        total: moneyRealized(parsed.cashCollected, parsed.upiCollected),
+        discountAmount: type === 'RE' || type === 'PA' ? parsed.discountAmount : 0,
+        drawer,
+        remarks: parsed.remarks
+      },
+      inherit
+    )
   }
 
   // ── Edit = void + successor (ADR-0007) ─────────────────────────────────────
 
   editSale(id: string, input: CreateSaleInput): Txn {
-    return this.replace(id, 'SA', () => this.createSale(input))
+    return this.replace(id, 'SA', (inherit) => this.createSaleWithInherit(input, inherit))
   }
 
   editPurchase(id: string, input: CreatePurchaseInput): Txn {
-    return this.replace(id, 'PU', () => this.createPurchase(input))
+    return this.replace(id, 'PU', (inherit) => this.createPurchaseWithInherit(input, inherit))
   }
 
   editStockTransfer(id: string, input: CreateStockTransferInput): Txn {
-    return this.replace(id, 'ST', () => this.createStockTransfer(input))
+    return this.replace(id, 'ST', (inherit) => this.createStockTransferWithInherit(input, inherit))
   }
 
   editMoneyTxn(
@@ -284,25 +311,65 @@ export class TransactionRepo {
     type: Extract<TxnType, 'RE' | 'PA' | 'EX' | 'IN'>,
     input: CreateMoneyTxnInput
   ): Txn {
-    return this.replace(id, type, () => this.createMoneyTxn(type, input))
+    return this.replace(id, type, (inherit) => this.createMoneyTxnWithInherit(type, input, inherit))
   }
 
   // ── Internals ──────────────────────────────────────────────────────────────
 
-  private replace(id: string, type: TxnType, create: () => Txn): Txn {
+  /** Base sequence + next revision carried from a voided original into its successor. */
+  private inheritFrom(original: Txn): { seq: number; rev: number } {
+    return { seq: original.seq, rev: original.rev + 1 }
+  }
+
+  private replace(
+    id: string,
+    type: TxnType,
+    create: (inherit: { seq: number; rev: number }) => Txn
+  ): Txn {
     const original = this.getById(id)
     if (!original) throw new Error(`Transaction ${id} not found`)
     if (original.type !== type) throw new Error(`Transaction ${id} is not a ${type}`)
     if (original.voided) throw new Error('Already-voided transactions cannot be edited (ADR-0007)')
 
     const tx = this.db.transaction(() => {
-      const successor = create()
+      const successor = create(this.inheritFrom(original))
       this.db
         .prepare(`UPDATE txn SET voided = 1, successor_id = ? WHERE id = ?`)
         .run(successor.id, id)
       return successor
     })
     return tx()
+  }
+
+  /** Edit path: createSale while forcing seq/rev from the voided original (ADR-0009). */
+  private createSaleWithInherit(
+    input: CreateSaleInput,
+    inherit: { seq: number; rev: number }
+  ): Txn {
+    // reservedSeq is irrelevant on Edit — chain keeps the original base sequence.
+    return this.createSale({ ...input, reservedSeq: null }, inherit)
+  }
+
+  private createPurchaseWithInherit(
+    input: CreatePurchaseInput,
+    inherit: { seq: number; rev: number }
+  ): Txn {
+    return this.createPurchase(input, inherit)
+  }
+
+  private createStockTransferWithInherit(
+    input: CreateStockTransferInput,
+    inherit: { seq: number; rev: number }
+  ): Txn {
+    return this.createStockTransfer(input, inherit)
+  }
+
+  private createMoneyTxnWithInherit(
+    type: Extract<TxnType, 'RE' | 'PA' | 'EX' | 'IN'>,
+    input: CreateMoneyTxnInput,
+    inherit: { seq: number; rev: number }
+  ): Txn {
+    return this.createMoneyTxn(type, input, inherit)
   }
 
   private insert(
@@ -321,18 +388,32 @@ export class TransactionRepo {
       creditAmount?: number
       discountAmount?: number
       drawer: DrawerColumns
-      voucherSeq?: number | null
+      /** Pre-reserved seq (Credit Sale voucher print); ignored when inherit is set. */
+      reservedSeq?: number | null
       remarks: string | null
-    }
+    },
+    inherit?: { seq: number; rev: number }
   ): Txn {
     const day = this.currentDay()
     const tx = this.db.transaction(() => {
-      const seq = this.nextSeq(type)
-      const id = formatTxnId(type, seq, day.startDate)
+      const saleMode = fields.saleMode ?? null
+      const seq =
+        inherit?.seq ??
+        (fields.reservedSeq != null && saleMode === 'credit' && type === 'SA'
+          ? fields.reservedSeq
+          : this.nextSeq(type, saleMode))
+      const rev = inherit?.rev ?? 0
+      const id = formatTxnId({
+        type,
+        mode: saleMode,
+        seq,
+        rev,
+        startDate: day.startDate
+      })
       this.db
         .prepare(
           `INSERT INTO txn (
-             id, business_day_id, type, seq, voucher_seq, sale_mode, customer_id,
+             id, business_day_id, type, seq, rev, sale_mode, customer_id,
              walkin_name, walkin_place, walkin_phone, label,
              cash_in, upi_in, cash_out, upi_out,
              additional_charges, loading_charges, loading_applied,
@@ -344,8 +425,8 @@ export class TransactionRepo {
           day.id,
           type,
           seq,
-          fields.voucherSeq ?? null,
-          fields.saleMode ?? null,
+          rev,
+          saleMode,
           fields.customerId ?? null,
           fields.walkin?.name ?? null,
           fields.walkin?.place ?? null,
@@ -488,12 +569,39 @@ export class TransactionRepo {
     return this.currentDay().id
   }
 
-  private nextSeq(type: TxnType): number {
+  /**
+   * Next base sequence for this type (and Cash/Credit mode for SA/PU).
+   * Edit revisions do not consume a new sequence. Credit Sale reservations bump
+   * `credit_sale_reserved` so a printed voucher holds a gap until finish (or abandon).
+   */
+  private nextSeq(type: TxnType, saleMode: SaleMode | null): number {
     const dayId = this.currentDayId()
-    const row = this.db
-      .prepare(`SELECT COALESCE(MAX(seq), 0) AS m FROM txn WHERE business_day_id = ? AND type = ?`)
-      .get(dayId, type) as { m: number }
-    return row.m + 1
+    let fromTxn: number
+    if ((type === 'SA' || type === 'PU') && saleMode != null) {
+      const row = this.db
+        .prepare(
+          `SELECT COALESCE(MAX(seq), 0) AS m FROM txn
+           WHERE business_day_id = ? AND type = ? AND sale_mode = ?`
+        )
+        .get(dayId, type, saleMode) as { m: number }
+      fromTxn = row.m
+    } else {
+      const row = this.db
+        .prepare(
+          `SELECT COALESCE(MAX(seq), 0) AS m FROM txn WHERE business_day_id = ? AND type = ?`
+        )
+        .get(dayId, type) as { m: number }
+      fromTxn = row.m
+    }
+
+    let floor = fromTxn
+    if (type === 'SA' && saleMode === 'credit') {
+      const day = this.db
+        .prepare(`SELECT credit_sale_reserved AS n FROM business_day WHERE id = ?`)
+        .get(dayId) as { n: number }
+      floor = Math.max(floor, day.n)
+    }
+    return floor + 1
   }
 
   private hydrate(row: TxnRow): Txn {
@@ -521,7 +629,7 @@ export class TransactionRepo {
       id: row.id,
       type: row.type,
       seq: row.seq,
-      voucherSeq: row.voucher_seq,
+      rev: row.rev ?? 0,
       saleMode: row.sale_mode,
       customerId: row.customer_id,
       customerName: row.customer_name,

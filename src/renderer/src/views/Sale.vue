@@ -60,7 +60,13 @@ import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
 import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
-import { normalizeWalkin, type CreateSaleInput, type SaleMode, type Txn } from '@domain/transaction'
+import {
+  formatTxnId,
+  normalizeWalkin,
+  type CreateSaleInput,
+  type SaleMode,
+  type Txn
+} from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
 
 const route = useRoute()
@@ -118,8 +124,11 @@ watch(customerId, (id) => {
 
 // Credit Voucher: the customer signs a voucher printed at the current price before
 // the Sale can finish. We track the total it was last printed at to catch price drift.
+// The reserved sequence becomes the Sale's transaction ID (invoice + voucher share it).
 const printedAtTotal = ref<number | null>(null)
-const printedVoucherSeq = ref<number | null>(null)
+const reservedCreditSeq = ref<number | null>(null)
+/** Full transaction ID shown on the voucher (pre-finish reserved, or edit successor). */
+const voucherTransactionId = ref<string | null>(null)
 const voucherOpen = ref(false)
 const printGateOpen = ref(false)
 
@@ -278,11 +287,45 @@ const voucherLines = computed<VoucherLine[]>(() =>
 )
 
 /**
- * "Print" the voucher at the current price so the customer can sign it. Each print mints
- * a fresh Voucher Number — a reprint after a price change burns the previous one.
+ * "Print" the voucher at the current price so the customer can sign it.
+ * First print reserves the Credit Sale sequence (shared with the invoice ID).
+ * Reprints keep the same reserved sequence — price drift does not burn a new serial.
  */
 async function printVoucher(): Promise<void> {
-  printedVoucherSeq.value = await window.api.reserveVoucherSeq()
+  const day = businessDay.value
+  if (!day) {
+    error.value = 'No open Business Day'
+    return
+  }
+
+  if (editId.value) {
+    // Edit successor: same base seq, next rev — known before finish (ADR-0009).
+    const original = await window.api.getTransaction(editId.value)
+    if (!original || original.type !== 'SA') {
+      error.value = 'Sale not found'
+      return
+    }
+    reservedCreditSeq.value = original.seq
+    voucherTransactionId.value = formatTxnId({
+      type: 'SA',
+      mode: 'credit',
+      seq: original.seq,
+      rev: original.rev + 1,
+      startDate: day.startDate
+    })
+  } else if (reservedCreditSeq.value == null) {
+    const seq = await window.api.reserveCreditSaleSeq()
+    reservedCreditSeq.value = seq
+    voucherTransactionId.value = formatTxnId({
+      type: 'SA',
+      mode: 'credit',
+      seq,
+      rev: 0,
+      startDate: day.startDate
+    })
+  }
+  // else: reprint keeps reservedCreditSeq + voucherTransactionId
+
   printedAtTotal.value = total.value
   printGateOpen.value = false
   voucherOpen.value = true
@@ -316,7 +359,7 @@ function buildInput(m: SaleMode): CreateSaleInput {
     discountAmount: discountAmount.value ?? 0,
     cashCollected: m === 'cash' ? cashDue.value : 0,
     upiCollected: m === 'cash' ? (upiCollected.value ?? 0) : 0,
-    voucherSeq: m === 'credit' ? printedVoucherSeq.value : null,
+    reservedSeq: m === 'credit' ? reservedCreditSeq.value : null,
     remarks: remarks.value.trim() || null
   }
 }
@@ -361,7 +404,8 @@ function applyDraftPayload(payload: SaleDraftPayload): void {
   remarks.value = payload.remarks
   // Voucher state is not parked — reprint on credit finish after resume.
   printedAtTotal.value = null
-  printedVoucherSeq.value = null
+  reservedCreditSeq.value = null
+  voucherTransactionId.value = null
 }
 
 function saveDraft(): void {
@@ -492,9 +536,10 @@ watch(
     // Rehydrate opt-in from the persisted flag — not from amount (₹0 free-band stays on).
     applyLoading.value = txn.loadingApplied
     upiCollected.value = txn.upiIn || null
-    // Keep the existing voucher valid at its recorded price; a price change forces a reprint.
-    printedVoucherSeq.value = txn.voucherSeq
-    printedAtTotal.value = txn.saleMode === 'credit' ? txn.total : null
+    // Edit starts with no signed voucher at the new successor ID — print (or re-print) required.
+    reservedCreditSeq.value = null
+    voucherTransactionId.value = null
+    printedAtTotal.value = null
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
@@ -866,7 +911,7 @@ watch(
       <!-- Voucher preview (front + back), printed at the current price for the customer to sign -->
       <CreditVoucherPreview
         :open="voucherOpen"
-        :voucher-seq="printedVoucherSeq"
+        :transaction-id="voucherTransactionId"
         :company-name="settings?.companyName ?? ''"
         :date="businessDay?.startDate ?? ''"
         :customer-name="selectedCustomerName"

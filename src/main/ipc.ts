@@ -51,7 +51,7 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.getTransaction, (_e, id) => transactions.getById(id) ?? null)
   ipcMain.handle(IPC.createSale, (_e, input) => transactions.createSale(input))
   ipcMain.handle(IPC.editSale, (_e, id, input) => transactions.editSale(id, input))
-  ipcMain.handle(IPC.reserveVoucherSeq, () => transactions.reserveVoucherSeq())
+  ipcMain.handle(IPC.reserveCreditSaleSeq, () => transactions.reserveCreditSaleSeq())
   ipcMain.handle(IPC.createPurchase, (_e, input) => transactions.createPurchase(input))
   ipcMain.handle(IPC.editPurchase, (_e, id, input) => transactions.editPurchase(id, input))
   ipcMain.handle(IPC.createStockTransfer, (_e, input) => transactions.createStockTransfer(input))

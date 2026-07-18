@@ -24,7 +24,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { useClearDraft, useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
 import { formatRupees } from '@/lib/format'
 import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
-import { TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
+import { displayTxnSerial, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
 import type { Draft } from '@domain/draft'
 
 const router = useRouter()
@@ -273,7 +273,7 @@ const managementLinks: HomeLink[] = [
             data-testid="home-txn-row"
           >
             <span class="flex min-w-0 flex-1 items-center gap-2">
-              <span class="tabular-nums text-muted-foreground">#{{ t.seq }}</span>
+              <span class="tabular-nums text-muted-foreground">#{{ displayTxnSerial(t) }}</span>
               <span class="font-medium">{{ TXN_TYPE_LABELS[t.type] }}</span>
               <Badge v-if="t.saleMode === 'credit'" variant="outline" class="text-xs">credit</Badge>
               <span class="truncate text-muted-foreground">{{ txnCounterparty(t) }}</span>
@@ -285,7 +285,7 @@ const managementLinks: HomeLink[] = [
                 size="icon"
                 type="button"
                 data-testid="txn-edit"
-                :aria-label="`Edit ${TXN_TYPE_LABELS[t.type]} #${t.seq}`"
+                :aria-label="`Edit ${TXN_TYPE_LABELS[t.type]} #${displayTxnSerial(t)}`"
                 @click="editTransaction(t)"
               >
                 <Pencil class="size-4" />

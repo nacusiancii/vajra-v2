@@ -10,7 +10,7 @@ let db: Database.Database | null = null
  * changes. During development (issue #75), older versions are wiped rather than
  * migrated — see openAtCurrentVersion.
  */
-const SCHEMA_VERSION = 3
+const SCHEMA_VERSION = 4
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
@@ -74,9 +74,9 @@ const SCHEMA = `
     status          TEXT    NOT NULL DEFAULT 'open' CHECK (status IN ('open', 'closed')),
     opened_at       TEXT    NOT NULL DEFAULT (datetime('now')),
     closed_at       TEXT,
-    -- Monotonic Credit Voucher counter for the day. Each print reserves a fresh number,
-    -- so reprints (e.g. after a price change) burn the old one and leave gaps.
-    voucher_counter INTEGER NOT NULL DEFAULT 0
+    -- High-water for Credit Sale sequences reserved at voucher print before finish (ADR-0009).
+    -- Invoice and voucher share the same transaction ID; this only holds pre-finish reservations.
+    credit_sale_reserved INTEGER NOT NULL DEFAULT 0
   );
 
   CREATE TABLE IF NOT EXISTS opening_stock (
@@ -91,8 +91,10 @@ const SCHEMA = `
     id                  TEXT    PRIMARY KEY,
     business_day_id     INTEGER NOT NULL REFERENCES business_day(id),
     type                TEXT    NOT NULL CHECK (type IN ('SA','PU','RE','PA','EX','IN','ST')),
+    -- Base day sequence for (type, sale_mode); Edit successors keep the same seq (ADR-0009).
     seq                 INTEGER NOT NULL,
-    voucher_seq         INTEGER,
+    -- Edit revision: 0 = first finish; 1+ = void-plus-successor chain (.1, .2 in the ID).
+    rev                 INTEGER NOT NULL DEFAULT 0,
     sale_mode           TEXT    CHECK (sale_mode IN ('cash','credit')),
     customer_id         INTEGER REFERENCES customer(id),
     walkin_name         TEXT,

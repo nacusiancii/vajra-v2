@@ -5,6 +5,7 @@
  */
 
 import {
+  displayTxnSerial,
   summariseDrawer,
   TXN_TYPE_LABELS,
   type BusinessDay,
@@ -55,7 +56,7 @@ export function buildEodReportHtml(
   const txnRows = live
     .map(
       (t) =>
-        `<tr><td>${t.seq}</td><td>${TXN_TYPE_LABELS[t.type]}</td><td>${counterparty(t)}</td>` +
+        `<tr><td>${esc(displayTxnSerial(t))}</td><td>${TXN_TYPE_LABELS[t.type]}</td><td>${counterparty(t)}</td>` +
         `<td class="num">${rupees(t.total)}</td><td class="num">${rupees(
           t.cashIn + t.upiIn - t.cashOut - t.upiOut
         )}</td></tr>`
@@ -75,7 +76,7 @@ export function buildEodReportHtml(
   const auditRows = voided
     .map(
       (t) =>
-        `<tr><td>${esc(t.id)}</td><td>${TXN_TYPE_LABELS[t.type]} #${t.seq}</td>` +
+        `<tr><td>${esc(t.id)}</td><td>${TXN_TYPE_LABELS[t.type]} #${esc(displayTxnSerial(t))}</td>` +
         `<td class="num">${rupees(t.total)}</td><td>${esc(t.successorId ?? '—')}</td></tr>`
     )
     .join('')

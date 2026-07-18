@@ -57,8 +57,12 @@ export interface TxnLine {
 export interface Txn {
   id: string
   type: TxnType
+  /** Per-day base sequence for (type, mode) — shared across edit revisions (ADR-0009). */
   seq: number
-  voucherSeq: number | null
+  /**
+   * Edit revision: 0 = first finish of this sequence; 1, 2, … = Edit successors (`.1`, `.2` in the ID).
+   */
+  rev: number
   saleMode: SaleMode | null
   customerId: number | null
   customerName: string | null
@@ -161,8 +165,11 @@ export interface CreateSaleInput {
   discountAmount: number
   cashCollected: number
   upiCollected: number
-  /** Credit Voucher number minted at print time (null for Cash Sales). */
-  voucherSeq: number | null
+  /**
+   * Pre-reserved base sequence from Credit Voucher print (same ID as the invoice will use).
+   * Null allocates a fresh sequence at write time. Ignored for Cash Sales.
+   */
+  reservedSeq: number | null
   remarks: string | null
 }
 
@@ -222,16 +229,55 @@ export function moneyDiscountPercent(cash: number, upi: number, discountAmount: 
 
 // ── ID + date helpers (ADR-0009) ─────────────────────────────────────────────
 
-/** 'YYYY-MM-DD' -> 'DDMMYYYY' for the internal id suffix. */
+/** 'YYYY-MM-DD' -> 'DDMMYYYY' for the id suffix. */
 export function dateToDDMMYYYY(isoDate: string): string {
   const [y, m, d] = isoDate.split('-')
   return `${d}${m}${y}`
 }
 
-/** Build the globally-unique internal id `TT-NNNN-DDMMYYYY`. Never shown to the cashier. */
-export function formatTxnId(type: TxnType, seq: number, startDate: string): string {
-  const nnnn = String(seq).padStart(4, '0')
-  return `${type}-${nnnn}-${dateToDDMMYYYY(startDate)}`
+/** Cash/Credit letter in the transaction ID (SA and PU only). */
+export function saleModeCode(mode: SaleMode): 'C' | 'R' {
+  return mode === 'cash' ? 'C' : 'R'
+}
+
+export interface FormatTxnIdArgs {
+  type: TxnType
+  /** Required for SA and PU; omitted for other types. */
+  mode?: SaleMode | null
+  seq: number
+  /** 0 or omit = first finish; 1, 2, … = Edit successors. */
+  rev?: number
+  /** Business Day start date YYYY-MM-DD. */
+  startDate: string
+}
+
+/**
+ * Build the transaction ID: `TT[-MODE]-SEQ[.REV]-DDMMYYYY`.
+ * One identifier for storage, UI, invoice, voucher, and successor pointers (ADR-0009).
+ */
+export function formatTxnId(args: FormatTxnIdArgs): string {
+  const { type, mode, seq, rev = 0, startDate } = args
+  const modePart = (type === 'SA' || type === 'PU') && mode != null ? `-${saleModeCode(mode)}` : ''
+  const seqPart = rev > 0 ? `${seq}.${rev}` : String(seq)
+  return `${type}${modePart}-${seqPart}-${dateToDDMMYYYY(startDate)}`
+}
+
+/**
+ * Compact day-local serial for lists: `C-20`, `C-20.1`, `R-3`, or `4` / `4.1` for types without mode.
+ * Derived only from stored fields — never a second source of truth.
+ */
+export function displayTxnSerial(
+  t: Pick<Txn, 'type' | 'seq' | 'rev' | 'saleMode'> | FormatTxnIdArgs
+): string {
+  const seq = t.seq
+  const rev = 'rev' in t && t.rev != null ? t.rev : 0
+  const seqPart = rev > 0 ? `${seq}.${rev}` : String(seq)
+  const mode = 'saleMode' in t ? t.saleMode : (t.mode ?? null)
+  const type = t.type
+  if ((type === 'SA' || type === 'PU') && mode != null) {
+    return `${saleModeCode(mode)}-${seqPart}`
+  }
+  return seqPart
 }
 
 // ── Stock delta + Inventory projection (ADR-0005) ────────────────────────────
