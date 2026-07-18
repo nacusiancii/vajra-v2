@@ -77,7 +77,7 @@ locally (4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
 - `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
 - `pnpm verify` / `pnpm verify:headless` — static then smoke
 - `pnpm fix` — lint:fix → format (no verify)
-- `pnpm agent:check:autofix` — flock-serialised lint:fix + format + typecheck (parallel grokflow agents; see `scripts/grokflows/`)
+- `pnpm agent:check:autofix` — flock-serialised lint:fix + format + typecheck (for parallel fleet agents)
 - `pnpm release:alpha` — maintainer: bump alpha, PR, tag, trigger Windows build
 ```
 

@@ -30,6 +30,15 @@ build/
 # Claude Code local-only settings (per-machine approvals etc.)
 .claude/settings.local.json
 
+# Grokflows — local fleet tooling + runtime artefacts (not tracked)
+scripts/grokflows/
+.pr-screenshots/
+.grok-brief.md
+.grok-fix-brief.md
+.grok-feedback.md
+.grok-review-*-brief.md
+.grok-run.jsonl
+
 # Test artifacts
 test-results/
 playwright-report/
