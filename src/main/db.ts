@@ -110,7 +110,8 @@ const SCHEMA = `
     loading_applied     INTEGER NOT NULL DEFAULT 0 CHECK (loading_applied IN (0, 1)),
     total               INTEGER NOT NULL DEFAULT 0,
     credit_amount       INTEGER NOT NULL DEFAULT 0,
-    -- Settlement write-off in paise for RE/PA; 0 for all other types.
+    -- SA: Sale Discount (rupee reduction of total). RE/PA: Settlement Discount write-off.
+    -- 0 for Purchase, Expense, Income, Stock Transfer.
     discount_amount     INTEGER NOT NULL DEFAULT 0,
     remarks             TEXT,
     voided              INTEGER NOT NULL DEFAULT 0,

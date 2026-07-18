@@ -81,8 +81,10 @@ export interface Txn {
   total: number
   creditAmount: number
   /**
-   * Settlement write-off in paise (RE/PA). Always 0 for other types.
-   * Face amount is derived: cash + UPI + discount; `total` stays realized (cash + UPI).
+   * On Sale (SA): cart-level **Discount** in paise — simple rupee reduction of the Sale total
+   * (not Settlement Discount; not face/realized). On Receipt/Payment (RE/PA): Settlement
+   * Discount write-off in paise; face is cash + UPI + discount and `total` stays realized.
+   * Always 0 for Purchase, Expense, Income, Stock Transfer.
    */
   discountAmount: number
   remarks: string | null
@@ -152,6 +154,11 @@ export interface CreateSaleInput {
    * Persisted so Edit rehydrates the toggle from the flag, not from the amount.
    */
   loadingApplied: boolean
+  /**
+   * Sale **Discount** in paise — optional rupee amount that reduces the Sale total
+   * (Cash and Credit). Not Settlement Discount; not a percent.
+   */
+  discountAmount: number
   cashCollected: number
   upiCollected: number
   /** Credit Voucher number minted at print time (null for Cash Sales). */

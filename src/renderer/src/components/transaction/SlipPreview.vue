@@ -97,6 +97,14 @@ const counterparty = computed(() => {
             <span>Additional</span
             ><span class="tabular-nums">{{ formatRupees(txn.additionalCharges) }}</span>
           </div>
+          <div
+            v-if="txn.discountAmount"
+            class="flex justify-between text-muted-foreground"
+            data-testid="slip-discount"
+          >
+            <span>Discount</span
+            ><span class="tabular-nums">−{{ formatRupees(txn.discountAmount) }}</span>
+          </div>
           <div class="flex justify-between font-semibold">
             <span>Total</span><span class="tabular-nums">{{ formatRupees(txn.total) }}</span>
           </div>

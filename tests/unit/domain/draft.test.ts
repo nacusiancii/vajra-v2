@@ -20,6 +20,7 @@ function salePayload(over: Partial<SaleDraftPayload> = {}): SaleDraftPayload {
     lines: [],
     applyLoading: false,
     additionalCharges: null,
+    discountAmount: null,
     upiCollected: null,
     remarks: '',
     ...over

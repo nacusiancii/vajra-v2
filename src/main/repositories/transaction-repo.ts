@@ -148,13 +148,17 @@ export class TransactionRepo {
     // validates shape only (integer paise ≥ 0 via SaleWriteSchema).
     const loadingCharges = parsed.loadingCharges
     const loadingApplied = parsed.loadingApplied
+    const discountAmount = parsed.discountAmount
 
     const resolved = parsed.lines.map((l) => this.resolveGoodsLine(l, products, -1))
-    const total = grandTotal(
-      resolved.map((r) => r.lineTotal),
-      loadingCharges,
-      parsed.additionalCharges
-    )
+    const lineTotals = resolved.map((r) => r.lineTotal)
+    const preDiscount = grandTotal(lineTotals, loadingCharges, parsed.additionalCharges, 0)
+    if (discountAmount > preDiscount) {
+      throw new Error('Discount cannot exceed the Sale total')
+    }
+    // Sale total is goods + Loading + Additional − Discount (CONTEXT.md). Credit Sales
+    // Total and cash due both use this reduced amount — no separate face/realized split.
+    const total = grandTotal(lineTotals, loadingCharges, parsed.additionalCharges, discountAmount)
     const drawer: DrawerColumns =
       parsed.mode === 'cash'
         ? { cashIn: parsed.cashCollected, upiIn: parsed.upiCollected, cashOut: 0, upiOut: 0 }
@@ -169,6 +173,7 @@ export class TransactionRepo {
       loadingApplied,
       total,
       creditAmount: parsed.mode === 'credit' ? total : 0,
+      discountAmount,
       drawer,
       voucherSeq: parsed.mode === 'credit' ? parsed.voucherSeq : null,
       remarks: parsed.remarks

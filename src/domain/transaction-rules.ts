@@ -66,9 +66,18 @@ export function lineTotal(args: {
   return bulkLineTotalPaise(massG, args.quintalRate ?? 0)
 }
 
-/** Grand total in paise = sum of line totals + opt-in Loading Charge + Additional Charges. */
-export function grandTotal(lineTotals: number[], loading: number, additional: number): number {
-  return lineTotals.reduce((a, b) => a + b, 0) + loading + additional
+/**
+ * Grand total in paise = goods lines + opt-in Loading Charge + Additional Charges − Discount.
+ * Discount is a simple rupee reduction of the Sale total (CONTEXT.md); default 0 for Purchases.
+ * Caller must ensure discount ≤ pre-discount subtotal so the result stays non-negative.
+ */
+export function grandTotal(
+  lineTotals: number[],
+  loading: number,
+  additional: number,
+  discount = 0
+): number {
+  return lineTotals.reduce((a, b) => a + b, 0) + loading + additional - discount
 }
 
 export interface LoadingLineInput {
@@ -248,6 +257,8 @@ export const SaleWriteSchema = z.object({
   additionalCharges: integerPaiseNonNeg,
   loadingCharges: integerPaiseNonNeg,
   loadingApplied: z.boolean(),
+  /** Sale Discount in paise — simple total reduction; not Settlement Discount. */
+  discountAmount: integerPaiseNonNeg,
   cashCollected: integerPaiseNonNeg,
   upiCollected: integerPaiseNonNeg,
   voucherSeq: z.number().int().nullable(),
