@@ -1,15 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import {
-  AlertTriangle,
-  Banknote,
-  FileSignature,
-  Printer,
-  Save,
-  ShoppingCart,
-  Trash2
-} from '@lucide/vue'
+import { AlertTriangle, Banknote, FileSignature, Save, ShoppingCart, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -22,14 +14,6 @@ import {
   CardTitle
 } from '@/components/ui/card'
 import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from '@/components/ui/dialog'
-import {
   Select,
   SelectContent,
   SelectItem,
@@ -38,11 +22,9 @@ import {
 } from '@/components/ui/select'
 import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
 import SlipPreview from '@/components/transaction/SlipPreview.vue'
+import CreditFinishPanel from '@/components/transaction/CreditFinishPanel.vue'
 import SettleReceiptStack from '@/components/transaction/SettleReceiptStack.vue'
 import { loadingChargeBuckets } from '@/components/transaction/loading-buckets'
-import CreditVoucherPreview, {
-  type VoucherLine
-} from '@/components/transaction/CreditVoucherPreview.vue'
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useProductsQuery } from '@/queries/products'
@@ -60,13 +42,7 @@ import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
 import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
-import {
-  formatTxnId,
-  normalizeWalkin,
-  type CreateSaleInput,
-  type SaleMode,
-  type Txn
-} from '@domain/transaction'
+import { normalizeWalkin, type CreateSaleInput, type SaleMode, type Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
 
 const route = useRoute()
@@ -121,27 +97,26 @@ const remarks = ref('')
 
 const error = ref<string | null>(null)
 const finished = ref<Txn | null>(null)
+/** Cash Sale Invoice slip after finish. */
 const slipOpen = ref(false)
+/** Credit Sale finish panel (invoice + voucher together). */
+const creditFinishOpen = ref(false)
 /**
- * Sale Invoice customer copy — on by default (business + customer = two printouts).
+ * Cash Sale Invoice customer copy — on by default (business + customer = two printouts).
  * Cashier may opt out during the Sale before finish (ADR-0008 / CONTEXT Sale Invoice).
  */
 const printCustomerCopy = ref(true)
+/**
+ * Credit finish panel: Print invoice (default on) and two copies (default off) — #132 design.
+ * Voucher always prints once with the same transaction ID as the invoice.
+ */
+const creditPrintInvoice = ref(true)
+const creditPrintTwoCopies = ref(false)
 
 // Customer picked on an empty cart → first goods line + product dropdown.
 watch(customerId, (id) => {
   if (id != null) goodsCart.value?.ensureLineAndFocusProduct()
 })
-
-// Credit Voucher: the customer signs a voucher printed at the current price before
-// the Sale can finish. We track the total it was last printed at to catch price drift.
-// The reserved sequence becomes the Sale's transaction ID (invoice + voucher share it).
-const printedAtTotal = ref<number | null>(null)
-const reservedCreditSeq = ref<number | null>(null)
-/** Full transaction ID shown on the voucher (pre-finish reserved, or edit successor). */
-const voucherTransactionId = ref<string | null>(null)
-const voucherOpen = ref(false)
-const printGateOpen = ref(false)
 
 const productList = computed(() => products.value ?? [])
 const customerList = computed(() => customers.value ?? [])
@@ -258,10 +233,6 @@ const total = computed(() =>
 // Cash is whatever the total isn't covered by UPI — the cashier only types UPI.
 const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0), 0))
 
-const selectedCustomerName = computed(() => selectedCustomer.value?.name ?? 'Customer')
-const selectedCustomerPlace = computed(() => selectedCustomer.value?.placeName ?? '')
-const selectedCustomerPhone = computed(() => selectedCustomer.value?.phone ?? '')
-
 /**
  * Place/phone for the finished Sale Invoice (CONTEXT / #77).
  * Customer Master → live Customer record; walk-in → values stored on the Sale.
@@ -282,78 +253,6 @@ const finishedInvoicePhone = computed(() => {
   }
   return t.walkinPhone ?? ''
 })
-
-const voucherPrinted = computed(
-  () => printedAtTotal.value !== null && printedAtTotal.value === total.value
-)
-const priceChangedSincePrint = computed(
-  () => printedAtTotal.value !== null && printedAtTotal.value !== total.value
-)
-
-/** Snapshot of cart lines for the Credit Voucher back side. */
-const voucherLines = computed<VoucherLine[]>(() =>
-  lines.value
-    .map((l, i) => {
-      const p =
-        l.productId == null ? undefined : productList.value.find((x) => x.id === l.productId)
-      if (!p || !l.qty) return null
-      return {
-        productName: p.name,
-        isLoose: l.isLoose,
-        qty: l.qty,
-        bagSizeG: l.bagSizeG,
-        quintalRate: l.quintalRate,
-        perKgRate: l.perKgRate,
-        lineTotal: lineTotals.value[i] ?? 0
-      }
-    })
-    .filter((l): l is VoucherLine => l != null)
-)
-
-/**
- * "Print" the voucher at the current price so the customer can sign it.
- * First print reserves the Credit Sale sequence (shared with the invoice ID).
- * Reprints keep the same reserved sequence — price drift does not burn a new serial.
- */
-async function printVoucher(): Promise<void> {
-  const day = businessDay.value
-  if (!day) {
-    error.value = 'No open Business Day'
-    return
-  }
-
-  if (editId.value) {
-    // Edit successor: same base seq, next rev — known before finish (ADR-0009).
-    const original = await window.api.getTransaction(editId.value)
-    if (!original || original.type !== 'SA') {
-      error.value = 'Sale not found'
-      return
-    }
-    reservedCreditSeq.value = original.seq
-    voucherTransactionId.value = formatTxnId({
-      type: 'SA',
-      mode: 'credit',
-      seq: original.seq,
-      rev: original.rev + 1,
-      startDate: day.startDate
-    })
-  } else if (reservedCreditSeq.value == null) {
-    const seq = await window.api.reserveCreditSaleSeq()
-    reservedCreditSeq.value = seq
-    voucherTransactionId.value = formatTxnId({
-      type: 'SA',
-      mode: 'credit',
-      seq,
-      rev: 0,
-      startDate: day.startDate
-    })
-  }
-  // else: reprint keeps reservedCreditSeq + voucherTransactionId
-
-  printedAtTotal.value = total.value
-  printGateOpen.value = false
-  voucherOpen.value = true
-}
 
 function buildInput(m: SaleMode): CreateSaleInput {
   return {
@@ -383,7 +282,8 @@ function buildInput(m: SaleMode): CreateSaleInput {
     discountAmount: discountAmount.value ?? 0,
     cashCollected: m === 'cash' ? cashDue.value : 0,
     upiCollected: m === 'cash' ? (upiCollected.value ?? 0) : 0,
-    reservedSeq: m === 'credit' ? reservedCreditSeq.value : null,
+    // Sequence is assigned at commit; invoice + voucher share it on the finish panel.
+    reservedSeq: null,
     remarks: remarks.value.trim() || null
   }
 }
@@ -426,10 +326,6 @@ function applyDraftPayload(payload: SaleDraftPayload): void {
   discountAmount.value = payload.discountAmount ?? null
   upiCollected.value = payload.upiCollected
   remarks.value = payload.remarks
-  // Voucher state is not parked — reprint on credit finish after resume.
-  printedAtTotal.value = null
-  reservedCreditSeq.value = null
-  voucherTransactionId.value = null
 }
 
 function saveDraft(): void {
@@ -472,28 +368,35 @@ function clearActiveDraft(): void {
   })
 }
 
-/** After a successful create Sale, drop any parked Draft and open the slip. */
+/** After a successful Sale, drop any parked Draft and open the finish preview. */
 function finishWithDraftCleanup(txn: Txn): void {
   const draftId = activeDraftId.value
-  const showSlip = (): void => {
+  const showFinish = (): void => {
     finished.value = txn
-    slipOpen.value = true
+    if (txn.saleMode === 'credit') {
+      // Credit finish defaults: Print on, two copies off (design #132).
+      creditPrintInvoice.value = true
+      creditPrintTwoCopies.value = false
+      creditFinishOpen.value = true
+    } else {
+      slipOpen.value = true
+    }
   }
   if (draftId == null) {
-    showSlip()
+    showFinish()
     return
   }
   clearDraftMut.mutate(draftId, {
     onSuccess: () => {
       activeDraftId.value = null
       draftHydratedId.value = null
-      showSlip()
+      showFinish()
     },
     onError: () => {
-      // Sale already committed — still show the slip; Draft may linger until Clear.
+      // Sale already committed — still show finish; Draft may linger until Clear.
       activeDraftId.value = null
       draftHydratedId.value = null
-      showSlip()
+      showFinish()
     }
   })
 }
@@ -524,12 +427,6 @@ function finish(): void {
     return
   }
 
-  // A Credit Sale can't finish until a voucher is printed at the current price for signing.
-  if (m === 'credit' && !voucherPrinted.value) {
-    printGateOpen.value = true
-    return
-  }
-
   if (editId.value) {
     editSale.mutate({ id: editId.value, input }, { onSuccess: finishWithDraftCleanup })
   } else {
@@ -539,6 +436,11 @@ function finish(): void {
 
 function onSlipDone(): void {
   slipOpen.value = false
+  void router.push('/')
+}
+
+function onCreditFinishDone(): void {
+  creditFinishOpen.value = false
   void router.push('/')
 }
 
@@ -560,10 +462,6 @@ watch(
     // Rehydrate opt-in from the persisted flag — not from amount (₹0 free-band stays on).
     applyLoading.value = txn.loadingApplied
     upiCollected.value = txn.upiIn || null
-    // Edit starts with no signed voucher at the new successor ID — print (or re-print) required.
-    reservedCreditSeq.value = null
-    voucherTransactionId.value = null
-    printedAtTotal.value = null
     remarks.value = txn.remarks ?? ''
     lines.value = txn.lines.map((l) => ({
       productId: l.productId,
@@ -734,7 +632,7 @@ watch(
             <CardDescription>
               {{
                 isCredit
-                  ? 'Nothing is collected today — the signed Credit Voucher stands in for cash.'
+                  ? 'Nothing is collected today — finish prints the Credit Voucher (and optional Sale Invoice).'
                   : 'The cashier types UPI; cash covers the rest of the total.'
               }}
             </CardDescription>
@@ -775,35 +673,18 @@ watch(
                   />
                 </div>
               </div>
-              <div v-else class="space-y-2" data-testid="credit-voucher-controls">
-                <Button
-                  variant="outline"
-                  type="button"
-                  data-testid="print-voucher"
-                  @click="printVoucher"
-                >
-                  <Printer class="mr-2 size-4" />
-                  Print Voucher
-                </Button>
-                <p
-                  v-if="priceChangedSincePrint"
-                  class="flex items-center gap-1.5 text-sm text-amber-600"
-                  data-testid="voucher-price-changed"
-                >
-                  <AlertTriangle class="size-4" />
-                  Price changed since the voucher was printed — reprint before finishing.
-                </p>
-                <p
-                  v-else-if="voucherPrinted"
-                  class="text-sm text-emerald-600"
-                  data-testid="voucher-printed"
-                >
-                  Voucher printed at {{ formatRupees(printedAtTotal ?? 0) }} — ready to sign.
-                </p>
+              <div
+                v-else
+                class="rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-3 text-sm text-muted-foreground dark:bg-amber-950/20"
+                data-testid="credit-settle-hint"
+              >
+                On finish, the Credit Voucher always prints once (same transaction ID as the
+                invoice). Sale Invoice print and copy count are chosen on the finish panel.
               </div>
 
-              <!-- Sale Invoice: two copies by default; opt out of the customer copy (ADR-0008) -->
+              <!-- Cash Sale Invoice: two copies by default; opt out of the customer copy (ADR-0008) -->
               <div
+                v-if="!isCredit"
                 class="sm:col-span-2 rounded-md border bg-muted/20 p-3"
                 data-testid="sale-invoice-copies"
               >
@@ -877,6 +758,7 @@ watch(
         </Card>
       </template>
 
+      <!-- Cash finish: Sale Invoice slip only -->
       <SlipPreview
         :open="slipOpen"
         :txn="finished"
@@ -888,47 +770,22 @@ watch(
         @done="onSlipDone"
       />
 
-      <!-- Voucher preview (front + back), printed at the current price for the customer to sign -->
-      <CreditVoucherPreview
-        :open="voucherOpen"
-        :transaction-id="voucherTransactionId"
+      <!-- Credit finish: invoice + voucher together (Print on / two copies off by default) -->
+      <CreditFinishPanel
+        :open="creditFinishOpen"
+        :txn="finished"
+        :printerless="settings?.printerlessMode ?? true"
         :company-name="settings?.companyName ?? ''"
         :date="businessDay?.startDate ?? ''"
-        :customer-name="selectedCustomerName"
-        :place="selectedCustomerPlace"
-        :phone="selectedCustomerPhone"
-        :amount="printedAtTotal ?? 0"
-        :lines="voucherLines"
-        :loading-charges="loadingCharge"
-        :additional-charges="additionalCharges ?? 0"
-        :discount-amount="discountAmount ?? 0"
-        :total="printedAtTotal ?? total"
-        @update:open="(v) => (voucherOpen = v)"
-        @done="voucherOpen = false"
+        :place="finishedInvoicePlace"
+        :phone="finishedInvoicePhone"
+        :print-invoice="creditPrintInvoice"
+        :print-two-copies="creditPrintTwoCopies"
+        @update:open="(v) => (creditFinishOpen = v)"
+        @update:print-invoice="(v) => (creditPrintInvoice = v)"
+        @update:print-two-copies="(v) => (creditPrintTwoCopies = v)"
+        @done="onCreditFinishDone"
       />
-
-      <!-- Finish blocked until a voucher is printed at the current price -->
-      <Dialog :open="printGateOpen" @update:open="(v) => (printGateOpen = v)">
-        <DialogContent class="sm:max-w-md" data-testid="voucher-gate">
-          <DialogHeader>
-            <DialogTitle>Print the Credit Voucher first</DialogTitle>
-            <DialogDescription>
-              {{
-                priceChangedSincePrint
-                  ? 'The price changed since the last print. Reprint the voucher at the current price so the customer signs the right amount.'
-                  : 'A Credit Sale needs a signed voucher. Print it at the current price before finishing.'
-              }}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button variant="outline" type="button" @click="printGateOpen = false">Cancel</Button>
-            <Button type="button" data-testid="voucher-gate-print" @click="printVoucher">
-              <Printer class="mr-2 size-4" />
-              Print Voucher
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   </div>
 </template>
