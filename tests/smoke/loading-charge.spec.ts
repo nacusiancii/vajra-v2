@@ -65,7 +65,7 @@ async function purchaseBulk(
   // Credit Purchase from Home — stock-in with no drawer impact.
   await page.getByTestId('open-credit-purchase').click()
   await dismissAutoPicker(page)
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: productName }).click()
   await page.getByTestId('cart-rate').fill(rate)
@@ -91,7 +91,7 @@ test('loading charge: settings → sale total → slip → cash drawer', async (
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
   await startWalkinSale(page, 'Loading Customer', 'Guntur')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Defaults to product Default Bag Size (50 kg)
@@ -142,7 +142,7 @@ test('loading charge uses bag weight breakpoints, not bag-type table', async ({ 
   await purchaseBulk(page, 'Toor Dal', '6000', '20')
 
   await startWalkinSale(page, 'Bag Split', 'Vijayawada')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Override to 25 kg bags: same 100kg goods, loading from 25kg band (₹10)
@@ -176,7 +176,7 @@ test('loading charge zero band until weight exceeds 10 kg', async ({ page }) => 
   await purchaseBulk(page, 'Toor Dal', '6000', '5')
 
   await startWalkinSale(page, 'Zero Band', 'Guntur')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Loose 8 kg → ≤10 → ₹0 loading
@@ -208,7 +208,7 @@ test('edit keeps loading opt-in when stored charge is ₹0 (free band)', async (
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
   await startWalkinSale(page, 'Free Band Edit', 'Guntur')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Loose 8 kg → free band → ₹0 loading when opted in
@@ -249,7 +249,7 @@ test('loose line: kg × price/kg total, stock delta, loading by total kg', async
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
   await startWalkinSale(page, 'Loose Customer', 'Guntur')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   await page.getByTestId('cart-bag').click()

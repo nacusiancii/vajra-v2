@@ -38,8 +38,8 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   // ── Credit Sale ──
   await page.getByTestId('open-credit-sale').click()
   // Mode is pre-chosen from Home; customer picker auto-opens —
-  // type into the filter, then pick the match. Selecting a customer on an empty cart
-  // adds the first line and opens the product dropdown.
+  // type into the filter, then pick the match. Cart already has one blank row;
+  // Customer Master pick focuses the product picker when that row is still empty.
   await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'credit')
   await page.getByPlaceholder(/Type a customer name/).fill('Ravi')
   await page.getByRole('option', { name: /Ravi Kumar/ }).click()

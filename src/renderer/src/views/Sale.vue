@@ -20,7 +20,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
+import GoodsCart from '@/components/transaction/GoodsCart.vue'
+import { emptyCartLine, type CartLine } from '@/components/transaction/cart-line'
 import SlipPreview from '@/components/transaction/SlipPreview.vue'
 import CreditFinishPanel from '@/components/transaction/CreditFinishPanel.vue'
 import SettleReceiptStack from '@/components/transaction/SettleReceiptStack.vue'
@@ -86,7 +87,11 @@ const walkinPhone = ref('')
 const mode = ref<SaleMode | null>(
   editId.value || resumeDraftQuery.value != null ? null : (modeFromQuery() ?? 'cash')
 )
-const lines = ref<CartLine[]>([])
+// New cart: one blank goods row so the cashier can type immediately (no Add Line).
+// Edit / Draft start empty and hydrate; do not reseed if the blank is removed.
+const lines = ref<CartLine[]>(
+  editId.value || resumeDraftQuery.value != null ? [] : [emptyCartLine()]
+)
 const goodsCart = ref<InstanceType<typeof GoodsCart> | null>(null)
 const applyLoading = ref(false)
 const additionalCharges = ref<number | null>(null)
@@ -113,7 +118,7 @@ const printCustomerCopy = ref(true)
 const creditPrintInvoice = ref(true)
 const creditPrintTwoCopies = ref(false)
 
-// Customer picked on an empty cart → first goods line + product dropdown.
+// Customer Master pick → first product line only when that line is still empty.
 watch(customerId, (id) => {
   if (id != null) goodsCart.value?.ensureLineAndFocusProduct()
 })

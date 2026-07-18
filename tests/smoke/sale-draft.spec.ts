@@ -37,7 +37,7 @@ async function seedProduct(page: Page): Promise<void> {
 async function purchaseStock(page: Page): Promise<void> {
   await page.getByTestId('open-credit-purchase').click()
   await dismissAutoPicker(page)
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Moong Dal' }).click()
   await page.getByTestId('cart-rate').fill('5000')
@@ -67,7 +67,7 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
   await expect(page.getByTestId('sale-save-draft')).toBeVisible()
   await page.getByTestId('sale-walkin-name').fill('Parked Customer')
   await page.getByTestId('sale-walkin-place').fill('Tenali')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Moong Dal' }).click()
   await page.getByTestId('cart-rate').fill('5500')
