@@ -123,13 +123,30 @@ const backVisible = computed(() => !props.collapsibleBack || showBack.value)
         <span class="text-muted-foreground">Date</span>
         <span data-testid="voucher-date">{{ displayDate }}</span>
       </div>
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Customer</span>
-        <span data-testid="voucher-customer">{{ customerName }}</span>
+      <div class="flex items-center justify-between gap-3">
+        <span class="shrink-0 text-muted-foreground">Customer</span>
+        <!-- ADR-0003: blank handwriting gap when master Telugu name is missing -->
+        <span
+          class="inline-block min-w-[10rem] text-right"
+          :class="
+            !customerName.trim()
+              ? 'min-h-[1.25em] border-b border-dashed border-muted-foreground/50'
+              : ''
+          "
+          data-testid="voucher-customer"
+          >{{ customerName }}</span
+        >
       </div>
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Place</span>
-        <span data-testid="voucher-place">{{ place.trim() || '—' }}</span>
+      <div class="flex items-center justify-between gap-3">
+        <span class="shrink-0 text-muted-foreground">Place</span>
+        <span
+          class="inline-block min-w-[10rem] text-right"
+          :class="
+            !place.trim() ? 'min-h-[1.25em] border-b border-dashed border-muted-foreground/50' : ''
+          "
+          data-testid="voucher-place"
+          >{{ place }}</span
+        >
       </div>
       <div class="flex items-center justify-between">
         <span class="text-muted-foreground">Mobile</span>

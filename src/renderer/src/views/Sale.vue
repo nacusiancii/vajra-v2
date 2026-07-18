@@ -45,6 +45,12 @@ import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
 import { normalizeWalkin, type CreateSaleInput, type SaleMode, type Txn } from '@domain/transaction'
 import type { LineProductLookup } from '@domain/transaction-rules'
+import {
+  isWalkinTxn,
+  slipFaceCustomerName,
+  slipFacePlace,
+  slipFaceProductName
+} from '@domain/slip-face'
 
 const route = useRoute()
 const router = useRouter()
@@ -239,16 +245,40 @@ const total = computed(() =>
 const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0), 0))
 
 /**
- * Place/phone for the finished Sale Invoice (CONTEXT / #77).
- * Customer Master → live Customer record; walk-in → values stored on the Sale.
+ * Customer-facing face fields for Sale Invoice / Credit Voucher (ADR-0003).
+ * Master → Telugu when present, blank handwriting gap when missing (no English
+ * fallback for name/place). Walk-in → English strings on the Sale. Product lines
+ * prefer Telugu and fall back to English product name so the slip stays readable.
+ * Phone stays from Customer Master / walk-in as today (CONTEXT / #77).
  */
+const finishedInvoiceCustomer = computed(() => {
+  const t = finished.value
+  if (!t) return ''
+  const walkin = isWalkinTxn(t)
+  const master = t.customerId != null ? customerList.value.find((c) => c.id === t.customerId) : null
+  return slipFaceCustomerName({
+    isWalkin: walkin,
+    walkinName: t.walkinName,
+    nameTe: master?.nameTe ?? null
+  })
+})
 const finishedInvoicePlace = computed(() => {
   const t = finished.value
   if (!t) return ''
-  if (t.customerId != null) {
-    return customerList.value.find((c) => c.id === t.customerId)?.placeName ?? ''
+  const walkin = isWalkinTxn(t)
+  if (walkin) {
+    return slipFacePlace({
+      isWalkin: true,
+      walkinPlace: t.walkinPlace,
+      placeTe: null
+    })
   }
-  return t.walkinPlace ?? ''
+  const master = customerList.value.find((c) => c.id === t.customerId)
+  return slipFacePlace({
+    isWalkin: false,
+    walkinPlace: null,
+    placeTe: master?.placeTe ?? null
+  })
 })
 const finishedInvoicePhone = computed(() => {
   const t = finished.value
@@ -257,6 +287,14 @@ const finishedInvoicePhone = computed(() => {
     return customerList.value.find((c) => c.id === t.customerId)?.phone ?? ''
   }
   return t.walkinPhone ?? ''
+})
+/** productId → customer-face product name for slip / voucher lines. */
+const finishedProductFaceNames = computed(() => {
+  const map: Record<number, string> = {}
+  for (const p of productList.value) {
+    map[p.id] = slipFaceProductName(p.name, p.nameTe)
+  }
+  return map
 })
 
 function buildInput(m: SaleMode): CreateSaleInput {
@@ -768,8 +806,10 @@ watch(
         :open="slipOpen"
         :txn="finished"
         :printerless="settings?.printerlessMode ?? true"
+        :customer-name="finishedInvoiceCustomer"
         :place="finishedInvoicePlace"
         :phone="finishedInvoicePhone"
+        :product-face-names="finishedProductFaceNames"
         :print-customer-copy="printCustomerCopy"
         @update:open="(v) => (slipOpen = v)"
         @done="onSlipDone"
@@ -782,8 +822,10 @@ watch(
         :printerless="settings?.printerlessMode ?? true"
         :company-name="settings?.companyName ?? ''"
         :date="businessDay?.startDate ?? ''"
+        :customer-name="finishedInvoiceCustomer"
         :place="finishedInvoicePlace"
         :phone="finishedInvoicePhone"
+        :product-face-names="finishedProductFaceNames"
         :print-invoice="creditPrintInvoice"
         :print-two-copies="creditPrintTwoCopies"
         @update:open="(v) => (creditFinishOpen = v)"
