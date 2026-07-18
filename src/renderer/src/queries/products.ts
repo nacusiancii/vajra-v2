@@ -62,7 +62,13 @@ export function useUpdateProduct(): UseMutationReturnType<
 export function useDeleteProduct(): UseMutationReturnType<void, Error, number, unknown> {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => window.api.deleteProduct(id),
+    mutationFn: async (id: number) => {
+      const check = await window.api.canDeleteProduct(id)
+      if (!check.canDelete) {
+        throw new Error(check.reason ?? 'Cannot delete this product')
+      }
+      await window.api.deleteProduct(id)
+    },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEYS.products })
     }

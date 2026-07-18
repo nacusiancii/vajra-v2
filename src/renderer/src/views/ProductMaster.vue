@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { Plus, Pencil, Trash2, AlertCircle } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -28,6 +28,7 @@ import {
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import ProductDialog from '@/components/product/ProductDialog.vue'
 import { formatBagKg } from '@/lib/format'
+import { userFacingError } from '@/lib/utils'
 import { useProductMasterStore } from '@/stores/product-master'
 import {
   useProductsQuery,
@@ -44,6 +45,9 @@ const { data: productGroups } = useProductGroupsQuery()
 const createMutation = useCreateProduct()
 const updateMutation = useUpdateProduct()
 const deleteMutation = useDeleteProduct()
+
+/** Why the last Delete was blocked (or failed) — cleared on the next attempt. */
+const deleteError = ref<string | null>(null)
 
 const groupNames = computed(() => (productGroups.value ?? []).map((g) => g.name))
 
@@ -80,7 +84,12 @@ function handleUpdate(id: number, input: UpdateProductInput): void {
 }
 
 function handleDelete(id: number): void {
-  deleteMutation.mutate(id)
+  deleteError.value = null
+  deleteMutation.mutate(id, {
+    onError: (err) => {
+      deleteError.value = userFacingError(err, 'Could not delete product')
+    }
+  })
 }
 </script>
 
@@ -101,6 +110,16 @@ function handleDelete(id: number): void {
         <Plus class="mr-2 size-4" />
         Add Product
       </Button>
+    </div>
+
+    <!-- Delete blocked / failed feedback (must not be silent) -->
+    <div
+      v-if="deleteError"
+      class="rounded-md border border-destructive/40 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+      data-testid="delete-product-error"
+      role="alert"
+    >
+      {{ deleteError }}
     </div>
 
     <!-- Filters -->
