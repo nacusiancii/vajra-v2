@@ -1,13 +1,12 @@
 import { test, expect } from './fixtures'
 
 /**
- * A Credit Sale can't finish until a voucher is printed at the current price for the
- * customer to sign. The voucher and Sale Invoice share one transaction ID (ADR-0009).
- * The voucher is two-sided: front carries shop identity + signature; back lists chosen
- * products as qty × ratio × price.
+ * Credit Sale finish prints Sale Invoice + Credit Voucher together.
+ * Same transaction ID on both (ADR-0009). Voucher always prints once; invoice
+ * Print is on by default and two copies off. No signed-voucher confirmation step.
  */
 
-test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
+test('credit sale finish shows invoice and voucher together', async ({ page }) => {
   test.setTimeout(60_000)
 
   // Company Name appears on the voucher front.
@@ -55,19 +54,42 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await page.getByTestId('sale-mode-cash').click()
   await expect(page.getByTestId('sale-upi')).toBeVisible()
   await page.getByTestId('sale-mode-credit').click()
-  await expect(page.getByTestId('credit-voucher-controls')).toBeVisible()
+  await expect(page.getByTestId('credit-settle-hint')).toBeVisible()
+  // No pre-finish voucher gate / print button.
+  await expect(page.getByTestId('credit-voucher-controls')).toHaveCount(0)
+  await expect(page.getByTestId('print-voucher')).toHaveCount(0)
 
-  // Finishing without a printed voucher is blocked by the gate.
+  // Finish commits immediately and opens the unified finish panel.
   await page.getByTestId('sale-finish').click()
-  await expect(page.getByTestId('voucher-gate')).toBeVisible()
+  await expect(page.getByTestId('credit-finish-panel')).toBeVisible()
 
-  // Print reserves Credit Sale sequence 1 and shows the two-sided preview with that ID.
-  await page.getByTestId('voucher-gate-print').click()
-  await expect(page.getByTestId('voucher-preview')).toBeVisible()
-  await expect(page.getByTestId('voucher-number')).toHaveText(/^SA-R-1-\d{8}$/)
-  const voucherId = await page.getByTestId('voucher-number').innerText()
+  // Defaults: Print invoice checked, two copies unchecked.
+  await expect(page.getByTestId('credit-finish-print-invoice')).toHaveAttribute(
+    'data-state',
+    'checked'
+  )
+  await expect(page.getByTestId('credit-finish-two-copies')).toHaveAttribute(
+    'data-state',
+    'unchecked'
+  )
+  await expect(page.getByTestId('slip-copy-count')).toHaveText('1× print')
+  await expect(page.getByTestId('credit-finish-voucher-will-print')).toBeVisible()
 
-  // Front: company, date, place, mobile, customer, amount.
+  // Invoice and voucher share one transaction ID.
+  await expect(page.getByTestId('sale-number')).toHaveText(/^SA-R-\d+-\d{8}$/)
+  const txnId = await page.getByTestId('sale-number').innerText()
+  await expect(page.getByTestId('voucher-number')).toHaveText(txnId)
+  await expect(page.getByTestId('slip-voucher-id')).toHaveText(txnId)
+  await expect(page.getByTestId('credit-finish-sale-id')).toHaveText(txnId)
+  await expect(page.getByTestId('credit-finish-voucher-id')).toHaveText(txnId)
+
+  // Invoice face.
+  await expect(page.getByTestId('sale-invoice')).toBeVisible()
+  await expect(page.getByTestId('slip-customer')).toHaveText('Ravi Kumar')
+  await expect(page.getByTestId('slip-place')).toHaveText('Guntur')
+  await expect(page.getByTestId('slip-phone')).toHaveText('9876543210')
+
+  // Voucher front: company, date, place, mobile, customer, amount.
   await expect(page.getByTestId('voucher-front')).toBeVisible()
   await expect(page.getByTestId('voucher-company')).toHaveText('Sri Venkateswara Traders')
   await expect(page.getByTestId('voucher-place')).toHaveText('Guntur')
@@ -76,7 +98,8 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await expect(page.getByTestId('voucher-date')).not.toHaveText('—')
   await expect(page.getByTestId('voucher-amount')).toContainText('6,000')
 
-  // Back: qty × ratio × price for bulk (2 bags × 0.5 × ₹6000 = ₹6000).
+  // Back is collapsible on the finish panel — expand and check lines.
+  await page.getByTestId('voucher-show-back').click()
   await expect(page.getByTestId('voucher-back')).toBeVisible()
   const line = page.getByTestId('voucher-line')
   await expect(line).toHaveCount(1)
@@ -84,14 +107,14 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await expect(line).toContainText('2 × 0.5 ×')
   await expect(page.getByTestId('voucher-total')).toContainText('6,000')
 
-  await page.getByTestId('voucher-preview-done').click()
+  // Toggle two copies → 2×; uncheck print → not printing (voucher still will print).
+  await page.getByTestId('credit-finish-two-copies').click()
+  await expect(page.getByTestId('slip-copy-count')).toHaveText('2× print')
+  await page.getByTestId('credit-finish-print-invoice').click()
+  await expect(page.getByTestId('credit-finish-invoice-not-printing')).toBeVisible()
+  await expect(page.getByTestId('credit-finish-voucher-will-print')).toBeVisible()
 
-  // Now the Sale finishes and shows its invoice — same transaction ID as the voucher.
-  await page.getByTestId('sale-finish').click()
-  await expect(page.getByTestId('slip-preview')).toBeVisible()
-  await expect(page.getByTestId('sale-number')).toHaveText(voucherId)
-  await expect(page.getByTestId('slip-voucher-id')).toHaveText(voucherId)
-  await page.getByTestId('slip-done').click()
+  await page.getByTestId('credit-finish-done').click()
 
   // Done returns Home; open ledger for the one credit Sale.
   await expect(page.getByTestId('home-page')).toBeVisible()
