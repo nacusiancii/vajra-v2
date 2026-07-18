@@ -19,8 +19,7 @@ if (!match) {
 }
 
 const [, base, alphaN] = match
-const next =
-  alphaN != null ? `${base}-alpha.${Number(alphaN) + 1}` : `${base}-alpha.1`
+const next = alphaN != null ? `${base}-alpha.${Number(alphaN) + 1}` : `${base}-alpha.1`
 
 pkg.version = next
 writeFileSync(path, `${JSON.stringify(pkg, null, 2)}\n`)
