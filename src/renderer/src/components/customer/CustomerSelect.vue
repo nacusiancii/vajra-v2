@@ -37,8 +37,11 @@ const selectedCustomer = computed(
 )
 
 const selectTestId = computed(() => props.testId ?? 'customer-select')
-const placeDisplay = computed(() => selectedCustomer.value?.placeName ?? '')
-const mobileDisplay = computed(() => {
+const placeDisplay = computed(() => {
+  const place = selectedCustomer.value?.placeName?.trim()
+  return place || '—'
+})
+const phoneDisplay = computed(() => {
   const phone = selectedCustomer.value?.phone?.trim()
   return phone || '—'
 })
@@ -123,13 +126,13 @@ function onUpdate(id: number, input: UpdateCustomerInput): void {
         />
       </div>
       <div class="grid gap-2">
-        <Label>Mobile</Label>
+        <Label>Phone</Label>
         <Input
-          :model-value="mobileDisplay"
+          :model-value="phoneDisplay"
           readonly
           tabindex="-1"
           class="bg-muted/50 tabular-nums"
-          :data-testid="`${selectTestId}-mobile`"
+          :data-testid="`${selectTestId}-phone`"
         />
       </div>
     </template>
