@@ -15,12 +15,32 @@ import { formatBagKg, formatKgFromG, formatQty, formatRupees } from '@/lib/forma
 import { lineMassGrams } from '@domain/transaction-rules'
 import type { Txn } from '@domain/transaction'
 
-const props = defineProps<{
-  open: boolean
-  txn: Txn | null
-  /** When true the slip would be hand-copied (Printerless Mode, ADR-0008). */
-  printerless: boolean
-}>()
+const props = withDefaults(
+  defineProps<{
+    open: boolean
+    txn: Txn | null
+    /** When true the slip would be hand-copied (Printerless Mode, ADR-0008). */
+    printerless: boolean
+    /**
+     * Counterparty place (Customer Master place, or walk-in place on the Sale).
+     * Blank when unknown — layout still reserves the row for handwriting.
+     */
+    place?: string
+    /**
+     * Counterparty phone when known. Blank when absent (same as Credit Voucher).
+     */
+    phone?: string
+    /**
+     * Extra customer copy of the Sale Invoice (ADR-0008). Default on → two copies.
+     */
+    printCustomerCopy?: boolean
+  }>(),
+  {
+    place: '',
+    phone: '',
+    printCustomerCopy: true
+  }
+)
 
 defineEmits<{ 'update:open': [value: boolean]; done: [] }>()
 
@@ -30,6 +50,12 @@ const counterparty = computed(() => {
   if (!t) return ''
   return t.customerName ?? t.walkinName ?? 'Walk-in Customer'
 })
+
+/** Business + customer when opted in; business only when the cashier opts out. */
+const copyCount = computed(() => (props.printCustomerCopy ? 2 : 1))
+const copyLabel = computed(() =>
+  props.printCustomerCopy ? '2 copies (business + customer)' : '1 copy (business only)'
+)
 </script>
 
 <template>
@@ -45,6 +71,7 @@ const counterparty = computed(() => {
               ? 'Printerless Mode is on — copy these details by hand.'
               : 'This is what would print. (Printing is preview-only in this build.)'
           }}
+          <span class="mt-1 block" data-testid="slip-copy-count">{{ copyLabel }}</span>
         </DialogDescription>
       </DialogHeader>
 
@@ -63,7 +90,22 @@ const counterparty = computed(() => {
           </div>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Customer</span>
-            <span>{{ counterparty }}</span>
+            <span data-testid="slip-customer">{{ counterparty }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted-foreground">Place</span>
+            <span data-testid="slip-place">{{ place.trim() || '—' }}</span>
+          </div>
+          <div class="flex items-center justify-between">
+            <span class="text-muted-foreground">Phone</span>
+            <span class="tabular-nums" data-testid="slip-phone">{{ phone.trim() || '—' }}</span>
+          </div>
+          <div
+            class="flex items-center justify-between text-muted-foreground"
+            data-testid="slip-copies"
+          >
+            <span>Copies</span>
+            <span class="tabular-nums">{{ copyCount }}</span>
           </div>
           <Separator class="my-2" />
           <div v-for="line in txn.lines" :key="line.id" class="flex justify-between gap-2 py-0.5">
