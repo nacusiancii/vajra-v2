@@ -5,6 +5,7 @@ import {
   Banknote,
   Boxes,
   CircleDollarSign,
+  ClipboardSignature,
   FileSignature,
   HandCoins,
   type LucideIcon,
@@ -96,7 +97,7 @@ const primaryEntryPoints: (HomeLink & {
   {
     label: 'Credit Purchase',
     route: '/purchase?mode=credit',
-    icon: Banknote,
+    icon: ClipboardSignature,
     testId: 'open-credit-purchase',
     variant: 'outline'
   }
