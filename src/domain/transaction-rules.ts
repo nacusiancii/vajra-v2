@@ -8,7 +8,7 @@
 
 import { z } from 'zod'
 import { loadingChargeForKg, type LoadingChargeRules } from './settings'
-import type { SaleLineInput, TransferLegInput } from './transaction'
+import { normalizeWalkin, type SaleLineInput, type TransferLegInput } from './transaction'
 import {
   bulkLineTotalPaise,
   gToKg,
@@ -231,16 +231,19 @@ const SaleLineWriteSchema = z.object({
  * engine for new carts and Edit successors (new promises with a reprinted invoice).
  * `loadingApplied` records the cashier's opt-in even when the promised amount is ₹0.
  */
+/** Walk-in write shape: blank name/place become {@link WALKIN_PLACEHOLDER}. */
+const WalkinWriteSchema = z
+  .object({
+    name: z.string(),
+    place: z.string(),
+    phone: z.string().nullable()
+  })
+  .transform((w) => normalizeWalkin(w))
+
 export const SaleWriteSchema = z.object({
   mode: z.enum(['cash', 'credit']),
   customerId: z.number().int().nullable(),
-  walkin: z
-    .object({
-      name: z.string(),
-      place: z.string(),
-      phone: z.string().nullable()
-    })
-    .nullable(),
+  walkin: WalkinWriteSchema.nullable(),
   lines: z.array(SaleLineWriteSchema),
   additionalCharges: integerPaiseNonNeg,
   loadingCharges: integerPaiseNonNeg,
@@ -255,13 +258,7 @@ export const SaleWriteSchema = z.object({
 export const PurchaseWriteSchema = z.object({
   mode: z.enum(['cash', 'credit']),
   customerId: z.number().int().nullable(),
-  walkin: z
-    .object({
-      name: z.string(),
-      place: z.string(),
-      phone: z.string().nullable()
-    })
-    .nullable(),
+  walkin: WalkinWriteSchema.nullable(),
   lines: z.array(SaleLineWriteSchema),
   additionalCharges: integerPaiseNonNeg,
   cashCollected: integerPaiseNonNeg,

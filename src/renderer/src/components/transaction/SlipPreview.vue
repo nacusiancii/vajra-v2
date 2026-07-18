@@ -28,7 +28,7 @@ const isCredit = computed(() => props.txn?.saleMode === 'credit')
 const counterparty = computed(() => {
   const t = props.txn
   if (!t) return ''
-  return t.customerName ?? t.walkinName ?? 'Walk-in Customer'
+  return t.customerName ?? t.walkinName ?? 'Walk in'
 })
 </script>
 

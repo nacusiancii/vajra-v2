@@ -120,6 +120,22 @@ export interface WalkinInput {
   phone: string | null
 }
 
+/**
+ * Stored when walk-in name or place is left blank (CONTEXT.md Walk-in Customer).
+ * Spelling matches the megathread / cashier-facing default: "Walk in" (space, not hyphen).
+ */
+export const WALKIN_PLACEHOLDER = 'Walk in'
+
+/** Fill blank name/place with {@link WALKIN_PLACEHOLDER}; trim phone to null when empty. */
+export function normalizeWalkin(walkin: WalkinInput): WalkinInput {
+  const phone = walkin.phone?.trim() || null
+  return {
+    name: walkin.name.trim() || WALKIN_PLACEHOLDER,
+    place: walkin.place.trim() || WALKIN_PLACEHOLDER,
+    phone
+  }
+}
+
 export interface CreateSaleInput {
   mode: SaleMode
   customerId: number | null
