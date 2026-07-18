@@ -78,7 +78,7 @@ const upiCollected = ref<number | null>(null)
 const remarks = ref('')
 const error = ref<string | null>(null)
 
-// Supplier picked on an empty cart → first goods line + product dropdown.
+// Customer Master pick → first product line only when that line is still empty.
 watch(customerId, (id) => {
   if (id != null) goodsCart.value?.ensureLineAndFocusProduct()
 })

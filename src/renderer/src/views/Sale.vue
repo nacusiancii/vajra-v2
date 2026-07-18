@@ -117,7 +117,7 @@ const slipOpen = ref(false)
  */
 const printCustomerCopy = ref(true)
 
-// Customer picked on an empty cart → first goods line + product dropdown.
+// Customer Master pick → first product line only when that line is still empty.
 watch(customerId, (id) => {
   if (id != null) goodsCart.value?.ensureLineAndFocusProduct()
 })

@@ -118,10 +118,16 @@ function addLine(): void {
   lines.value = [...lines.value, emptyLine()]
 }
 
-/** Empty cart after customer pick — start the first line and open its product picker. */
+/**
+ * Customer/supplier picked — ensure a first line exists, then open its product
+ * picker only when that line is still empty (no Product). Leave focus alone if
+ * the first product line already has a Product.
+ */
 function ensureLineAndFocusProduct(): void {
-  if (lines.value.length > 0) return
-  addLine()
+  if (lines.value.length === 0) {
+    addLine()
+  }
+  if (lines.value[0]?.productId != null) return
   void nextTick(() => productComboRefs.value[0]?.focus())
 }
 
