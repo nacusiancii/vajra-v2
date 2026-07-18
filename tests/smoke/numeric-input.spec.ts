@@ -25,9 +25,8 @@ async function seedBulkProduct(page: Page): Promise<void> {
 }
 
 async function openCashSaleCart(page: Page): Promise<void> {
-  await page.getByTestId('open-sale').click()
-  await expect(page.getByTestId('sale-gate-cash')).toBeFocused()
-  await page.keyboard.press('Enter')
+  await page.getByTestId('open-cash-sale').click()
+  await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'cash')
   await dismissAutoPicker(page)
   await page.getByTestId('sale-counterparty-mode').click()
   await page.getByRole('option', { name: 'Walk in' }).click()

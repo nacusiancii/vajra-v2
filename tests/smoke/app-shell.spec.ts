@@ -24,8 +24,10 @@ test.describe('Home page', () => {
   test('shows primary counter actions', async ({ page }) => {
     await expect(page.getByTestId('home-page')).toBeVisible()
     await expect(page.getByTestId('primary-actions')).toBeVisible()
-    await expect(page.getByTestId('open-sale')).toBeVisible()
-    await expect(page.getByTestId('open-purchase')).toBeVisible()
+    await expect(page.getByTestId('open-cash-sale')).toBeVisible()
+    await expect(page.getByTestId('open-credit-sale')).toBeVisible()
+    await expect(page.getByTestId('open-cash-purchase')).toBeVisible()
+    await expect(page.getByTestId('open-credit-purchase')).toBeVisible()
   })
 
   test('shows recent transactions affordance', async ({ page }) => {
@@ -83,9 +85,11 @@ test.describe('Settings — printerless default (#22)', () => {
 })
 
 test.describe('Navigation', () => {
-  test('New Sale navigates to the Sale screen', async ({ page }) => {
-    await page.getByTestId('open-sale').click()
+  test('Cash Sale navigates to the Sale screen with mode pre-chosen', async ({ page }) => {
+    await page.getByTestId('open-cash-sale').click()
     await expect(page.getByTestId('sale-page')).toBeVisible()
+    await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'cash')
+    await expect(page.getByTestId('sale-mode')).toBeVisible()
     // Transaction screens share the hub chrome — Back returns to the hub.
     await page.getByTestId('back-button').click()
     await expect(page.getByTestId('home-page')).toBeVisible()

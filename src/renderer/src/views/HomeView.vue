@@ -5,6 +5,7 @@ import {
   Banknote,
   Boxes,
   CircleDollarSign,
+  FileSignature,
   HandCoins,
   type LucideIcon,
   Package,
@@ -65,6 +66,41 @@ interface HomeLink {
   icon: LucideIcon
   description?: string
 }
+
+/** First-screen entry points — mode is pre-chosen; cart toggle remains available. */
+const primaryEntryPoints: (HomeLink & {
+  testId: string
+  variant: 'default' | 'secondary' | 'outline'
+})[] = [
+  {
+    label: 'Cash Sale',
+    route: '/sale?mode=cash',
+    icon: ShoppingCart,
+    testId: 'open-cash-sale',
+    variant: 'default'
+  },
+  {
+    label: 'Credit Sale',
+    route: '/sale?mode=credit',
+    icon: FileSignature,
+    testId: 'open-credit-sale',
+    variant: 'secondary'
+  },
+  {
+    label: 'Cash Purchase',
+    route: '/purchase?mode=cash',
+    icon: Truck,
+    testId: 'open-cash-purchase',
+    variant: 'outline'
+  },
+  {
+    label: 'Credit Purchase',
+    route: '/purchase?mode=credit',
+    icon: Banknote,
+    testId: 'open-credit-purchase',
+    variant: 'outline'
+  }
+]
 
 const secondaryTransactionLinks: HomeLink[] = [
   {
@@ -149,22 +185,22 @@ const managementLinks: HomeLink[] = [
           Daily shop operations, starting with sales.
         </h1>
         <p class="text-lg text-muted-foreground">
-          Quick access to counter flows. Pick an action to begin a new transaction.
+          Pick Cash or Credit for a Sale or Purchase — the cart opens with that mode already set.
         </p>
       </div>
 
-      <div class="flex flex-wrap gap-3" data-testid="primary-actions">
-        <Button as-child size="lg">
-          <RouterLink to="/sale" data-testid="open-sale">
-            <ShoppingCart class="size-4" />
-            New Sale
-          </RouterLink>
-        </Button>
-
-        <Button as-child variant="secondary" size="lg">
-          <RouterLink to="/purchase" data-testid="open-purchase">
-            <Truck class="size-4" />
-            New Purchase
+      <div class="grid w-full max-w-md grid-cols-2 gap-3" data-testid="primary-actions">
+        <Button
+          v-for="entry in primaryEntryPoints"
+          :key="entry.testId"
+          as-child
+          size="lg"
+          :variant="entry.variant"
+          class="justify-start"
+        >
+          <RouterLink :to="entry.route" :data-testid="entry.testId">
+            <component :is="entry.icon" class="size-4" />
+            {{ entry.label }}
           </RouterLink>
         </Button>
       </div>

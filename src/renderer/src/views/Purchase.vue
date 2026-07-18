@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Banknote, FileSignature, Save, Trash2, Truck } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
@@ -50,6 +50,13 @@ const resumeDraftQuery = computed(() =>
   typeof route.query.draft === 'string' ? Number(route.query.draft) : null
 )
 
+/** Mode from first-screen entry point (`?mode=cash|credit`). Edit/Draft hydrate override. */
+function modeFromQuery(): SaleMode | null {
+  const m = route.query.mode
+  if (m === 'cash' || m === 'credit') return m
+  return null
+}
+
 const { data: products } = useProductsQuery()
 const { data: settings } = useSettingsQuery()
 const createPurchase = useCreatePurchase()
@@ -68,9 +75,11 @@ const walkinName = ref('')
 const walkinPlace = ref('')
 const walkinPhone = ref('')
 
-// Cash or Credit is chosen before anything else — the whole workspace hangs off it.
-// null = the gate is still showing; editing an existing Purchase prefills it instead.
-const mode = ref<SaleMode | null>(null)
+// Cash or Credit is pre-chosen on the first screen (query `mode`) or hydrated from
+// Edit / Draft. The in-cart toggle can still flip it. null only while Edit/Draft load.
+const mode = ref<SaleMode | null>(
+  editId.value || resumeDraftQuery.value != null ? null : (modeFromQuery() ?? 'cash')
+)
 const lines = ref<CartLine[]>([])
 const goodsCart = ref<InstanceType<typeof GoodsCart> | null>(null)
 const additionalCharges = ref<number | null>(null)
@@ -87,10 +96,6 @@ const productList = computed(() => products.value ?? [])
 const bagTypes = computed(() => settings.value?.bagTypes ?? [25_000, 30_000, 50_000])
 
 const isCredit = computed(() => mode.value === 'credit')
-
-// Cash is the common case — the gate pre-focuses its tile so a bare Enter starts a Cash Purchase.
-const cashTile = ref<HTMLButtonElement | null>(null)
-onMounted(() => cashTile.value?.focus())
 
 const shellTint = computed(() => {
   if (mode.value === 'cash') return 'bg-emerald-50/60 dark:bg-emerald-950/20'
@@ -352,7 +357,7 @@ watch(
           </h1>
         </div>
 
-        <!-- Mode stays flippable mid-cart; the segmented control mirrors the gate's choice -->
+        <!-- Mode pre-chosen from Home; stays flippable mid-cart -->
         <div
           v-if="mode"
           class="inline-flex items-center rounded-lg border bg-background p-1"
@@ -381,51 +386,8 @@ watch(
         </div>
       </div>
 
-      <!-- The gate: pick Cash or Credit before anything else -->
-      <div
-        v-if="mode === null && !editId"
-        class="grid gap-4 sm:grid-cols-2"
-        data-testid="purchase-gate"
-      >
-        <p class="text-sm text-muted-foreground sm:col-span-2">
-          How does this Purchase settle? Supplier, goods, and payment all follow from this.
-        </p>
-        <button
-          ref="cashTile"
-          type="button"
-          class="flex flex-col items-start gap-2 rounded-xl border-2 border-emerald-200 bg-card p-6 text-left transition-colors hover:border-emerald-500 hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 dark:border-emerald-900 dark:hover:bg-emerald-950/40"
-          data-testid="purchase-gate-cash"
-          @click="mode = 'cash'"
-        >
-          <Banknote class="size-8 text-emerald-600" />
-          <span class="flex items-center gap-2 text-xl font-semibold">
-            Cash
-            <kbd
-              class="rounded border bg-muted px-1.5 py-0.5 text-xs font-medium text-muted-foreground"
-            >
-              Enter ↵
-            </kbd>
-          </span>
-          <span class="text-sm text-muted-foreground">
-            Cash and/or UPI paid to the supplier at finish. Customer Master entry or walk-in.
-          </span>
-        </button>
-        <button
-          type="button"
-          class="flex flex-col items-start gap-2 rounded-xl border-2 border-amber-200 bg-card p-6 text-left transition-colors hover:border-amber-500 hover:bg-amber-50 focus:outline-none focus:ring-2 focus:ring-amber-500 focus:ring-offset-2 dark:border-amber-900 dark:hover:bg-amber-950/40"
-          data-testid="purchase-gate-credit"
-          @click="mode = 'credit'"
-        >
-          <FileSignature class="size-8 text-amber-600" />
-          <span class="text-xl font-semibold">Credit</span>
-          <span class="text-sm text-muted-foreground">
-            Goods received on credit — owed to the supplier; settle later via a Payment.
-          </span>
-        </button>
-      </div>
-
       <!-- The workspace: three cards that adapt to the chosen mode -->
-      <template v-else-if="mode">
+      <template v-if="mode">
         <Card :class="cardAccent" data-testid="purchase-supplier-card">
           <CardHeader>
             <CardTitle>Supplier</CardTitle>

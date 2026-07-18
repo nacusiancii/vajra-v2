@@ -37,11 +37,11 @@ test('credit sale is gated on a printed, signed voucher', async ({ page }) => {
   await page.getByRole('link', { name: /^Vajra$/ }).click()
 
   // ── Credit Sale ──
-  await page.getByTestId('open-sale').click()
-  // Picking Credit at the gate opens the workspace; the customer picker auto-opens —
+  await page.getByTestId('open-credit-sale').click()
+  // Mode is pre-chosen from Home; customer picker auto-opens —
   // type into the filter, then pick the match. Selecting a customer on an empty cart
   // adds the first line and opens the product dropdown.
-  await page.getByTestId('sale-gate-credit').click()
+  await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'credit')
   await page.getByPlaceholder(/Type a customer name/).fill('Ravi')
   await page.getByRole('option', { name: /Ravi Kumar/ }).click()
 
