@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   dateToDDMMYYYY,
+  displayTxnSerial,
   formatTxnId,
   lineStockDelta,
   projectInventory,
@@ -10,14 +11,34 @@ import {
   type Txn
 } from '@domain/transaction'
 
-describe('formatTxnId', () => {
-  it('builds TT-NNNN-DDMMYYYY with zero-padded seq', () => {
-    expect(formatTxnId('SA', 42, '2026-05-31')).toBe('SA-0042-31052026')
-    expect(formatTxnId('ST', 1, '2026-01-09')).toBe('ST-0001-09012026')
+describe('formatTxnId (ADR-0009)', () => {
+  it('builds TT[-MODE]-SEQ[.REV]-DDMMYYYY without zero-padding', () => {
+    expect(formatTxnId({ type: 'SA', mode: 'cash', seq: 20, startDate: '2026-07-18' })).toBe(
+      'SA-C-20-18072026'
+    )
+    expect(
+      formatTxnId({ type: 'SA', mode: 'cash', seq: 20, rev: 1, startDate: '2026-07-18' })
+    ).toBe('SA-C-20.1-18072026')
+    expect(formatTxnId({ type: 'SA', mode: 'credit', seq: 3, startDate: '2026-07-18' })).toBe(
+      'SA-R-3-18072026'
+    )
+    expect(formatTxnId({ type: 'PU', mode: 'cash', seq: 1, startDate: '2026-07-18' })).toBe(
+      'PU-C-1-18072026'
+    )
+    expect(formatTxnId({ type: 'RE', seq: 4, startDate: '2026-07-18' })).toBe('RE-4-18072026')
+    expect(formatTxnId({ type: 'ST', seq: 1, startDate: '2026-01-09' })).toBe('ST-1-09012026')
   })
 
   it('dateToDDMMYYYY reorders the parts', () => {
     expect(dateToDDMMYYYY('2026-05-31')).toBe('31052026')
+  })
+
+  it('displayTxnSerial is the day-local fragment cashiers read', () => {
+    expect(displayTxnSerial({ type: 'SA', seq: 20, rev: 0, saleMode: 'cash' })).toBe('C-20')
+    expect(displayTxnSerial({ type: 'SA', seq: 20, rev: 1, saleMode: 'cash' })).toBe('C-20.1')
+    expect(displayTxnSerial({ type: 'SA', seq: 3, rev: 0, saleMode: 'credit' })).toBe('R-3')
+    expect(displayTxnSerial({ type: 'RE', seq: 4, rev: 0, saleMode: null })).toBe('4')
+    expect(displayTxnSerial({ type: 'RE', seq: 4, rev: 2, saleMode: null })).toBe('4.2')
   })
 })
 
@@ -122,7 +143,7 @@ describe('summariseDrawer (paise)', () => {
     return {
       id: 'x',
       seq: 1,
-      voucherSeq: null,
+      rev: 0,
       saleMode: null,
       customerId: null,
       customerName: null,

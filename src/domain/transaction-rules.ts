@@ -261,7 +261,8 @@ export const SaleWriteSchema = z.object({
   discountAmount: integerPaiseNonNeg,
   cashCollected: integerPaiseNonNeg,
   upiCollected: integerPaiseNonNeg,
-  voucherSeq: z.number().int().nullable(),
+  /** Pre-reserved SA-R sequence from voucher print; null allocates at write time. */
+  reservedSeq: z.number().int().positive().nullable(),
   remarks: z.string().nullable()
 })
 

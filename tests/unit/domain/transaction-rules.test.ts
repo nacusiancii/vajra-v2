@@ -313,7 +313,7 @@ describe('SaleWriteSchema (goods write boundary — integer paise)', () => {
     discountAmount: 0,
     cashCollected: 48_000,
     upiCollected: 0,
-    voucherSeq: null,
+    reservedSeq: null,
     remarks: null
   }
 

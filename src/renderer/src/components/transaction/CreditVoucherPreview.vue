@@ -24,7 +24,11 @@ export interface VoucherLine {
 
 const props = defineProps<{
   open: boolean
-  voucherSeq: number | null
+  /**
+   * Full transaction ID shared with the Sale Invoice (ADR-0009).
+   * Shown before finish when pre-reserved; after finish matches the finished Sale.
+   */
+  transactionId: string | null
   companyName: string
   /** Business Day date as YYYY-MM-DD. */
   date: string
@@ -96,8 +100,8 @@ const breakdowns = computed(() =>
       <DialogHeader>
         <DialogTitle>Credit Voucher</DialogTitle>
         <DialogDescription>
-          Hand this to the customer to sign. Reprinting after a price change issues a new Voucher
-          Number.
+          Hand this to the customer to sign. The voucher uses the same transaction ID as the Sale
+          Invoice.
         </DialogDescription>
       </DialogHeader>
 
@@ -121,9 +125,9 @@ const breakdowns = computed(() =>
           </div>
           <Separator class="my-2" />
           <div class="flex items-center justify-between">
-            <span class="text-muted-foreground">Voucher No.</span>
+            <span class="text-muted-foreground">Transaction ID</span>
             <span class="text-lg font-bold tabular-nums" data-testid="voucher-number">
-              {{ voucherSeq }}
+              {{ transactionId ?? '—' }}
             </span>
           </div>
           <div class="flex items-center justify-between">

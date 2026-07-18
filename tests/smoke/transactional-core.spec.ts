@@ -93,9 +93,9 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('sale-cash')).toHaveValue('6000')
   await page.getByTestId('sale-finish').click()
 
-  // Slip preview shows the would-be Sale Invoice with a Sale Number.
+  // Slip preview shows the would-be Sale Invoice with the transaction ID (ADR-0009).
   await expect(page.getByTestId('slip-preview')).toBeVisible()
-  await expect(page.getByTestId('sale-number')).toHaveText('1')
+  await expect(page.getByTestId('sale-number')).toHaveText(/^SA-C-1-\d{8}$/)
   await page.getByTestId('slip-done').click()
 
   // Done returns Home; open ledger to confirm both transactions and drawer.

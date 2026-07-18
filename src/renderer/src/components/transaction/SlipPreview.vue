@@ -83,9 +83,9 @@ const copyLabel = computed(() =>
             <p class="text-xs uppercase tracking-widest text-muted-foreground">Sale Invoice</p>
           </div>
           <div class="mt-2 flex items-center justify-between">
-            <span class="text-muted-foreground">Sale No.</span>
+            <span class="text-muted-foreground">Transaction ID</span>
             <span class="text-lg font-bold tabular-nums" data-testid="sale-number">{{
-              txn.seq
+              txn.id
             }}</span>
           </div>
           <div class="flex items-center justify-between">
@@ -160,7 +160,7 @@ const copyLabel = computed(() =>
           </template>
           <div v-else class="flex justify-between text-muted-foreground">
             <span>Credit Voucher</span>
-            <span class="tabular-nums">#{{ txn.voucherSeq }}</span>
+            <span class="tabular-nums" data-testid="slip-voucher-id">{{ txn.id }}</span>
           </div>
           <div v-if="txn.remarks" class="mt-2 border-t pt-2" data-testid="slip-remarks">
             <p class="text-muted-foreground">Remarks</p>
