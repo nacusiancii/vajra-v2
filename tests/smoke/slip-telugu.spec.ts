@@ -1,4 +1,4 @@
-import { test, expect } from './fixtures'
+import { test, expect, dismissAutoPicker } from './fixtures'
 import type { Page } from '@playwright/test'
 
 /**
@@ -57,13 +57,17 @@ test('cash sale invoice shows Telugu for customer, place, and product', async ({
   await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'cash')
 
   // Switch from default walk-in to Customer Master with Telugu.
+  // CustomerSelect auto-opens after mount — settle the Select→combobox handoff
+  // (same race as sale-draft) before picking, otherwise the option detaches.
   await page.getByTestId('sale-counterparty-mode').click()
   await page.getByRole('option', { name: 'Customer Master' }).click()
+  await dismissAutoPicker(page)
+  await page.getByTestId('sale-customer').click()
   await page.getByPlaceholder(/Type a customer name/).fill('Ravi')
   await page.getByRole('option', { name: new RegExp(CUSTOMER_EN) }).click()
 
   await expect(page.getByTestId('cart-line')).toHaveCount(1)
-  // Operator catalog stays English.
+  // Customer pick focuses product on empty cart line — operator catalog stays English.
   await expect(page.getByRole('option', { name: PRODUCT_EN })).toBeVisible()
   await page.getByRole('option', { name: PRODUCT_EN }).click()
   await page.getByTestId('cart-rate').fill('6000')
