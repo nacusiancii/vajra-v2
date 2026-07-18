@@ -69,10 +69,8 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   // Mode is pre-chosen from Home; cart opens with the workspace ready.
   await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'cash')
   await expect(page.getByTestId('sale-mode')).toBeVisible()
-  // Customer mode auto-opens its picker; dismiss it before switching to walk-in.
-  await dismissAutoPicker(page)
-  await page.getByTestId('sale-counterparty-mode').click()
-  await page.getByRole('option', { name: 'Walk in' }).click()
+  // Cash Sale defaults to Walk-in (name/place optional).
+  await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')
   await page.getByTestId('sale-walkin-name').fill('Counter Customer')
   await page.getByTestId('sale-walkin-place').fill('Guntur')
   await page.getByTestId('cart-add-line').click()

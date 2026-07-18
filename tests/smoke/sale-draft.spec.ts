@@ -62,10 +62,9 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
 
   // Start a Cash Sale for a walk-in, park it mid-entry.
   await page.getByTestId('open-cash-sale').click()
-  await dismissAutoPicker(page)
+  // Cash Sale defaults to Walk-in (name/place optional).
+  await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')
   await expect(page.getByTestId('sale-save-draft')).toBeVisible()
-  await page.getByTestId('sale-counterparty-mode').click()
-  await page.getByRole('option', { name: 'Walk in' }).click()
   await page.getByTestId('sale-walkin-name').fill('Parked Customer')
   await page.getByTestId('sale-walkin-place').fill('Tenali')
   await page.getByTestId('cart-add-line').click()
@@ -113,9 +112,13 @@ test('Save Draft blocked without counterparty', async ({ page }) => {
 
   await seedProduct(page)
   await page.getByTestId('open-cash-sale').click()
+  // Walk-in is default (optional fields). Switch to Customer Master with no pick.
+  await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')
+  await page.getByTestId('sale-counterparty-mode').click()
+  await page.getByRole('option', { name: 'Customer Master' }).click()
   await dismissAutoPicker(page)
   await expect(page.getByTestId('sale-save-draft')).toBeVisible()
-  // Customer mode selected but no customer picked — save must fail clearly.
+  // Customer Master selected but no customer picked — save must fail clearly.
   await page.getByTestId('sale-save-draft').click()
   await expect(page.getByTestId('sale-error')).toBeVisible()
   await expect(page.getByTestId('sale-error')).toContainText(/Customer Master|walk-in/i)

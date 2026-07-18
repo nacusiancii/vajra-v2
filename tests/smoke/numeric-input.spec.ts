@@ -1,4 +1,4 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
+import { test, expect } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
 
 /**
@@ -27,9 +27,8 @@ async function seedBulkProduct(page: Page): Promise<void> {
 async function openCashSaleCart(page: Page): Promise<void> {
   await page.getByTestId('open-cash-sale').click()
   await expect(page.getByTestId('sale-page')).toHaveAttribute('data-mode', 'cash')
-  await dismissAutoPicker(page)
-  await page.getByTestId('sale-counterparty-mode').click()
-  await page.getByRole('option', { name: 'Walk in' }).click()
+  // Cash Sale defaults to Walk-in (name/place optional).
+  await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')
   await page.getByTestId('sale-walkin-name').fill('Counter')
   await page.getByTestId('sale-walkin-place').fill('Guntur')
   await page.getByTestId('cart-add-line').click()
