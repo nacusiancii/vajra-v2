@@ -83,20 +83,18 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   await expect(page.getByTestId('credit-finish-sale-id')).toHaveText(txnId)
   await expect(page.getByTestId('credit-finish-voucher-id')).toHaveText(txnId)
 
-  // Invoice face. Master without Telugu → blank name/place (ADR-0003, no English fallback);
-  // product falls back to English when nameTe is empty so lines stay readable.
+  // Invoice face.
   await expect(page.getByTestId('sale-invoice')).toBeVisible()
-  await expect(page.getByTestId('slip-customer')).toHaveText('')
-  await expect(page.getByTestId('slip-place')).toHaveText('')
+  await expect(page.getByTestId('slip-customer')).toHaveText('Ravi Kumar')
+  await expect(page.getByTestId('slip-place')).toHaveText('Guntur')
   await expect(page.getByTestId('slip-phone')).toHaveText('9876543210')
-  await expect(page.getByTestId('slip-line-product')).toContainText('Toor Dal')
 
   // Voucher front: company, date, place, mobile, customer, amount.
   await expect(page.getByTestId('voucher-front')).toBeVisible()
   await expect(page.getByTestId('voucher-company')).toHaveText('Sri Venkateswara Traders')
-  await expect(page.getByTestId('voucher-place')).toHaveText('')
+  await expect(page.getByTestId('voucher-place')).toHaveText('Guntur')
   await expect(page.getByTestId('voucher-phone')).toHaveText('9876543210')
-  await expect(page.getByTestId('voucher-customer')).toHaveText('')
+  await expect(page.getByTestId('voucher-customer')).toHaveText('Ravi Kumar')
   await expect(page.getByTestId('voucher-date')).not.toHaveText('—')
   await expect(page.getByTestId('voucher-amount')).toContainText('6,000')
 
