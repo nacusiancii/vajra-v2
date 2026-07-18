@@ -11,8 +11,8 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Separator } from '@/components/ui/separator'
-import { formatBagKg, formatKgFromG, formatQty, formatRupees } from '@/lib/format'
-import { lineMassGrams } from '@domain/transaction-rules'
+import { formatQty, formatRupees } from '@/lib/format'
+import { QUINTAL_G } from '@domain/units'
 import type { Txn } from '@domain/transaction'
 
 const props = withDefaults(
@@ -111,16 +111,20 @@ const copyLabel = computed(() =>
           <div v-for="line in txn.lines" :key="line.id" class="flex justify-between gap-2 py-0.5">
             <span class="truncate">
               {{ line.productName }}
+              <!--
+                Bag: Quantity × Weight (Quintals) × Quintal Rate
+                Loose: kg × price/kg (CONTEXT.md / #132)
+              -->
               <span v-if="line.isLoose" class="text-muted-foreground" data-testid="slip-line-loose">
                 ({{ formatQty(line.qty) }} kg × {{ formatRupees(line.perKgRate ?? 0) }}/kg)
               </span>
-              <span v-else-if="line.bagSizeG" class="text-muted-foreground">
-                ({{ formatQty(line.qty) }} × {{ formatBagKg(line.bagSizeG) }} =
-                {{
-                  formatKgFromG(
-                    lineMassGrams({ isLoose: false, qty: line.qty, bagSizeG: line.bagSizeG })
-                  )
-                }})
+              <span
+                v-else-if="line.bagSizeG"
+                class="text-muted-foreground"
+                data-testid="slip-line-bag"
+              >
+                ({{ formatQty(line.qty) }} × {{ formatQty(line.bagSizeG / QUINTAL_G) }} ×
+                {{ formatRupees(line.quintalRate ?? 0) }})
               </span>
               <span v-else class="text-muted-foreground">× {{ formatQty(line.qty) }}</span>
             </span>
