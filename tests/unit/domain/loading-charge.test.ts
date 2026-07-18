@@ -125,6 +125,8 @@ describe('line pricing + loading composition (paise)', () => {
     expect(goods).toBe(600_000)
     expect(loading).toBe(2_400)
     expect(grandTotal([goods], loading, 2_500)).toBe(604_900)
+    // Discount ₹50 off the same cart → ₹5,999
+    expect(grandTotal([goods], loading, 2_500, 5_000)).toBe(599_900)
   })
 
   it('loose line total + loading', () => {

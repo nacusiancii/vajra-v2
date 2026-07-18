@@ -79,6 +79,15 @@ describe('grandTotal (paise)', () => {
   it('sums lines plus loading plus additional', () => {
     expect(grandTotal([600_000, 15_000], 10_000, 5_000)).toBe(630_000)
   })
+
+  it('subtracts Sale Discount from the total', () => {
+    // goods 615k + loading 10k + additional 5k − discount 25k = 605k
+    expect(grandTotal([600_000, 15_000], 10_000, 5_000, 25_000)).toBe(605_000)
+  })
+
+  it('defaults discount to 0 when omitted (Purchases)', () => {
+    expect(grandTotal([100_000], 0, 0)).toBe(100_000)
+  })
 })
 
 describe('computeLoadingCharge (weight breakpoints)', () => {
@@ -301,6 +310,7 @@ describe('SaleWriteSchema (goods write boundary — integer paise)', () => {
     additionalCharges: 0,
     loadingCharges: 0,
     loadingApplied: true,
+    discountAmount: 0,
     cashCollected: 48_000,
     upiCollected: 0,
     voucherSeq: null,
@@ -329,6 +339,16 @@ describe('SaleWriteSchema (goods write boundary — integer paise)', () => {
 
   it('rejects negative additional charges', () => {
     expect(SaleWriteSchema.safeParse({ ...validSale, additionalCharges: -1 }).success).toBe(false)
+  })
+
+  it('accepts a positive Sale Discount', () => {
+    const result = SaleWriteSchema.safeParse({ ...validSale, discountAmount: 5_000 })
+    expect(result.success).toBe(true)
+    if (result.success) expect(result.data.discountAmount).toBe(5_000)
+  })
+
+  it('rejects negative Sale Discount', () => {
+    expect(SaleWriteSchema.safeParse({ ...validSale, discountAmount: -1 }).success).toBe(false)
   })
 })
 

@@ -39,9 +39,11 @@ export interface DraftCartFields {
   remarks: string
 }
 
-/** Sale cart snapshot — includes Loading Charge toggle. */
+/** Sale cart snapshot — includes Loading Charge toggle and optional Discount. */
 export interface SaleDraftPayload extends DraftCartFields {
   applyLoading: boolean
+  /** Sale Discount in paise; null when the field is empty in the cart. */
+  discountAmount: number | null
 }
 
 /** Purchase cart snapshot (no Loading Charges). */

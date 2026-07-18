@@ -96,6 +96,8 @@ const lines = ref<CartLine[]>([])
 const goodsCart = ref<InstanceType<typeof GoodsCart> | null>(null)
 const applyLoading = ref(false)
 const additionalCharges = ref<number | null>(null)
+/** Sale Discount (paise) — simple rupee reduction of total; not Settlement Discount. */
+const discountAmount = ref<number | null>(null)
 const upiCollected = ref<number | null>(null)
 const remarks = ref('')
 
@@ -206,7 +208,12 @@ const loadingCharge = computed(() => {
 const goodsTotal = computed(() => lineTotals.value.reduce((a, b) => a + b, 0))
 
 const total = computed(() =>
-  grandTotal(lineTotals.value, loadingCharge.value, additionalCharges.value ?? 0)
+  grandTotal(
+    lineTotals.value,
+    loadingCharge.value,
+    additionalCharges.value ?? 0,
+    discountAmount.value ?? 0
+  )
 )
 
 // Cash is whatever the total isn't covered by UPI — the cashier only types UPI.
@@ -278,6 +285,7 @@ function buildInput(m: SaleMode): CreateSaleInput {
     additionalCharges: additionalCharges.value ?? 0,
     loadingCharges: loadingCharge.value,
     loadingApplied: applyLoading.value,
+    discountAmount: discountAmount.value ?? 0,
     cashCollected: m === 'cash' ? cashDue.value : 0,
     upiCollected: m === 'cash' ? (upiCollected.value ?? 0) : 0,
     voucherSeq: m === 'credit' ? printedVoucherSeq.value : null,
@@ -303,6 +311,7 @@ function buildDraftPayload(m: SaleMode): SaleDraftPayload {
     })),
     applyLoading: applyLoading.value,
     additionalCharges: additionalCharges.value,
+    discountAmount: discountAmount.value,
     upiCollected: upiCollected.value,
     remarks: remarks.value
   }
@@ -318,6 +327,8 @@ function applyDraftPayload(payload: SaleDraftPayload): void {
   lines.value = payload.lines.map((l) => ({ ...l }))
   applyLoading.value = payload.applyLoading
   additionalCharges.value = payload.additionalCharges
+  // Older parked payloads may omit discountAmount — treat as empty.
+  discountAmount.value = payload.discountAmount ?? null
   upiCollected.value = payload.upiCollected
   remarks.value = payload.remarks
   // Voucher state is not parked — reprint on credit finish after resume.
@@ -413,6 +424,16 @@ function finish(): void {
     error.value = reason
     return
   }
+  const preDiscount = grandTotal(
+    lineTotals.value,
+    loadingCharge.value,
+    additionalCharges.value ?? 0,
+    0
+  )
+  if ((discountAmount.value ?? 0) > preDiscount) {
+    error.value = 'Discount cannot exceed the Sale total'
+    return
+  }
 
   // A Credit Sale can't finish until a voucher is printed at the current price for signing.
   if (m === 'credit' && !voucherPrinted.value) {
@@ -446,6 +467,7 @@ watch(
     walkinPlace.value = txn.walkinPlace ?? ''
     walkinPhone.value = txn.walkinPhone ?? ''
     additionalCharges.value = txn.additionalCharges || null
+    discountAmount.value = txn.discountAmount || null
     // Rehydrate opt-in from the persisted flag — not from amount (₹0 free-band stays on).
     applyLoading.value = txn.loadingApplied
     upiCollected.value = txn.upiIn || null
@@ -673,9 +695,11 @@ watch(
                 :loading-charge="loadingCharge"
                 :goods-total="goodsTotal"
                 :additional-charges="additionalCharges"
+                :discount-amount="discountAmount"
                 :buckets="loadingBuckets"
                 @update:apply-loading="applyLoading = $event"
                 @update:additional-charges="additionalCharges = $event"
+                @update:discount-amount="discountAmount = $event"
               />
 
               <div v-if="!isCredit" class="grid grid-cols-2 gap-2">
@@ -791,6 +815,7 @@ watch(
         :lines="voucherLines"
         :loading-charges="loadingCharge"
         :additional-charges="additionalCharges ?? 0"
+        :discount-amount="discountAmount ?? 0"
         :total="printedAtTotal ?? total"
         @update:open="(v) => (voucherOpen = v)"
         @done="voucherOpen = false"

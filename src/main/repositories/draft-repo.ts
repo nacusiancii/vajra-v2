@@ -126,7 +126,13 @@ export class DraftRepo {
       updatedAt: row.updated_at
     }
     if (row.type === 'SA') {
-      return { ...base, type: 'SA', payload: raw as SaleDraftPayload }
+      const sale = raw as SaleDraftPayload
+      // Normalize payloads parked before Sale Discount existed.
+      return {
+        ...base,
+        type: 'SA',
+        payload: { ...sale, discountAmount: sale.discountAmount ?? null }
+      }
     }
     return { ...base, type: 'PU', payload: raw as PurchaseDraftPayload }
   }

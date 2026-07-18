@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Settle money breakdown: Goods + opt-in Loading Charge + Additional Charges.
+ * Settle money breakdown: Goods + opt-in Loading Charge + Additional Charges − Discount.
  * Loading Charge is a line item in the total story, not a free-floating checkbox.
+ * Discount is a simple rupee reduction of the Sale total (not Settlement Discount).
  */
 import { Checkbox } from '@/components/ui/checkbox'
 import { Label } from '@/components/ui/label'
@@ -14,12 +15,15 @@ const props = defineProps<{
   loadingCharge: number
   goodsTotal: number
   additionalCharges: number | null
+  /** Sale Discount in paise; null when empty. */
+  discountAmount: number | null
   buckets: LoadingWeightBucket[]
 }>()
 
 const emit = defineEmits<{
   'update:applyLoading': [value: boolean]
   'update:additionalCharges': [value: number | null]
+  'update:discountAmount': [value: number | null]
 }>()
 
 function bucketLabel(b: LoadingWeightBucket): string {
@@ -83,6 +87,18 @@ function bucketLabel(b: LoadingWeightBucket): string {
         placeholder="0"
         test-id="sale-additional"
         @update:model-value="emit('update:additionalCharges', $event)"
+      />
+    </div>
+
+    <div class="flex items-center justify-between gap-3 py-1">
+      <Label class="text-muted-foreground">Discount</Label>
+      <NumericField
+        mode="money"
+        class="h-8 w-28 text-right"
+        :model-value="props.discountAmount"
+        placeholder="0"
+        test-id="sale-discount"
+        @update:model-value="emit('update:discountAmount', $event)"
       />
     </div>
   </div>

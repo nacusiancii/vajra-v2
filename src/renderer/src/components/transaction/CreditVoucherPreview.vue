@@ -36,6 +36,8 @@ const props = defineProps<{
   lines: VoucherLine[]
   loadingCharges: number
   additionalCharges: number
+  /** Sale Discount in paise (0 when none). */
+  discountAmount: number
   total: number
 }>()
 
@@ -200,6 +202,14 @@ const breakdowns = computed(() =>
           >
             <span class="text-muted-foreground">Additional Charges</span>
             <span class="tabular-nums">{{ formatRupees(additionalCharges) }}</span>
+          </div>
+          <div
+            v-if="discountAmount"
+            class="flex justify-between py-0.5"
+            data-testid="voucher-discount"
+          >
+            <span class="text-muted-foreground">Discount</span>
+            <span class="tabular-nums">−{{ formatRupees(discountAmount) }}</span>
           </div>
           <div class="flex justify-between font-semibold" data-testid="voucher-total">
             <span>Total</span>
