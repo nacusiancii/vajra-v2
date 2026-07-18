@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { Plus, Trash2 } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import {
@@ -94,6 +94,25 @@ function emptyLine(): CartLine {
   }
 }
 
+/** A line is "filled" once a Product is chosen — trailing empty rows hang off that. */
+function isLineBlank(line: CartLine): boolean {
+  return line.productId == null
+}
+
+/**
+ * Always leave one blank product row at the bottom of the cart.
+ * Used on open, after a product is picked on the last row, and after remove/hydrate.
+ */
+function ensureTrailingEmptyLine(): void {
+  const current = lines.value
+  if (current.length === 0 || !isLineBlank(current[current.length - 1]!)) {
+    lines.value = [...current, emptyLine()]
+  }
+}
+
+// Seed / keep a trailing blank line for Sale and Purchase carts (new, edit, draft).
+watch(lines, () => ensureTrailingEmptyLine(), { deep: true, immediate: true })
+
 function rowTotal(line: CartLine): number {
   if (!line.productId || !line.qty) return 0
   return lineTotal({
@@ -114,14 +133,19 @@ function rowMassG(line: CartLine): number {
   })
 }
 
+/** Manual add — no-ops when a trailing blank already exists (auto-managed). */
 function addLine(): void {
-  lines.value = [...lines.value, emptyLine()]
+  ensureTrailingEmptyLine()
 }
 
-/** Empty cart after customer pick — start the first line and open its product picker. */
+/**
+ * Customer/supplier picked — open the first product picker when that line is still blank.
+ * Cart already has a trailing empty row by default; only focus when the first row is empty.
+ */
 function ensureLineAndFocusProduct(): void {
-  if (lines.value.length > 0) return
-  addLine()
+  ensureTrailingEmptyLine()
+  const first = lines.value[0]
+  if (first == null || !isLineBlank(first)) return
   void nextTick(() => productComboRefs.value[0]?.focus())
 }
 
@@ -129,6 +153,7 @@ function removeLine(index: number): void {
   lines.value = lines.value.filter((_, i) => i !== index)
   productComboRefs.value.splice(index, 1)
   qtyInputRefs.value.splice(index, 1)
+  // watch re-seeds a trailing blank if the last filled line was left bare.
 }
 
 function focusQty(index: number): void {
@@ -145,6 +170,8 @@ function onProductChange(line: CartLine, value: number | null, index: number): v
   if (!line.isLoose) {
     line.bagSizeG = p?.defaultBagSizeG ?? null
   }
+  // Clearing product on a non-last row leaves a blank mid-cart; last-row pick
+  // is covered by ensureTrailingEmptyLine via the lines watch.
   if (value != null) focusQty(index)
 }
 
@@ -186,11 +213,6 @@ defineExpose({ ensureLineAndFocusProduct })
         </TableRow>
       </TableHeader>
       <TableBody>
-        <TableRow v-if="lines.length === 0">
-          <TableCell :colspan="6" class="py-6 text-center text-muted-foreground">
-            No lines yet — add one to begin.
-          </TableCell>
-        </TableRow>
         <TableRow v-for="(line, index) in lines" :key="index" data-testid="cart-line">
           <TableCell>
             <EntityCombobox
