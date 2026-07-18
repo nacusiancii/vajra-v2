@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Banknote, CircleDollarSign, HandCoins, Wallet } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
@@ -84,6 +84,22 @@ const upiCollected = ref<number | null>(null)
 const discountAmount = ref<number | null>(null)
 const remarks = ref('')
 const error = ref<string | null>(null)
+
+/** RE/PA cash field — focused after Customer pick (NumericField exposes focus()). */
+const cashField = ref<{ focus: () => void } | null>(null)
+
+function focusCashField(): void {
+  // EntityCombobox skips close-auto-focus after a pick; land on cash once the
+  // popover has released focus (same setTimeout(0) handoff as GoodsCart).
+  void nextTick(() => {
+    window.setTimeout(() => cashField.value?.focus(), 0)
+  })
+}
+
+// Receipt/Payment: after Customer pick, cashier types cash next.
+watch(customerId, (id) => {
+  if (id != null && config.value.settlementEntry) focusCashField()
+})
 
 // EX/IN: cashier types UPI; cash is the remainder of the amount.
 const cashDue = computed(() => Math.max((amount.value ?? 0) - (upiCollected.value ?? 0), 0))
@@ -258,6 +274,7 @@ watch(
         <div class="grid gap-2">
           <Label>Cash</Label>
           <NumericField
+            ref="cashField"
             mode="money"
             :model-value="cashCollected"
             placeholder="0"
