@@ -587,7 +587,8 @@ watch(
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <div class="flex flex-wrap items-end gap-4">
+            <div class="space-y-4">
+              <!-- Row 1: mode selector alone so Place/Phone never orphan it mid-row -->
               <div v-if="!isCredit" class="grid gap-2">
                 <Label>Customer</Label>
                 <Select v-model="counterpartyMode">
@@ -601,12 +602,16 @@ watch(
                 </Select>
               </div>
 
-              <div v-if="counterpartyMode === 'customer'" class="grid gap-2">
-                <Label>Select customer</Label>
-                <CustomerSelect v-model="customerId" :auto-focus="true" test-id="sale-customer" />
-              </div>
+              <!-- Row 2: master picker or walk-in fields -->
+              <CustomerSelect
+                v-if="counterpartyMode === 'customer'"
+                v-model="customerId"
+                :auto-focus="true"
+                test-id="sale-customer"
+                label="Select customer"
+              />
 
-              <template v-else>
+              <div v-else class="flex flex-wrap items-end gap-4">
                 <div class="grid gap-2">
                   <Label>Name</Label>
                   <Input
@@ -628,7 +633,7 @@ watch(
                   <Label>Phone</Label>
                   <Input v-model="walkinPhone" placeholder="Optional" />
                 </div>
-              </template>
+              </div>
             </div>
             <p
               v-if="isCredit && selectedCustomer && !selectedCustomer.phone"
