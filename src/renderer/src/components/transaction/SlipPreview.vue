@@ -22,8 +22,13 @@ const props = withDefaults(
     /** When true the slip would be hand-copied (Printerless Mode, ADR-0008). */
     printerless: boolean
     /**
-     * Counterparty place (Customer Master place, or walk-in place on the Sale).
-     * Blank when unknown — layout still reserves the row for handwriting.
+     * Customer-facing counterparty name (ADR-0003): Telugu when set, else English;
+     * walk-in English as stored on the Sale.
+     */
+    customerName?: string
+    /**
+     * Customer-facing place (ADR-0003): Telugu when set, else English;
+     * walk-in English place as stored.
      */
     place?: string
     /**
@@ -31,13 +36,20 @@ const props = withDefaults(
      */
     phone?: string
     /**
+     * productId → customer-face product name (Telugu preferred, English fallback).
+     * Lines fall back to ledger English productName when an id is absent.
+     */
+    productFaceNames?: Record<number, string>
+    /**
      * Extra customer copy of the Sale Invoice (ADR-0008). Default on → two copies.
      */
     printCustomerCopy?: boolean
   }>(),
   {
+    customerName: '',
     place: '',
     phone: '',
+    productFaceNames: () => ({}),
     printCustomerCopy: true
   }
 )
@@ -45,11 +57,10 @@ const props = withDefaults(
 defineEmits<{ 'update:open': [value: boolean]; done: [] }>()
 
 const isCredit = computed(() => props.txn?.saleMode === 'credit')
-const counterparty = computed(() => {
-  const t = props.txn
-  if (!t) return ''
-  return t.customerName ?? t.walkinName ?? 'Walk in'
-})
+
+function lineProductName(productId: number, englishName: string): string {
+  return props.productFaceNames[productId] || englishName
+}
 
 /** Business + customer when opted in; business only when the cashier opts out. */
 const copyCount = computed(() => (props.printCustomerCopy ? 2 : 1))
@@ -90,7 +101,7 @@ const copyLabel = computed(() =>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Customer</span>
-            <span data-testid="slip-customer">{{ counterparty }}</span>
+            <span data-testid="slip-customer">{{ customerName }}</span>
           </div>
           <div class="flex items-center justify-between">
             <span class="text-muted-foreground">Place</span>
@@ -109,8 +120,8 @@ const copyLabel = computed(() =>
           </div>
           <Separator class="my-2" />
           <div v-for="line in txn.lines" :key="line.id" class="flex justify-between gap-2 py-0.5">
-            <span class="truncate">
-              {{ line.productName }}
+            <span class="truncate" data-testid="slip-line-product">
+              {{ lineProductName(line.productId, line.productName) }}
               <!--
                 Bag: Quantity × Weight (Quintals) × Quintal Rate
                 Loose: kg × price/kg (CONTEXT.md / #132)

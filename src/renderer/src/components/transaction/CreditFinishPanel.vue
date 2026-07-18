@@ -27,8 +27,18 @@ const props = withDefaults(
     companyName: string
     /** Business Day date as YYYY-MM-DD (voucher face). */
     date: string
+    /**
+     * Customer-facing counterparty name (ADR-0003): Telugu when set, else English;
+     * walk-in English as stored on the Sale.
+     */
+    customerName?: string
+    /** Customer-facing place (ADR-0003) — Telugu when set, else English. */
     place?: string
     phone?: string
+    /**
+     * productId → customer-face product name (Telugu preferred, English fallback).
+     */
+    productFaceNames?: Record<number, string>
     /**
      * Print the Sale Invoice. Default on — invoice is helper paper; voucher always prints.
      */
@@ -39,8 +49,10 @@ const props = withDefaults(
     printTwoCopies?: boolean
   }>(),
   {
+    customerName: '',
     place: '',
     phone: '',
+    productFaceNames: () => ({}),
     printInvoice: true,
     printTwoCopies: false
   }
@@ -62,12 +74,6 @@ watch(
   }
 )
 
-const counterparty = computed(() => {
-  const t = props.txn
-  if (!t) return ''
-  return t.customerName ?? t.walkinName ?? 'Walk in'
-})
-
 const invoiceCopyCount = computed(() => {
   if (!props.printInvoice) return 0
   return props.printTwoCopies ? 2 : 1
@@ -78,12 +84,16 @@ const invoiceCopyLabel = computed(() => {
   return props.printTwoCopies ? '2× print' : '1× print'
 })
 
+function lineProductName(productId: number, englishName: string): string {
+  return props.productFaceNames[productId] || englishName
+}
+
 /** Voucher lines from the finished Sale (same cart as the invoice). */
 const voucherLines = computed<VoucherLine[]>(() => {
   const t = props.txn
   if (!t) return []
   return t.lines.map((l) => ({
-    productName: l.productName,
+    productName: lineProductName(l.productId, l.productName),
     isLoose: l.isLoose,
     qty: l.qty,
     bagSizeG: l.bagSizeG,
@@ -217,7 +227,7 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
             </div>
             <div class="flex items-center justify-between">
               <span class="text-muted-foreground">Customer</span>
-              <span data-testid="slip-customer">{{ counterparty }}</span>
+              <span data-testid="slip-customer">{{ customerName }}</span>
             </div>
             <div class="flex items-center justify-between">
               <span class="text-muted-foreground">Place</span>
@@ -236,8 +246,8 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
             </div>
             <Separator class="my-2" />
             <div v-for="line in txn.lines" :key="line.id" class="flex justify-between gap-2 py-0.5">
-              <span class="truncate">
-                {{ line.productName }}
+              <span class="truncate" data-testid="slip-line-product">
+                {{ lineProductName(line.productId, line.productName) }}
                 <span
                   v-if="line.isLoose"
                   class="text-muted-foreground"
@@ -318,7 +328,7 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
             :transaction-id="txn.id"
             :company-name="companyName"
             :date="date"
-            :customer-name="counterparty"
+            :customer-name="customerName"
             :place="place"
             :phone="phone"
             :amount="txn.total"
