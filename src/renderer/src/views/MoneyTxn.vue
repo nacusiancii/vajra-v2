@@ -197,10 +197,13 @@ watch(
       </h1>
     </div>
 
-    <div v-if="config.needsCustomer" class="grid gap-2">
-      <Label>Customer</Label>
-      <CustomerSelect v-model="customerId" :auto-focus="true" test-id="money-customer" />
-    </div>
+    <CustomerSelect
+      v-if="config.needsCustomer"
+      v-model="customerId"
+      :auto-focus="true"
+      test-id="money-customer"
+      label="Customer"
+    />
 
     <div v-if="config.needsLabel" class="grid gap-2">
       <Label>Label</Label>

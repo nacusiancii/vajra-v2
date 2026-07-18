@@ -601,10 +601,13 @@ watch(
                 </Select>
               </div>
 
-              <div v-if="counterpartyMode === 'customer'" class="grid gap-2">
-                <Label>Select customer</Label>
-                <CustomerSelect v-model="customerId" :auto-focus="true" test-id="sale-customer" />
-              </div>
+              <CustomerSelect
+                v-if="counterpartyMode === 'customer'"
+                v-model="customerId"
+                :auto-focus="true"
+                test-id="sale-customer"
+                label="Select customer"
+              />
 
               <template v-else>
                 <div class="grid gap-2">
