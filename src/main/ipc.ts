@@ -81,13 +81,11 @@ function customerHasReferences(db: ReturnType<typeof getDb>, id: number): boolea
   return row !== undefined
 }
 
-/** A Product is referenced once any non-voided transaction line points at it. */
+/**
+ * A Product is referenced once any transaction line points at it (voided included —
+ * voided rows stay until Rollover and still hold the FK).
+ */
 function productHasReferences(db: ReturnType<typeof getDb>, id: number): boolean {
-  const row = db
-    .prepare(
-      `SELECT 1 FROM txn_line l JOIN txn t ON t.id = l.txn_id
-       WHERE l.product_id = ? AND t.voided = 0 LIMIT 1`
-    )
-    .get(id)
+  const row = db.prepare(`SELECT 1 FROM txn_line WHERE product_id = ? LIMIT 1`).get(id)
   return row !== undefined
 }

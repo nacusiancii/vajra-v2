@@ -94,12 +94,29 @@ export class ProductRepo {
   }
 
   delete(id: number): void {
+    const check = this.canDelete(id)
+    if (!check.canDelete) {
+      throw new Error(check.reason ?? 'Cannot delete this product')
+    }
+    // Zero Opening Stock rows are left after Rollover for every Product; drop them so
+    // an unused Product can leave the Product Master without a silent FK failure.
+    this.db.prepare('DELETE FROM opening_stock WHERE product_id = ?').run(id)
     this.db.prepare('DELETE FROM product WHERE id = ?').run(id)
   }
 
   canDelete(id: number): DeleteCheck {
     if (this.refChecker.hasProductReferences(id)) {
       return { canDelete: false, reason: 'Product is referenced by existing transactions' }
+    }
+    // Non-zero Opening Stock means the Product still carries Inventory into this day.
+    const hasStock = this.db
+      .prepare(`SELECT 1 FROM opening_stock WHERE product_id = ? AND qty != 0 LIMIT 1`)
+      .get(id)
+    if (hasStock !== undefined) {
+      return {
+        canDelete: false,
+        reason: 'Product has Opening Stock for this Business Day'
+      }
     }
     return { canDelete: true }
   }
