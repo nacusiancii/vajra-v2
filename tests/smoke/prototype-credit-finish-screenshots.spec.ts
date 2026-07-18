@@ -26,7 +26,7 @@ test.describe('prototype credit-finish screenshots (#115 C-iteration)', () => {
     await captureVariant(page, 'C2', 'C2-segmented-no-1-2.png', 'prototype-variant-c2')
     await captureVariant(page, 'C3', 'C3-voucher-first-chip.png', 'prototype-variant-c3')
 
-    // C1 with invoice ON + 2x (maintainer sketch active state)
+    // C1 with invoice ON + 2x pressed (opt-out still on)
     await page.evaluate(() => {
       window.location.hash = '#/prototype/credit-finish?variant=C1'
     })
@@ -37,6 +37,13 @@ test.describe('prototype credit-finish screenshots (#115 C-iteration)', () => {
     await page
       .getByTestId('prototype-variant-c1')
       .screenshot({ path: path.join(OUT_DIR, 'C1-invoice-on-2x.png') })
+
+    // C1 invoice checked, 2x tag unselected (1 copy)
+    await page.getByTestId('prototype-invoice-copies-tag').click()
+    await page.waitForTimeout(200)
+    await page
+      .getByTestId('prototype-variant-c1')
+      .screenshot({ path: path.join(OUT_DIR, 'C1-invoice-on-1x.png') })
 
     // C2 already defaults to "No invoice" — layout reflow shot is the main C2 PNG.
     // Also capture C2 with 2 copies selected for comparison.

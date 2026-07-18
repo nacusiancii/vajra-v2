@@ -80,7 +80,8 @@ Print controls sit **above** the invoice preview so the control treatment is vis
 | File                                    | Caption                                 |
 | --------------------------------------- | --------------------------------------- |
 | `screenshots/C1-checkbox-2x-tag.png`    | C1 default (invoice off)                |
-| `screenshots/C1-invoice-on-2x.png`      | C1 invoice checked, 2x tag active       |
+| `screenshots/C1-invoice-on-2x.png`      | C1 invoice checked, 2x tag pressed      |
+| `screenshots/C1-invoice-on-1x.png`      | C1 invoice checked, 2x tag unselected   |
 | `screenshots/C2-segmented-no-1-2.png`   | C2 default (No invoice → layout reflow) |
 | `screenshots/C2-invoice-2-copies.png`   | C2 with 2 copies selected               |
 | `screenshots/C3-voucher-first-chip.png` | C3 default (chip off)                   |
