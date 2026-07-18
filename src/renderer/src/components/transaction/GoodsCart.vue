@@ -19,19 +19,12 @@ import {
 } from '@/components/ui/table'
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
 import NumericField from '@/components/NumericField.vue'
+import { emptyCartLine, type CartLine } from '@/components/transaction/cart-line'
 import { formatBagKg, formatKgFromG, formatRupees } from '@/lib/format'
 import { lineMassGrams, lineTotal } from '@domain/transaction-rules'
 import type { Product } from '@domain/types'
 
-/** A cart line while being edited — rates may be empty until typed. Rates are paise; bag sizes grams. */
-export interface CartLine {
-  productId: number | null
-  isLoose: boolean
-  bagSizeG: number | null
-  quintalRate: number | null
-  perKgRate: number | null
-  qty: number | null
-}
+export type { CartLine }
 
 type Focusable = { focus: () => void }
 
@@ -83,17 +76,6 @@ function productOf(line: CartLine): Product | undefined {
   return line.productId == null ? undefined : productMap.value.get(line.productId)
 }
 
-function emptyLine(): CartLine {
-  return {
-    productId: null,
-    isLoose: false,
-    bagSizeG: null,
-    quintalRate: null,
-    perKgRate: null,
-    qty: null
-  }
-}
-
 function rowTotal(line: CartLine): number {
   if (!line.productId || !line.qty) return 0
   return lineTotal({
@@ -115,7 +97,7 @@ function rowMassG(line: CartLine): number {
 }
 
 function addLine(): void {
-  lines.value = [...lines.value, emptyLine()]
+  lines.value = [...lines.value, emptyCartLine()]
 }
 
 /** Empty cart after customer pick — start the first line and open its product picker. */

@@ -56,7 +56,7 @@ test('park Purchase Draft → other work → resume → finish; inventory waits 
   await page.getByRole('option', { name: 'Walk in' }).click()
   await page.getByTestId('purchase-walkin-name').fill('Parked Supplier')
   await page.getByTestId('purchase-walkin-place').fill('Ongole')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Urad Dal' }).click()
   await page.getByTestId('cart-rate').fill('4800')

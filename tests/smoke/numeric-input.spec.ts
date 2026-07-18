@@ -31,7 +31,7 @@ async function openCashSaleCart(page: Page): Promise<void> {
   await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')
   await page.getByTestId('sale-walkin-name').fill('Counter')
   await page.getByTestId('sale-walkin-place').fill('Guntur')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Numeric Dal' }).click()
   await expect(page.getByTestId('cart-qty')).toBeFocused()

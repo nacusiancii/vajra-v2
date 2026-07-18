@@ -36,7 +36,8 @@ import {
   SelectTrigger,
   SelectValue
 } from '@/components/ui/select'
-import GoodsCart, { type CartLine } from '@/components/transaction/GoodsCart.vue'
+import GoodsCart from '@/components/transaction/GoodsCart.vue'
+import { emptyCartLine, type CartLine } from '@/components/transaction/cart-line'
 import SlipPreview from '@/components/transaction/SlipPreview.vue'
 import SettleReceiptStack from '@/components/transaction/SettleReceiptStack.vue'
 import { loadingChargeBuckets } from '@/components/transaction/loading-buckets'
@@ -110,7 +111,11 @@ const walkinPhone = ref('')
 const mode = ref<SaleMode | null>(
   editId.value || resumeDraftQuery.value != null ? null : (modeFromQuery() ?? 'cash')
 )
-const lines = ref<CartLine[]>([])
+// New cart: one blank goods row so the cashier can type immediately (no Add Line).
+// Edit / Draft start empty and hydrate; do not reseed if the blank is removed.
+const lines = ref<CartLine[]>(
+  editId.value || resumeDraftQuery.value != null ? [] : [emptyCartLine()]
+)
 const goodsCart = ref<InstanceType<typeof GoodsCart> | null>(null)
 const applyLoading = ref(false)
 const additionalCharges = ref<number | null>(null)

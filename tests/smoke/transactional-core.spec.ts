@@ -47,7 +47,7 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('purchase-page')).toHaveAttribute('data-mode', 'credit')
   await expect(page.getByTestId('purchase-mode')).toBeVisible()
   await dismissAutoPicker(page) // supplier CustomerSelect auto-opens
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // After product pick, qty should be focused so the cashier can type immediately.
@@ -73,7 +73,7 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')
   await page.getByTestId('sale-walkin-name').fill('Counter Customer')
   await page.getByTestId('sale-walkin-place').fill('Guntur')
-  await page.getByTestId('cart-add-line').click()
+  // Cart opens with one blank goods row — no Add Line needed to start.
   await page.getByTestId('cart-product').click()
   await page.getByRole('option', { name: 'Toor Dal' }).click()
   // Same product → qty handoff on Sale.
