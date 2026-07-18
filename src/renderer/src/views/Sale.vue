@@ -44,6 +44,7 @@ import CreditVoucherPreview, {
   type VoucherLine
 } from '@/components/transaction/CreditVoucherPreview.vue'
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useProductsQuery } from '@/queries/products'
 import { useCustomersQuery } from '@/queries/customers'
 import { useSettingsQuery, useBusinessDayQuery } from '@/queries/operations'
@@ -104,6 +105,11 @@ const remarks = ref('')
 const error = ref<string | null>(null)
 const finished = ref<Txn | null>(null)
 const slipOpen = ref(false)
+/**
+ * Sale Invoice customer copy — on by default (business + customer = two printouts).
+ * Cashier may opt out during the Sale before finish (ADR-0008 / CONTEXT Sale Invoice).
+ */
+const printCustomerCopy = ref(true)
 
 // Customer picked on an empty cart → first goods line + product dropdown.
 watch(customerId, (id) => {
@@ -222,6 +228,28 @@ const cashDue = computed(() => Math.max(total.value - (upiCollected.value ?? 0),
 const selectedCustomerName = computed(() => selectedCustomer.value?.name ?? 'Customer')
 const selectedCustomerPlace = computed(() => selectedCustomer.value?.placeName ?? '')
 const selectedCustomerPhone = computed(() => selectedCustomer.value?.phone ?? '')
+
+/**
+ * Place/phone for the finished Sale Invoice (CONTEXT / #77).
+ * Customer Master → live Customer record; walk-in → values stored on the Sale.
+ */
+const finishedInvoicePlace = computed(() => {
+  const t = finished.value
+  if (!t) return ''
+  if (t.customerId != null) {
+    return customerList.value.find((c) => c.id === t.customerId)?.placeName ?? ''
+  }
+  return t.walkinPlace ?? ''
+})
+const finishedInvoicePhone = computed(() => {
+  const t = finished.value
+  if (!t) return ''
+  if (t.customerId != null) {
+    return customerList.value.find((c) => c.id === t.customerId)?.phone ?? ''
+  }
+  return t.walkinPhone ?? ''
+})
+
 const voucherPrinted = computed(
   () => printedAtTotal.value !== null && printedAtTotal.value === total.value
 )
@@ -748,6 +776,28 @@ watch(
                   Voucher printed at {{ formatRupees(printedAtTotal ?? 0) }} — ready to sign.
                 </p>
               </div>
+
+              <!-- Sale Invoice: two copies by default; opt out of the customer copy (ADR-0008) -->
+              <div
+                class="sm:col-span-2 rounded-md border bg-muted/20 p-3"
+                data-testid="sale-invoice-copies"
+              >
+                <label class="flex cursor-pointer items-start gap-2">
+                  <Checkbox
+                    class="mt-0.5"
+                    :model-value="printCustomerCopy"
+                    data-testid="sale-print-customer-copy"
+                    @update:model-value="printCustomerCopy = $event === true"
+                  />
+                  <span class="min-w-0 flex-1 text-sm">
+                    <span class="block font-medium">Customer copy</span>
+                    <span class="mt-0.5 block text-xs text-muted-foreground">
+                      Two invoice printouts by default (business + customer). Uncheck for business
+                      copy only.
+                    </span>
+                  </span>
+                </label>
+              </div>
             </div>
 
             <div class="mt-4 grid gap-2">
@@ -806,6 +856,9 @@ watch(
         :open="slipOpen"
         :txn="finished"
         :printerless="settings?.printerlessMode ?? true"
+        :place="finishedInvoicePlace"
+        :phone="finishedInvoicePhone"
+        :print-customer-copy="printCustomerCopy"
         @update:open="(v) => (slipOpen = v)"
         @done="onSlipDone"
       />
