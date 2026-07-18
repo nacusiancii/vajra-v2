@@ -32,7 +32,8 @@ const { data: transactions } = useTransactionsQuery()
 /** Sale + Purchase Drafts share one pool; list both on Home (ADR-0010). */
 const { data: allDrafts } = useDraftsQuery()
 const clearDraft = useClearDraft()
-const recent = computed(() => (transactions.value ?? []).slice(0, 5))
+/** Live tips only — voided predecessors stay on the full ledger, not Recent. */
+const recent = computed(() => (transactions.value ?? []).filter((t) => !t.voided).slice(0, 5))
 const drafts = computed(() => allDrafts.value ?? [])
 
 function draftTypeLabel(d: Draft): string {
@@ -54,7 +55,7 @@ function clearHomeDraft(d: Draft): void {
 }
 
 function editTransaction(t: Txn): void {
-  // Only live tips of a chain are editable; voided rows have no button in the template.
+  // Recent only lists live tips; Edit is always available on those rows.
   void router.push(txnEditPath(t))
 }
 
@@ -251,7 +252,7 @@ const managementLinks: HomeLink[] = [
       <CardHeader>
         <CardTitle>Recent Transactions</CardTitle>
         <CardDescription>
-          The latest entries in the current Business Day.
+          The latest non-voided entries in the current Business Day.
           <RouterLink to="/transactions" class="underline hover:text-foreground">
             See all →
           </RouterLink>
@@ -270,19 +271,16 @@ const managementLinks: HomeLink[] = [
             :key="t.id"
             class="flex items-center justify-between gap-3 py-2 text-sm"
             data-testid="home-txn-row"
-            :class="t.voided ? 'text-muted-foreground line-through' : ''"
           >
             <span class="flex min-w-0 flex-1 items-center gap-2">
               <span class="tabular-nums text-muted-foreground">#{{ t.seq }}</span>
               <span class="font-medium">{{ TXN_TYPE_LABELS[t.type] }}</span>
               <Badge v-if="t.saleMode === 'credit'" variant="outline" class="text-xs">credit</Badge>
-              <Badge v-if="t.voided" variant="secondary" class="text-xs">voided</Badge>
               <span class="truncate text-muted-foreground">{{ txnCounterparty(t) }}</span>
             </span>
             <span class="flex shrink-0 items-center gap-2">
               <span class="tabular-nums">{{ formatRupees(t.total) }}</span>
               <Button
-                v-if="!t.voided"
                 variant="ghost"
                 size="icon"
                 type="button"
