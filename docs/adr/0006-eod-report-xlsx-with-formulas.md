@@ -23,7 +23,7 @@ We chose multi-sheet XLSX because the EOD report is the shopkeeper's reconciliat
 
 - Sheet names are a fixed schema pinned by unit tests (`tests/unit/shared/eod-xlsx.test.ts`). Renaming breaks consumers and tests.
 - Money stays integer **paise** in the domain; Excel cells show rupees with number format `0.00`. No float money in the domain layer.
-- Filename: `vajra-eod-YYYY-MM-DD.xlsx` (Business Day startDate). MIME is the standard Office Open XML spreadsheet type.
-- Pure builder returns a Buffer (`buildEodReportXlsx`); the renderer only triggers the browser download.
+- Filename: `{yyyy-mm-dd_HH-mm-ss}_eod_report.xlsx` using **local wall clock of export** (not Business Day startDate). MIME is the standard Office Open XML spreadsheet type. (Supersedes the earlier `vajra-eod-YYYY-MM-DD.xlsx` name.)
+- Pure builder returns an `ArrayBuffer` (`buildEodReportXlsx`); the renderer builds the workbook and the **main process** writes it under `~/Documents/VajraExports` (or `VAJRA_EOD_EXPORT_DIR`) with no save dialog — success/failure is reported via toast.
 - Approving Rollover overwrites any intermediate exports in spirit — only the final post-approval file the shopkeeper keeps is canonical.
 - Telugu rendering applies to _slips_, not to this report — the report is shopkeeper-facing and stays English (ASCII-safe in Excel; ADR-0003).
