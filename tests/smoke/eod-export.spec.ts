@@ -11,6 +11,11 @@ import path from 'node:path'
  *
  * Catalog + purchase + sale seeding mirrors transactional-core; this file stays
  * dedicated so the longer rollover narrative is not bloated with download I/O.
+ *
+ * Electron note: the renderer saves via a blob URL + synthetic `<a download>`.
+ * That path does not fire Playwright's page `download` event under Electron.
+ * We capture via the main-process `session.will-download` hook and a known
+ * save directory under the test temp tree.
  */
 
 async function goHome(page: Page): Promise<void> {
@@ -63,7 +68,25 @@ async function cashSale(page: Page): Promise<void> {
   await expect(page.getByTestId('home-page')).toBeVisible()
 }
 
-test('Rollover Export Report downloads vajra-eod-*.xlsx with expected sheets', async ({ page }) => {
+/** First completed `vajra-eod-*.xlsx` in dir, or null while still writing/empty. */
+function findEodXlsx(dir: string): string | null {
+  if (!fs.existsSync(dir)) return null
+  for (const name of fs.readdirSync(dir)) {
+    if (!/^vajra-eod-.+\.xlsx$/.test(name)) continue
+    const full = path.join(dir, name)
+    try {
+      if (fs.statSync(full).size > 0) return name
+    } catch {
+      // File may still be mid-write.
+    }
+  }
+  return null
+}
+
+test('Rollover Export Report downloads vajra-eod-*.xlsx with expected sheets', async ({
+  page,
+  electronApp
+}) => {
   // Seed path is shorter than full transactional-core; still needs headroom for Electron.
   test.setTimeout(60_000)
 
@@ -75,19 +98,26 @@ test('Rollover Export Report downloads vajra-eod-*.xlsx with expected sheets', a
   await expect(page.getByTestId('rollover-page')).toBeVisible()
   await expect(page.getByTestId('eod-export')).toBeVisible()
 
-  const downloadPromise = page.waitForEvent('download')
-  await page.getByTestId('eod-export').click()
-  const download = await downloadPromise
-
-  expect(download.suggestedFilename()).toMatch(/^vajra-eod-.+\.xlsx$/)
-
-  // Save under a temp path so ExcelJS can re-open the real workbook bytes.
-  const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vajra-eod-export-'))
-  const filePath = path.join(tmpDir, download.suggestedFilename())
+  const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vajra-eod-export-'))
   try {
-    await download.saveAs(filePath)
-    expect(fs.existsSync(filePath)).toBe(true)
-    expect(fs.statSync(filePath).size).toBeGreaterThan(0)
+    // Route Electron's download to a known directory (no save dialog in CI).
+    await electronApp.evaluate(({ session }, dir: string) => {
+      session.defaultSession.once('will-download', (_event, item) => {
+        // dir is an absolute temp path from the test process; filename comes from
+        // a.download = vajra-eod-YYYY-MM-DD.xlsx on the renderer side.
+        item.setSavePath(`${dir}/${item.getFilename()}`)
+      })
+    }, downloadDir)
+
+    await page.getByTestId('eod-export').click()
+
+    await expect
+      .poll(() => findEodXlsx(downloadDir), { timeout: 15_000 })
+      .toMatch(/^vajra-eod-.+\.xlsx$/)
+
+    const fileName = findEodXlsx(downloadDir)
+    expect(fileName).toMatch(/^vajra-eod-.+\.xlsx$/)
+    const filePath = path.join(downloadDir, fileName as string)
 
     const wb = new ExcelJS.Workbook()
     await wb.xlsx.readFile(filePath)
@@ -96,6 +126,6 @@ test('Rollover Export Report downloads vajra-eod-*.xlsx with expected sheets', a
       expect.arrayContaining(['Summary', 'Inventory', 'Transactions', 'Audit'])
     )
   } finally {
-    fs.rmSync(tmpDir, { recursive: true, force: true })
+    fs.rmSync(downloadDir, { recursive: true, force: true })
   }
 })
