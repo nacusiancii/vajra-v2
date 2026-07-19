@@ -6,7 +6,22 @@ import {
   EOD_SHEET_NAMES,
   type EodSheetName
 } from '@shared/eod-xlsx'
-import type { BusinessDay, InventoryRow, Txn } from '@domain/transaction'
+import type { BusinessDay, InventoryRow, Txn, TxnLine } from '@domain/transaction'
+
+function stubLine(partial: Partial<TxnLine> & Pick<TxnLine, 'id' | 'productName'>): TxnLine {
+  return {
+    productId: 1,
+    side: 'single',
+    isLoose: false,
+    bagSizeG: 50_000,
+    quintalRate: 1_000_000,
+    perKgRate: null,
+    qty: 1,
+    stockDelta: -50_000,
+    lineTotal: 50_000,
+    ...partial
+  }
+}
 
 function stubTxn(partial: Partial<Txn> & Pick<Txn, 'type' | 'voided' | 'id'>): Txn {
   return {
@@ -47,7 +62,7 @@ const day: BusinessDay = {
   lastExportGeneration: null
 }
 
-/** Fixture: SA cash, SA credit, PU, RE, voided SA with successor. */
+/** Fixture: SA cash (goods + loading), SA credit (goods + discount), PU, RE, voided SA. */
 const txns: Txn[] = [
   stubTxn({
     id: 'SA-C-1-23052026',
@@ -59,7 +74,19 @@ const txns: Txn[] = [
     cashIn: 50_000,
     total: 50_000,
     loadingCharges: 1_000,
-    discountAmount: 0
+    loadingApplied: true,
+    discountAmount: 0,
+    lines: [
+      stubLine({
+        id: 101,
+        productName: 'Toor Dal Premium',
+        qty: 1,
+        bagSizeG: 50_000,
+        quintalRate: 980_000,
+        lineTotal: 49_000,
+        stockDelta: -50_000
+      })
+    ]
   }),
   stubTxn({
     id: 'SA-R-2-23052026',
@@ -70,7 +97,19 @@ const txns: Txn[] = [
     customerName: 'Ravi Traders',
     creditAmount: 120_000,
     total: 120_000,
-    discountAmount: 500
+    discountAmount: 500,
+    lines: [
+      stubLine({
+        id: 201,
+        productName: 'Moong Dal',
+        productId: 2,
+        qty: 2,
+        bagSizeG: 50_000,
+        quintalRate: 1_205_000,
+        lineTotal: 120_500,
+        stockDelta: -100_000
+      })
+    ]
   }),
   stubTxn({
     id: 'PU-C-1-23052026',
@@ -80,7 +119,18 @@ const txns: Txn[] = [
     saleMode: 'cash',
     customerName: 'Supplier Co',
     cashOut: 10_000,
-    total: 10_000
+    total: 10_000,
+    lines: [
+      stubLine({
+        id: 301,
+        productName: 'Toor Dal Premium',
+        qty: 1,
+        bagSizeG: 50_000,
+        quintalRate: 200_000,
+        lineTotal: 10_000,
+        stockDelta: 50_000
+      })
+    ]
   }),
   stubTxn({
     id: 'RE-1-23052026',
@@ -102,7 +152,10 @@ const txns: Txn[] = [
     cashIn: 999_999,
     creditAmount: 999_999,
     total: 99_900,
-    successorId: 'SA-C-3.1-23052026'
+    successorId: 'SA-C-3.1-23052026',
+    loadingCharges: 500,
+    loadingApplied: true,
+    lines: [stubLine({ id: 999, productName: 'Void product', lineTotal: 99_400 })]
   })
 ]
 
@@ -170,10 +223,11 @@ describe('eodReportFilename', () => {
 })
 
 describe('buildEodReportXlsx', () => {
-  it('emits exactly the four pinned sheet names', async () => {
+  it('emits exactly the pinned sheet names including Line Items', async () => {
     const wb = await loadWorkbook()
     const names = wb.worksheets.map((w) => w.name)
     expect(names).toEqual([...EOD_SHEET_NAMES])
+    expect(names).toContain('Line Items')
   })
 
   it('Summary has static in/out and formula nets; credit sales (rupees)', async () => {
@@ -234,5 +288,105 @@ describe('buildEodReportXlsx', () => {
     const buf = await buildEodReportXlsx(day, txns, inventory)
     expect(buf).toBeInstanceOf(ArrayBuffer)
     expect(buf.byteLength).toBeGreaterThan(1000)
+  })
+
+  it('Line Items has goods + loading synthetic for a sale with loading; omits money-only', async () => {
+    const wb = await loadWorkbook()
+    const ws = sheet(wb, 'Line Items')
+
+    // Headers: Time, Order Id, Line Id, Line Kind, Transaction Type, Party Name,
+    // Product, Qty, Bag Size, Rate, Amt, Loading Charges, Total
+    expect(ws.getCell(1, 4).value).toBe('Line Kind')
+    expect(ws.getCell(1, 12).value).toBe('Loading Charges')
+
+    type Row = {
+      orderId: string
+      lineId: string | number
+      kind: string
+      type: string
+      product: string
+      qty: number | null
+      bagSize: number | string | null
+      rate: number | null
+      amt: number | null
+      loading: number | null
+      total: number | null
+    }
+    const rows: Row[] = []
+    for (let r = 2; r <= (ws.rowCount || 20); r++) {
+      const orderId = ws.getCell(r, 2).value
+      if (orderId == null || orderId === '') break
+      const qtyVal = ws.getCell(r, 8).value
+      const bagVal = ws.getCell(r, 9).value
+      const rateVal = ws.getCell(r, 10).value
+      const amtVal = ws.getCell(r, 11).value
+      const loadVal = ws.getCell(r, 12).value
+      const totalVal = ws.getCell(r, 13).value
+      rows.push({
+        orderId: String(orderId),
+        lineId: ws.getCell(r, 3).value as string | number,
+        kind: String(ws.getCell(r, 4).value),
+        type: String(ws.getCell(r, 5).value),
+        product: String(ws.getCell(r, 7).value ?? ''),
+        qty: typeof qtyVal === 'number' ? qtyVal : null,
+        bagSize: typeof bagVal === 'number' || typeof bagVal === 'string' ? bagVal : null,
+        rate: typeof rateVal === 'number' ? rateVal : null,
+        amt: typeof amtVal === 'number' ? amtVal : null,
+        loading: typeof loadVal === 'number' ? loadVal : null,
+        total: typeof totalVal === 'number' ? totalVal : null
+      })
+    }
+
+    // Cash sale: goods then one cart-level loading synthetic (not split onto goods).
+    const saleGoods = rows.find(
+      (r) => r.kind === 'goods' && r.type === 'Sale' && r.product === 'Toor Dal Premium'
+    )
+    expect(saleGoods).toBeDefined()
+    expect(saleGoods!.lineId).toBe(101)
+    expect(saleGoods!.qty).toBe(1)
+    expect(saleGoods!.bagSize).toBe(50) // 50_000 g → 50 kg
+    expect(saleGoods!.rate).toBe(9800) // 980_000 paise → ₹9800 quintal
+    expect(saleGoods!.amt).toBe(490) // 49_000 paise
+    expect(saleGoods!.loading).toBeNull()
+
+    const loadingRow = rows.find((r) => r.kind === 'loading')
+    expect(loadingRow).toBeDefined()
+    expect(loadingRow!.type).toBe('Sale')
+    expect(loadingRow!.product).toBe('Loading Charges')
+    expect(loadingRow!.loading).toBe(10) // 1_000 paise → ₹10
+    expect(loadingRow!.amt).toBeNull()
+    // Order total on last row of that sale (loading is last)
+    expect(loadingRow!.total).toBe(500) // 50_000 paise
+
+    // Credit sale has discount synthetic
+    const discountRow = rows.find((r) => r.kind === 'discount')
+    expect(discountRow).toBeDefined()
+    expect(discountRow!.product).toBe('Discount')
+    expect(discountRow!.amt).toBe(5) // 500 paise
+
+    // Only goods + synthetic kinds; no Receipt (money-only)
+    expect(
+      rows.every(
+        (r) =>
+          r.kind === 'goods' ||
+          r.kind === 'loading' ||
+          r.kind === 'discount' ||
+          r.kind === 'additional'
+      )
+    ).toBe(true)
+    expect(
+      rows.every((r) => r.type === 'Sale' || r.type === 'Purchase' || r.type === 'Stock Transfer')
+    ).toBe(true)
+
+    // Voided sale lines excluded
+    expect(rows.some((r) => r.product === 'Void product')).toBe(false)
+    expect(rows.filter((r) => r.kind === 'loading')).toHaveLength(1)
+
+    // Purchase goods present
+    const puGoods = rows.find(
+      (r) => r.kind === 'goods' && r.type === 'Purchase' && r.product === 'Toor Dal Premium'
+    )
+    expect(puGoods).toBeDefined()
+    expect(puGoods!.amt).toBe(100)
   })
 })
