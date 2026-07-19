@@ -1,5 +1,6 @@
 import type { Database } from 'better-sqlite3'
 import { localToday, resolveNextBusinessDayStartDate } from '../../domain/business-day'
+import { localCalendarDate, planUpdateOpenStartDate } from '../../domain/business-day-date'
 import {
   canApproveRollover,
   projectInventory,
@@ -111,6 +112,43 @@ export class BusinessDayRepo {
          WHERE id = ? AND status = 'open'`
       )
       .run(day.id)
+    return this.current()
+  }
+
+  /**
+   * Change the open Business Day's startDate when the day has no finished transactions
+   * and no Drafts. Date rules match next-biz-day on Rollover: ≥ local today, and strictly
+   * after the previous closed day's startDate when one exists.
+   */
+  updateOpenStartDate(startDate: string): BusinessDay {
+    const day = this.current()
+    const finishedTxnCount = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM txn WHERE business_day_id = ?`).get(day.id) as {
+        n: number
+      }
+    ).n
+    const draftCount = (
+      this.db.prepare(`SELECT COUNT(*) AS n FROM draft WHERE business_day_id = ?`).get(day.id) as {
+        n: number
+      }
+    ).n
+    const previousClosed = this.db
+      .prepare(
+        `SELECT start_date FROM business_day WHERE status = 'closed' ORDER BY id DESC LIMIT 1`
+      )
+      .get() as { start_date: string } | undefined
+
+    const next = planUpdateOpenStartDate({
+      proposedStartDate: startDate.trim(),
+      today: localCalendarDate(),
+      previousClosedStartDate: previousClosed?.start_date ?? null,
+      finishedTxnCount,
+      draftCount
+    })
+
+    if (next !== day.startDate) {
+      this.db.prepare(`UPDATE business_day SET start_date = ? WHERE id = ?`).run(next, day.id)
+    }
     return this.current()
   }
 

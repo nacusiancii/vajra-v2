@@ -46,6 +46,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.currentBusinessDay, () => businessDay.current())
   ipcMain.handle(IPC.inventory, () => businessDay.inventory())
   ipcMain.handle(IPC.recordEodExport, () => businessDay.recordEodExport())
+  ipcMain.handle(IPC.updateOpenBusinessDayStartDate, (_e, startDate: string) =>
+    businessDay.updateOpenStartDate(startDate)
+  )
   ipcMain.handle(IPC.approveRollover, (_e, nextStartDate: string) =>
     businessDay.approveRollover(nextStartDate)
   )
