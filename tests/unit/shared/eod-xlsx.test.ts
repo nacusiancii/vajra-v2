@@ -42,7 +42,9 @@ const day: BusinessDay = {
   startDate: '2026-05-23',
   status: 'open',
   openedAt: '2026-05-23T06:00:00.000Z',
-  closedAt: null
+  closedAt: null,
+  ledgerGeneration: 0,
+  lastExportGeneration: null
 }
 
 /** Fixture: SA cash, SA credit, PU, RE, voided SA with successor. */

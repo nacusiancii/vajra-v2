@@ -103,8 +103,14 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('inventory-row')).toContainText('8')
   await goHome(page)
 
-  // ── Rollover: closing 8 becomes the next day's Opening Stock ──
+  // ── Rollover: export required, then closing 8 becomes next Opening Stock ──
   await openManagement(page, 'Rollover')
+  await expect(page.getByTestId('rollover-export-gate-info')).toBeVisible()
+  await expect(page.getByTestId('rollover-approve-open')).toBeDisabled()
+  // Export records the ledger watermark (download path may be discarded in CI).
+  await page.getByTestId('eod-export').click()
+  await expect(page.getByTestId('rollover-approve-open')).toBeEnabled({ timeout: 15_000 })
+  await expect(page.getByTestId('rollover-export-gate-info')).not.toBeVisible()
   await page.getByTestId('rollover-approve-open').click()
   await page.getByTestId('rollover-approve-confirm').click()
   await expect(page.getByTestId('home-page')).toBeVisible()

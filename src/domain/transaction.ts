@@ -104,6 +104,50 @@ export interface BusinessDay {
   status: 'open' | 'closed'
   openedAt: string
   closedAt: string | null
+  /**
+   * Monotonic watermark for the open day's finished ledger.
+   * Bumped on every finished txn create / Edit void-successor (sales, purchases,
+   * stock transfers, money txns). Starts at 0 for a new Business Day.
+   * Drafts are outside the ledger and do not bump this.
+   */
+  ledgerGeneration: number
+  /**
+   * Generation captured when an End of Day Report export last succeeded.
+   * `null` means no successful export yet this Business Day.
+   * Approve Rollover requires `lastExportGeneration === ledgerGeneration`.
+   */
+  lastExportGeneration: number | null
+}
+
+/** Watermark fields used to gate Approve Rollover on a fresh EOD export. */
+export type ExportGateState = {
+  ledgerGeneration: number
+  lastExportGeneration: number | null
+}
+
+/** Open Business Day starts with generation 0 and no export recorded. */
+export function initialExportGateState(): ExportGateState {
+  return { ledgerGeneration: 0, lastExportGeneration: null }
+}
+
+/** One finished ledger mutation (create or Edit void+successor). */
+export function bumpLedgerGeneration(state: ExportGateState): ExportGateState {
+  return { ...state, ledgerGeneration: state.ledgerGeneration + 1 }
+}
+
+/** Successful End of Day Report export captures the current ledger generation. */
+export function recordExportSuccess(state: ExportGateState): ExportGateState {
+  return { ...state, lastExportGeneration: state.ledgerGeneration }
+}
+
+/**
+ * Approve Rollover is allowed only when the last successful export matches the
+ * current ledger generation — including empty days (gen 0 after one export).
+ */
+export function canApproveRollover(state: ExportGateState): boolean {
+  return (
+    state.lastExportGeneration !== null && state.lastExportGeneration === state.ledgerGeneration
+  )
 }
 
 // ── Create inputs ────────────────────────────────────────────────────────────

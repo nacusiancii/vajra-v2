@@ -465,6 +465,10 @@ export class TransactionRepo {
           l.lineTotal
         )
       }
+      // Finished ledger write — invalidate any prior EOD export watermark.
+      this.db
+        .prepare(`UPDATE business_day SET ledger_generation = ledger_generation + 1 WHERE id = ?`)
+        .run(day.id)
       return id
     })
 

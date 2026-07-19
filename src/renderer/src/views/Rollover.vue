@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { Download, RefreshCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
@@ -24,9 +25,10 @@ import { useInventoryQuery, useBusinessDayQuery, useApproveRollover } from '@/qu
 import { exportEodReport } from '@/lib/eod-report'
 import { showToast } from '@/lib/toast'
 import { formatRupees, formatStockQty } from '@/lib/format'
-import { summariseDrawer } from '@domain/transaction'
+import { canApproveRollover, summariseDrawer } from '@domain/transaction'
 
 const router = useRouter()
+const queryClient = useQueryClient()
 const { data: day } = useBusinessDayQuery()
 const { data: transactions } = useTransactionsQuery()
 const { data: inventory } = useInventoryQuery()
@@ -39,12 +41,15 @@ const txns = computed(() => transactions.value ?? [])
 const inv = computed(() => inventory.value ?? [])
 const drawer = computed(() => summariseDrawer(txns.value))
 
+const exportFresh = computed(() => (day.value ? canApproveRollover(day.value) : false))
+
 async function exportReport(): Promise<void> {
   if (!day.value || exporting.value) return
   exporting.value = true
   try {
     const result = await exportEodReport(day.value, txns.value, inv.value)
     if (result.ok) {
+      await queryClient.invalidateQueries({ queryKey: ['businessDay'] })
       // Short label: folder + filename (full absolute path can be long on Windows).
       const parts = result.path.split(/[/\\]/).filter(Boolean)
       const label =
@@ -59,6 +64,7 @@ async function exportReport(): Promise<void> {
 }
 
 function approve(): void {
+  if (!exportFresh.value) return
   approveRollover.mutate(undefined, {
     onSuccess: () => {
       confirmOpen.value = false
@@ -89,6 +95,21 @@ function approve(): void {
       >
         <Download class="mr-2 size-4" /> Export Report (Excel)
       </Button>
+    </div>
+
+    <!-- Export-gate notice when Approve is blocked -->
+    <div
+      v-if="!exportFresh"
+      class="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-100"
+      data-testid="rollover-export-gate-info"
+      role="status"
+    >
+      <p class="font-medium">Export Report before approving</p>
+      <p class="mt-1 text-amber-900/90 dark:text-amber-100/90">
+        Approve Rollover is available only after a successful Export Report that includes the latest
+        finished transactions. If you record more sales or other ledger work, export again — you may
+        repeat Export Report as often as needed until you are satisfied.
+      </p>
     </div>
 
     <!-- Drawer summary -->
@@ -146,9 +167,15 @@ function approve(): void {
     <div class="flex items-center justify-between border-t pt-4">
       <p class="max-w-xl text-sm text-muted-foreground">
         Approving wipes this day's transactions and opens the next Business Day with the closing
-        stock above as its Opening Stock. Export the report first if you need it.
+        stock above as its Opening Stock. A fresh Export Report is required first (including empty
+        days) so the day book file always exists.
       </p>
-      <Button size="lg" data-testid="rollover-approve-open" @click="confirmOpen = true">
+      <Button
+        size="lg"
+        data-testid="rollover-approve-open"
+        :disabled="!exportFresh"
+        @click="confirmOpen = true"
+      >
         Approve Rollover
       </Button>
     </div>
@@ -164,7 +191,7 @@ function approve(): void {
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" @click="confirmOpen = false">Cancel</Button>
-          <Button data-testid="rollover-approve-confirm" @click="approve">
+          <Button data-testid="rollover-approve-confirm" :disabled="!exportFresh" @click="approve">
             Approve &amp; Start Next Day
           </Button>
         </DialogFooter>

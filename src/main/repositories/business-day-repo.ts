@@ -1,5 +1,6 @@
 import type { Database } from 'better-sqlite3'
 import {
+  canApproveRollover,
   projectInventory,
   type BusinessDay,
   type InventoryRow,
@@ -14,6 +15,8 @@ interface DayRow {
   status: 'open' | 'closed'
   opened_at: string
   closed_at: string | null
+  ledger_generation: number
+  last_export_generation: number | null
 }
 
 function rowToDay(row: DayRow): BusinessDay {
@@ -22,7 +25,9 @@ function rowToDay(row: DayRow): BusinessDay {
     startDate: row.start_date,
     status: row.status,
     openedAt: row.opened_at,
-    closedAt: row.closed_at
+    closedAt: row.closed_at,
+    ledgerGeneration: row.ledger_generation,
+    lastExportGeneration: row.last_export_generation
   }
 }
 
@@ -93,13 +98,33 @@ export class BusinessDayRepo {
   }
 
   /**
+   * Record a successful End of Day Report export against the open Business Day.
+   * Sets last_export_generation = ledger_generation so Approve may unlock.
+   */
+  recordEodExport(): BusinessDay {
+    const day = this.current()
+    this.db
+      .prepare(
+        `UPDATE business_day
+         SET last_export_generation = ledger_generation
+         WHERE id = ? AND status = 'open'`
+      )
+      .run(day.id)
+    return this.current()
+  }
+
+  /**
    * Approve the Rollover: freeze the live projection as the next day's Opening Stock,
    * wipe the closing day's transactional data, close it, and open the next Business Day.
+   * Requires a fresh EOD export matching the current ledger generation.
    * Returns the newly opened day.
    */
   approveRollover(): BusinessDay {
-    const closing = this.inventory()
     const day = this.current()
+    if (!canApproveRollover(day)) {
+      throw new Error('Export Report after the latest transactions before approving Rollover')
+    }
+    const closing = this.inventory()
 
     const tx = this.db.transaction(() => {
       this.db

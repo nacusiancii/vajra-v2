@@ -21,6 +21,7 @@ const api: VajraApi = {
 
   currentBusinessDay: () => ipcRenderer.invoke(IPC.currentBusinessDay),
   inventory: () => ipcRenderer.invoke(IPC.inventory),
+  recordEodExport: () => ipcRenderer.invoke(IPC.recordEodExport),
   approveRollover: () => ipcRenderer.invoke(IPC.approveRollover),
 
   listTransactions: () => ipcRenderer.invoke(IPC.listTransactions),
