@@ -13,6 +13,10 @@
  *
  * Everything else stays static from Vajra's projection library (summariseDrawer /
  * InventoryRow). No cross-sheet SUM from Transactions in this slice.
+ *
+ * Line Items: goods rows from txn_line plus cart-level synthetic rows
+ * (loading / additional / discount). Loading is never split across goods lines
+ * and is not stored per line in SQLite.
  */
 
 import ExcelJS from 'exceljs'
@@ -22,13 +26,27 @@ import {
   TXN_TYPE_LABELS,
   type BusinessDay,
   type InventoryRow,
-  type Txn
+  type Txn,
+  type TxnLine
 } from '@domain/transaction'
-import { paiseToRupees, stockGToDefaultBags } from '@domain/units'
+import { gToKg, paiseToRupees, stockGToDefaultBags } from '@domain/units'
 
 /** Fixed sheet names — pinned by unit tests. */
-export const EOD_SHEET_NAMES = ['Summary', 'Inventory', 'Transactions', 'Audit'] as const
+export const EOD_SHEET_NAMES = [
+  'Summary',
+  'Inventory',
+  'Transactions',
+  'Line Items',
+  'Audit'
+] as const
 export type EodSheetName = (typeof EOD_SHEET_NAMES)[number]
+
+/** Line kind values on the Line Items sheet (pinned by unit tests). */
+export const EOD_LINE_KINDS = ['goods', 'loading', 'discount', 'additional'] as const
+export type EodLineKind = (typeof EOD_LINE_KINDS)[number]
+
+/** Stock-moving types with cart lines — money-only types belong on a sibling Money sheet. */
+const LINE_ITEMS_TXN_TYPES = new Set(['SA', 'PU', 'ST'])
 
 const MONEY_FMT = '0.00'
 const QTY_FMT = '0.00'
@@ -320,6 +338,153 @@ function buildAuditSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
   setColWidths(ws, [28, 22, 12, 28])
 }
 
+/** Whether this Sale should emit a synthetic loading row (cart-level, not per goods line). */
+function saleHasLoadingRow(t: Txn): boolean {
+  return t.type === 'SA' && (t.loadingApplied || t.loadingCharges > 0)
+}
+
+function lineProductLabel(line: TxnLine): string {
+  if (line.side === 'source') return `${line.productName} (source)`
+  if (line.side === 'target') return `${line.productName} (target)`
+  return line.productName
+}
+
+/**
+ * Line Items — live SA/PU/ST only: goods rows from txn_line, then synthetic
+ * cart-level rows for loading / additional / discount. Money-only types omitted
+ * (sibling Money sheet). Loading is never split across goods lines.
+ *
+ * Column contract (pinned by unit tests):
+ * Time, Order Id, Line Id, Line Kind, Transaction Type, Party Name, Product,
+ * Qty, Bag Size, Rate, Amt, Loading Charges, Total.
+ */
+function buildLineItemsSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
+  const ws = wb.addWorksheet('Line Items')
+  const live = txns.filter((t) => !t.voided && LINE_ITEMS_TXN_TYPES.has(t.type))
+
+  const headers = [
+    'Time',
+    'Order Id',
+    'Line Id',
+    'Line Kind',
+    'Transaction Type',
+    'Party Name',
+    'Product',
+    'Qty',
+    'Bag Size',
+    'Rate',
+    'Amt',
+    'Loading Charges',
+    'Total'
+  ]
+  const headerRow = ws.getRow(1)
+  headers.forEach((h, i) => {
+    headerRow.getCell(i + 1).value = h
+  })
+  styleHeaderRow(headerRow, headers.length)
+  ws.views = [{ state: 'frozen', ySplit: 1 }]
+
+  let rowIdx = 2
+  for (const t of live) {
+    const orderId = displayTxnSerial(t)
+    const typeLabel = TXN_TYPE_LABELS[t.type]
+    const party = counterparty(t)
+    const time = t.createdAt ? new Date(t.createdAt) : null
+    const orderStartRow = rowIdx
+
+    const writeCommon = (
+      excelRow: ExcelJS.Row,
+      kind: EodLineKind,
+      lineId: string | number
+    ): void => {
+      excelRow.getCell(1).value = time
+      if (time) excelRow.getCell(1).numFmt = 'yyyy-mm-dd hh:mm:ss'
+      excelRow.getCell(2).value = orderId
+      excelRow.getCell(3).value = lineId
+      excelRow.getCell(4).value = kind
+      excelRow.getCell(5).value = typeLabel
+      excelRow.getCell(6).value = party
+    }
+
+    for (const line of t.lines) {
+      const excelRow = ws.getRow(rowIdx++)
+      writeCommon(excelRow, 'goods', line.id)
+      excelRow.getCell(7).value = lineProductLabel(line)
+      qtyCell(excelRow.getCell(8), line.qty)
+      if (line.isLoose) {
+        excelRow.getCell(9).value = 'Loose'
+        moneyCell(excelRow.getCell(10), line.perKgRate ?? 0)
+      } else if (line.bagSizeG != null) {
+        qtyCell(excelRow.getCell(9), gToKg(line.bagSizeG))
+        moneyCell(excelRow.getCell(10), line.quintalRate ?? 0)
+      } else {
+        excelRow.getCell(9).value = ''
+        excelRow.getCell(10).value = null
+      }
+      moneyCell(excelRow.getCell(11), line.lineTotal)
+      // Loading is cart-level only — never split onto goods rows.
+      excelRow.getCell(12).value = null
+      excelRow.getCell(12).numFmt = MONEY_FMT
+      excelRow.getCell(13).value = null
+      excelRow.getCell(13).numFmt = MONEY_FMT
+      applyLightBorders(excelRow, headers.length)
+    }
+
+    if (saleHasLoadingRow(t)) {
+      const excelRow = ws.getRow(rowIdx++)
+      writeCommon(excelRow, 'loading', 'loading')
+      excelRow.getCell(7).value = 'Loading Charges'
+      excelRow.getCell(8).value = null
+      excelRow.getCell(9).value = ''
+      excelRow.getCell(10).value = null
+      excelRow.getCell(11).value = null
+      excelRow.getCell(11).numFmt = MONEY_FMT
+      moneyCell(excelRow.getCell(12), t.loadingCharges)
+      excelRow.getCell(13).value = null
+      excelRow.getCell(13).numFmt = MONEY_FMT
+      applyLightBorders(excelRow, headers.length)
+    }
+
+    if (t.additionalCharges > 0) {
+      const excelRow = ws.getRow(rowIdx++)
+      writeCommon(excelRow, 'additional', 'additional')
+      excelRow.getCell(7).value = 'Additional Charges'
+      excelRow.getCell(8).value = null
+      excelRow.getCell(9).value = ''
+      excelRow.getCell(10).value = null
+      moneyCell(excelRow.getCell(11), t.additionalCharges)
+      excelRow.getCell(12).value = null
+      excelRow.getCell(12).numFmt = MONEY_FMT
+      excelRow.getCell(13).value = null
+      excelRow.getCell(13).numFmt = MONEY_FMT
+      applyLightBorders(excelRow, headers.length)
+    }
+
+    if (t.discountAmount > 0 && t.type === 'SA') {
+      const excelRow = ws.getRow(rowIdx++)
+      writeCommon(excelRow, 'discount', 'discount')
+      excelRow.getCell(7).value = 'Discount'
+      excelRow.getCell(8).value = null
+      excelRow.getCell(9).value = ''
+      excelRow.getCell(10).value = null
+      // Positive amount; Line Kind = discount signals reduction of order total.
+      moneyCell(excelRow.getCell(11), t.discountAmount)
+      excelRow.getCell(12).value = null
+      excelRow.getCell(12).numFmt = MONEY_FMT
+      excelRow.getCell(13).value = null
+      excelRow.getCell(13).numFmt = MONEY_FMT
+      applyLightBorders(excelRow, headers.length)
+    }
+
+    // Order Total on the last row of this txn when any line was written.
+    if (rowIdx > orderStartRow) {
+      moneyCell(ws.getRow(rowIdx - 1).getCell(13), t.total)
+    }
+  }
+
+  setColWidths(ws, [20, 10, 12, 12, 16, 22, 22, 10, 12, 12, 12, 14, 12])
+}
+
 /**
  * Build the End of Day Report workbook and return its binary bytes as a plain
  * ArrayBuffer (stable for Blob downloads and ExcelJS re-load in tests).
@@ -337,6 +502,7 @@ export async function buildEodReportXlsx(
   buildSummarySheet(wb, day, txns)
   buildInventorySheet(wb, inventory)
   buildTransactionsSheet(wb, txns)
+  buildLineItemsSheet(wb, txns)
   buildAuditSheet(wb, txns)
 
   const raw = await wb.xlsx.writeBuffer()
