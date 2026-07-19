@@ -22,11 +22,17 @@ import {
   TableHeader,
   TableRow
 } from '@/components/ui/table'
-import { useTransactionsQuery } from '@/queries/transactions'
-import { useInventoryQuery, useBusinessDayQuery, useApproveRollover } from '@/queries/operations'
+import { useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
+import {
+  useInventoryQuery,
+  useBusinessDayQuery,
+  useApproveRollover,
+  useUpdateOpenBusinessDayStartDate
+} from '@/queries/operations'
 import { exportEodReport } from '@/lib/eod-report'
 import { showToast } from '@/lib/toast'
 import { formatRupees, formatStockQty } from '@/lib/format'
+import { userFacingError } from '@/lib/utils'
 import { canApproveRollover, summariseDrawer } from '@domain/transaction'
 import {
   localToday,
@@ -40,16 +46,22 @@ const queryClient = useQueryClient()
 const { data: day } = useBusinessDayQuery()
 const { data: transactions } = useTransactionsQuery()
 const { data: inventory } = useInventoryQuery()
+const { data: drafts } = useDraftsQuery()
 const approveRollover = useApproveRollover()
+const updateOpenStartDate = useUpdateOpenBusinessDayStartDate()
 
 const confirmOpen = ref(false)
 const exporting = ref(false)
 const nextStartDate = ref('')
+const editStartDate = ref('')
+const editDateError = ref<string | null>(null)
+const editDateSaved = ref(false)
 
 const today = localToday()
 
 const txns = computed(() => transactions.value ?? [])
 const inv = computed(() => inventory.value ?? [])
+const draftList = computed(() => drafts.value ?? [])
 const drawer = computed(() => summariseDrawer(txns.value))
 
 const exportFresh = computed(() => (day.value ? canApproveRollover(day.value) : false))
@@ -69,12 +81,17 @@ const canApprove = computed(
   () => exportFresh.value && dateValidation.value.ok && !approveRollover.isPending.value
 )
 
+/** Edit startDate only when the open day has no finished transactions. */
+const canEditStartDate = computed(() => txns.value.length === 0)
+const hasDraftsBlockingDate = computed(() => draftList.value.length > 0)
+
 // Preselect when the open Business Day loads (or changes after a prior rollover).
 watch(
   () => day.value?.startDate,
   (startDate) => {
     if (!startDate) return
     nextStartDate.value = preselectNextBusinessDayStartDate(startDate, today)
+    editStartDate.value = startDate
   },
   { immediate: true }
 )
@@ -96,6 +113,23 @@ async function exportReport(): Promise<void> {
   } finally {
     exporting.value = false
   }
+}
+
+function saveStartDate(): void {
+  editDateError.value = null
+  editDateSaved.value = false
+  if (hasDraftsBlockingDate.value) {
+    editDateError.value = 'Clear Drafts before changing the Business Day date'
+    return
+  }
+  updateOpenStartDate.mutate(editStartDate.value, {
+    onSuccess: () => {
+      editDateSaved.value = true
+    },
+    onError: (err) => {
+      editDateError.value = userFacingError(err, 'Could not update Business Day date')
+    }
+  })
 }
 
 function approve(): void {
@@ -144,6 +178,59 @@ function approve(): void {
         Approve Rollover is available only after a successful Export Report that includes the latest
         finished transactions. If you record more sales or other ledger work, export again — you may
         repeat Export Report as often as needed until you are satisfied.
+      </p>
+    </div>
+
+    <!-- Empty-day startDate edit: only when no finished transactions -->
+    <div
+      v-if="canEditStartDate"
+      class="flex flex-col gap-2 rounded-md border p-4"
+      data-testid="edit-bizday-date-section"
+    >
+      <Label for="edit-bizday-date" class="text-sm font-medium">Business Day date</Label>
+      <p class="text-xs text-muted-foreground">
+        No finished transactions yet — you can correct this Business Day's start date. Must be today
+        or later, and after the previous closed day when one exists.
+      </p>
+      <p
+        v-if="hasDraftsBlockingDate"
+        class="text-sm text-amber-700"
+        data-testid="edit-bizday-drafts-hint"
+      >
+        Clear Drafts first before changing the date.
+      </p>
+      <div class="flex flex-wrap items-end gap-2">
+        <Input
+          id="edit-bizday-date"
+          v-model="editStartDate"
+          type="date"
+          class="w-44"
+          data-testid="edit-bizday-date-input"
+          :disabled="hasDraftsBlockingDate || updateOpenStartDate.isPending.value"
+        />
+        <Button
+          type="button"
+          data-testid="edit-bizday-date-save"
+          :disabled="
+            hasDraftsBlockingDate ||
+            updateOpenStartDate.isPending.value ||
+            !editStartDate ||
+            editStartDate === day?.startDate
+          "
+          @click="saveStartDate"
+        >
+          Save date
+        </Button>
+        <span
+          v-if="editDateSaved"
+          class="text-sm text-green-600"
+          data-testid="edit-bizday-date-saved"
+        >
+          Saved
+        </span>
+      </div>
+      <p v-if="editDateError" class="text-sm text-destructive" data-testid="edit-bizday-date-error">
+        {{ editDateError }}
       </p>
     </div>
 

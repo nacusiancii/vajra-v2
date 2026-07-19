@@ -23,6 +23,22 @@ export function useBusinessDayQuery(): UseQueryReturnType<BusinessDay, Error> {
   return useQuery({ queryKey: KEYS.businessDay, queryFn: () => window.api.currentBusinessDay() })
 }
 
+/** Change open Business Day startDate (empty day only — no finished txns, no Drafts). */
+export function useUpdateOpenBusinessDayStartDate(): UseMutationReturnType<
+  BusinessDay,
+  Error,
+  string,
+  unknown
+> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (startDate: string) => window.api.updateOpenBusinessDayStartDate(startDate),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.businessDay })
+    }
+  })
+}
+
 export function useApproveRollover(): UseMutationReturnType<BusinessDay, Error, string, unknown> {
   const qc = useQueryClient()
   return useMutation({

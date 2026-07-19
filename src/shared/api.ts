@@ -65,6 +65,11 @@ export interface VajraApi {
   inventory(): Promise<InventoryRow[]>
   /** Capture last_export_generation after a successful End of Day Report export. */
   recordEodExport(): Promise<BusinessDay>
+  /**
+   * Change the open Business Day startDate when the day has no finished txns and no Drafts.
+   * @param startDate YYYY-MM-DD
+   */
+  updateOpenBusinessDayStartDate(startDate: string): Promise<BusinessDay>
   /** Approve Rollover and open the next Business Day on `nextStartDate` (YYYY-MM-DD). */
   approveRollover(nextStartDate: string): Promise<BusinessDay>
 
@@ -125,6 +130,7 @@ export const IPC = {
   currentBusinessDay: 'businessDay:current',
   inventory: 'inventory:get',
   recordEodExport: 'eod:recordExport',
+  updateOpenBusinessDayStartDate: 'businessDay:updateOpenStartDate',
   approveRollover: 'rollover:approve',
 
   listTransactions: 'txn:list',
