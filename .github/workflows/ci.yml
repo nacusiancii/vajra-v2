@@ -1,6 +1,7 @@
-# Green gate for branch pushes (and thus same-repo PRs). Two parallel jobs on
+# Green gate for branch pushes (and thus same-repo PRs). Three parallel jobs on
 # free public ubuntu-latest
-# (4 vCPU / 16 GB) so static checks and Electron smoke do not block each other.
+# (4 vCPU / 16 GB) so static checks, EOD report tests, and Electron smoke do not
+# block each other.
 #
 # ELECTRON_DISABLE_SANDBOX=1 is required on ubuntu-latest (Ubuntu 24.04): the
 # runner restricts unprivileged user namespaces, so Electron's Chromium sandbox
@@ -62,6 +63,29 @@ jobs:
       - name: Lint, typecheck, unit
         run: pnpm verify:static
 
+  # EOD XLSX report builder unit tests (no Electron). Parallel with static/smoke.
+  report:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.4.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: EOD report tests
+        run: pnpm test:report
+
   # Production build + Playwright against Electron (Xvfb headless).
   smoke:
     runs-on: ubuntu-latest
@@ -99,14 +123,15 @@ jobs:
           if-no-files-found: ignore
           retention-days: 7
 
-  # Single required check name for branch protection (aggregates static + smoke).
+  # Single required check name for branch protection (aggregates static + report + smoke).
   verify:
     name: verify
-    needs: [static, smoke]
+    needs: [static, report, smoke]
     if: always()
     runs-on: ubuntu-latest
     steps:
-      - name: Require static and smoke
+      - name: Require static, report, and smoke
         run: |
           test "${{ needs.static.result }}" = "success"
+          test "${{ needs.report.result }}" = "success"
           test "${{ needs.smoke.result }}" = "success"

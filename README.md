@@ -72,7 +72,8 @@ locally (4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
 
 ```bash
 - `pnpm test` — unit tests (pure domain logic, no Electron, fast)
-- `pnpm test:smoke` — build + Playwright smoke (visible Electron windows)
+- `pnpm test:report` — EOD XLSX report builder tests (CI job `report`; no Electron)
+- `pnpm test:smoke` — build + Playwright smoke (visible Electron windows; agents should not run smoke locally)
 - `pnpm test:smoke:headless` — same, under Xvfb (no window flash)
 - `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
 - `pnpm verify` / `pnpm verify:headless` — static then smoke
@@ -81,7 +82,7 @@ locally (4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
 - `pnpm release:alpha` — maintainer: bump alpha, PR, tag, trigger Windows build
 ```
 
-CI runs `static` and `smoke` as parallel jobs on every push and PR. Refer to
+CI runs `static`, `report`, and `smoke` as parallel jobs on every push. Refer to
 @package.json for the complete list; use pnpm, avoid npm and npx.
 
 ## Adding shadcn-vue components
