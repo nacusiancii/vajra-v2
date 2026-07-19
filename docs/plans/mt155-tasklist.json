@@ -1,0 +1,50 @@
+{
+  "megathread": 155,
+  "title": "mt155 parallel EOD/Rollover fleet",
+  "max_parallel": 5,
+  "worktree_prefix": "vajra-mt155-",
+  "branch_prefix": "mt155/",
+  "notes": [
+    "Tag mt155-pre-fleet is the scrap/reset point.",
+    "Parallel intentional — expect conflicts on eod-xlsx.ts, Rollover.vue, business-day-repo, settings, HomeView.",
+    "Per-line loading DB: CUT. Line Items use synthetic line kind=loading for cart-level loadingCharges.",
+    "UI review screenshots: /home/dell/lab/vajra/.pr-screenshots/pr-<id>/ (main worktree)."
+  ],
+  "tasks": [
+    {
+      "slug": "eod-silent-export",
+      "max_turns": 100,
+      "task": "Silent EOD export to a fixed folder with toast feedback (megathread #155).\n\n## Product\n- Default export directory: `~/Documents/VajraExports` (expand `~` / home). Create the directory if missing.\n- Filename: `{yyyy-mm-dd_HH-mm-ss}_eod_report.xlsx` using **local wall clock of export**, not Business Day date.\n- **No save dialog / no file picker** — write via Electron **main process** when practical (fs), so success/failure is reliable.\n- After export: **toast** success (include path or folder name) or failure (short reason).\n- Wire Rollover **Export Report** (`data-testid=\"eod-export\"`) to this path. Keep building the multi-sheet workbook via existing ExcelJS builder (`src/shared/eod-xlsx.ts` / `downloadEodReport` refactor as needed).\n- Optional: Settings field to override folder later is nice-to-have; **default path is required**. If you add settings, default must match `~/Documents/VajraExports`.\n\n## Out of scope\nApprove-gate watermark (sibling task), Home button (sibling), new sheets, per-line loading DB.\n\n## Tests\nUnit or smoke: export writes a real `.xlsx` under a temp dir when folder is injected/mocked if home is awkward in CI — prefer injectable export dir for tests. Update eod-export smoke if it still assumes browser download only; Electron main write may need will-download **or** direct path assert.\n\n## Land\nDraft PR base main, title `mt155: eod-silent-export — …`, link #155. Expect merge conflicts with sibling EOD PRs — keep diff focused."
+    },
+    {
+      "slug": "eod-export-gate",
+      "max_turns": 120,
+      "task": "Gate **Approve Rollover** on a fresh EOD export after the last ledger mutation (#155).\n\n## Product\n- Track a watermark: prefer integer **ledger generation** (or equivalent) on the open Business Day, bumped on every finished txn create/edit/void-successor (and stock transfer / money txns). Export records `last_export_generation` (or timestamp pair) when export **succeeds**.\n- **Approve** button (`rollover-approve-open` / confirm flow) enabled only when `last_export_generation === ledger_generation` (export is not stale).\n- Info box on Rollover page when blocked: explain that they must Export Report after the latest transactions before approving; export may be repeated after more work.\n- Empty day (generation 0 / no txns): decide sensibly — either require one export of the empty book before approve, or allow approve without export when there are zero live txns; **document choice in PR**. Prefer requiring export so the day book file always exists (ADR-0001).\n- Drafts: if drafts exist, either invalidate export when drafts change or ignore drafts for watermark — pick one, document.\n\n## Out of scope\nNext business day picker, silent folder path details (coordinate with silent-export via shared export function if present on main; otherwise call existing export entry and hook watermark where export succeeds).\n\n## Tests\nUnit/repo tests for generation bump + gate. Smoke or unit: export unlocks approve; new txn re-locks.\n\n## Land\nDraft PR → main, link #155. Focused diff."
+    },
+    {
+      "slug": "eod-next-biz-day",
+      "max_turns": 120,
+      "task": "On Rollover **approve**, let the user choose the **next Business Day** date (#155).\n\n## Product\n- Replace hard-coded `date('now')` in `approveRollover` with an explicit next `startDate` (YYYY-MM-DD) from the UI.\n- Constraints: `nextStartDate > current open business day startDate` AND `nextStartDate >= calendar today` (local timezone).\n- Preselect:\n  - If today > current startDate → preselect **today**\n  - Else → preselect **next Mon–Sat working day** (skip Sunday). User may still pick any date that satisfies constraints (including Sunday if allowed by constraints only — do not hard-ban Sunday unless constraints already block it).\n- UI: date control on Rollover before Approve; show current Business Day label.\n- Transaction IDs use the new day's startDate after approve (ADR-0009) — existing ID builder already takes startDate from open day.\n\n## Out of scope\nEdit date of empty open day (sibling), export gate, export folder.\n\n## Tests\nUnit for preselect helpers and validation; approve path stores chosen date.\n\n## Land\nDraft PR → main, link #155."
+    },
+    {
+      "slug": "eod-edit-empty-day",
+      "max_turns": 100,
+      "task": "Allow changing the **open Business Day startDate** when there are **no finished transactions** (#155).\n\n## Product\n- If open day has zero rows in `txn` for that business_day_id, shopkeeper can set a new startDate with same constraints as next-day on rollover: `> previous closed day's startDate` (if any) and `>= today` when that matches product rules — align with sibling next-biz-day rules; if previous closed date is unknown, at least `>= today` or document weaker rule.\n- Block change when any finished txn exists (clear error).\n- Drafts: if any draft exists, either block date change or allow — **prefer block** with message to clear drafts first.\n- UI: modest control on Rollover and/or Home/Settings — keep small; testids for input + save.\n\n## Out of scope\nRewriting txn IDs for days with history, multi-day retention.\n\n## Tests\nRepo unit: empty day update OK; with txn rejected.\n\n## Land\nDraft PR → main, link #155."
+    },
+    {
+      "slug": "eod-line-items-sheet",
+      "max_turns": 140,
+      "task": "Add **Line Items** sheet to the EOD XLSX (#155). **No DB migration for per-line loading.**\n\n## Columns (fixed)\nTime (date+time of txn), Order Id (display serial / txn id), Line Id, Transaction Type, Party Name, Product, Qty, Bag Size, Rate, Amt, Loading Charges, Total.\n\n## Line kind (required column or clear convention)\n- `goods` — normal product lines from txn_line\n- `loading` — **one synthetic line per sale** when loading applied / loadingCharges > 0 or loadingApplied: cart-level loading amount (do **not** split across goods lines; do **not** migrate DB)\n- `discount` — synthetic for sale discount / settlement discount as appropriate\n- `additional` — synthetic for additionalCharges\n\nOrder-level fields become their own rows with Product blank or label text; goods rows carry line qty/rate/amt.\n\nInclude stock-moving types that have lines (SA/PU/ST as appropriate). Money-only types can be omitted here if sibling money sheet covers them — or include briefly; prefer goods + synthetics for SA/PU/ST.\n\n## Out of scope\nPer-line loading in SQLite, money sheet (sibling), export gate.\n\n## Tests\nUnit: build workbook, assert Line Items sheet exists, goods + loading synthetic for a fixture sale with loading.\n\n## Land\nDraft PR → main, link #155. Expect conflicts on eod-xlsx.ts."
+    },
+    {
+      "slug": "eod-money-sheet",
+      "max_turns": 100,
+      "task": "Add a separate EOD sheet for **non-stock money movements**: Receipts, Payments, Income, Expenses (#155).\n\n## Product\n- Sheet name e.g. **Money** or **Non-stock** (English, fixed; pin in tests).\n- Rows: live (non-voided) RE, PA, IN, EX only.\n- Useful columns: Time, Id/serial, Type, Party/label, Cash in/out, UPI in/out, Discount, Total/remarks as available on Txn.\n- Do not put goods cart lines here.\n\n## Out of scope\nLine Items sheet (sibling), loading DB changes.\n\n## Tests\nUnit: fixture money txns appear; sales do not.\n\n## Land\nDraft PR → main, link #155."
+    },
+    {
+      "slug": "eod-home-export",
+      "max_turns": 80,
+      "task": "Add **Export Report** as a quick action under Home **Masters & Records** (or equivalent management section) (#155).\n\n## Product\n- Same export behaviour as Rollover export (shared function — silent folder + toast if that landed on main; else same path Rollover uses when you branch).\n- `data-testid=\"home-eod-export\"` (or similar).\n- Do **not** put Approve Rollover on Home.\n- Short label e.g. Export Day Report.\n\n## Out of scope\nNew sheets, date pickers, approve gate UI (gate lives on Rollover).\n\n## Tests\nSmoke or component-level: control visible; optional click if export can be mocked.\n\n## Land\nDraft PR → main, link #155."
+    }
+  ]
+}
