@@ -23,10 +23,10 @@ export function useBusinessDayQuery(): UseQueryReturnType<BusinessDay, Error> {
   return useQuery({ queryKey: KEYS.businessDay, queryFn: () => window.api.currentBusinessDay() })
 }
 
-export function useApproveRollover(): UseMutationReturnType<BusinessDay, Error, void, unknown> {
+export function useApproveRollover(): UseMutationReturnType<BusinessDay, Error, string, unknown> {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: () => window.api.approveRollover(),
+    mutationFn: (nextStartDate: string) => window.api.approveRollover(nextStartDate),
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEYS.businessDay })
       void qc.invalidateQueries({ queryKey: KEYS.inventory })

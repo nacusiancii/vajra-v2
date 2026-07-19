@@ -65,7 +65,8 @@ export interface VajraApi {
   inventory(): Promise<InventoryRow[]>
   /** Capture last_export_generation after a successful End of Day Report export. */
   recordEodExport(): Promise<BusinessDay>
-  approveRollover(): Promise<BusinessDay>
+  /** Approve Rollover and open the next Business Day on `nextStartDate` (YYYY-MM-DD). */
+  approveRollover(nextStartDate: string): Promise<BusinessDay>
 
   // ── Transactions ───────────────────────────────────────────
   listTransactions(): Promise<Txn[]>
