@@ -62,7 +62,11 @@ const day: BusinessDay = {
   lastExportGeneration: null
 }
 
-/** Fixture: SA cash (goods + loading), SA credit (goods + discount), PU, RE, voided SA. */
+/**
+ * Fixture day book: SA cash (goods + loading), SA credit (goods + discount), PU,
+ * RE, PA, IN, EX, voided SA + voided RE.
+ * Line Items: live SA/PU goods + synthetics; Money: live RE/PA/IN/EX only.
+ */
 const txns: Txn[] = [
   stubTxn({
     id: 'SA-C-1-23052026',
@@ -140,7 +144,53 @@ const txns: Txn[] = [
     customerName: 'Ravi Traders',
     cashIn: 5_000,
     upiIn: 2_000,
-    total: 7_000
+    discountAmount: 100,
+    total: 7_000,
+    createdAt: '2026-05-23T10:15:00.000Z',
+    remarks: 'partial settle'
+  }),
+  stubTxn({
+    id: 'PA-1-23052026',
+    type: 'PA',
+    voided: false,
+    seq: 1,
+    customerName: 'Supplier Co',
+    cashOut: 3_000,
+    upiOut: 1_000,
+    discountAmount: 50,
+    total: 4_000,
+    createdAt: '2026-05-23T11:00:00.000Z'
+  }),
+  stubTxn({
+    id: 'IN-1-23052026',
+    type: 'IN',
+    voided: false,
+    seq: 1,
+    label: 'Commission',
+    cashIn: 500,
+    total: 500,
+    createdAt: '2026-05-23T12:00:00.000Z'
+  }),
+  stubTxn({
+    id: 'EX-1-23052026',
+    type: 'EX',
+    voided: false,
+    seq: 1,
+    label: 'Tea',
+    cashOut: 200,
+    total: 200,
+    createdAt: '2026-05-23T13:00:00.000Z',
+    remarks: 'staff tea'
+  }),
+  stubTxn({
+    id: 'RE-2-23052026',
+    type: 'RE',
+    voided: true,
+    seq: 2,
+    customerName: 'Voided receipt party',
+    cashIn: 88_000,
+    total: 88_000,
+    successorId: 'RE-2.1-23052026'
   }),
   stubTxn({
     id: 'SA-C-3-23052026',
@@ -223,24 +273,25 @@ describe('eodReportFilename', () => {
 })
 
 describe('buildEodReportXlsx', () => {
-  it('emits exactly the pinned sheet names including Line Items', async () => {
+  it('emits exactly the pinned sheet names including Line Items and Money', async () => {
     const wb = await loadWorkbook()
     const names = wb.worksheets.map((w) => w.name)
     expect(names).toEqual([...EOD_SHEET_NAMES])
     expect(names).toContain('Line Items')
+    expect(names).toContain('Money')
   })
 
   it('Summary has static in/out and formula nets; credit sales (rupees)', async () => {
     const wb = await loadWorkbook()
     const ws = sheet(wb, 'Summary')
     expect(ws.getCell('B2').value).toBe('2026-05-23')
-    // cashIn 50k+5k=55_000 paise → 550; cashOut 10_000 → 100
-    expect(summaryAmount(ws, 'Cash in')).toBe(550)
-    expect(summaryAmount(ws, 'Cash out')).toBe(100)
+    // cashIn 50k+5k+0.5k=55_500 paise → 555; cashOut 10k+3k+0.2k=13_200 → 132
+    expect(summaryAmount(ws, 'Cash in')).toBe(555)
+    expect(summaryAmount(ws, 'Cash out')).toBe(132)
     // Cash net / UPI net are same-sheet formulas (row layout pinned)
     expect(cellFormula(summaryCellValue(ws, 'Cash net'))).toBe('B6-B7')
     expect(summaryAmount(ws, 'UPI in')).toBe(20) // 2_000 paise
-    expect(summaryAmount(ws, 'UPI out')).toBe(0)
+    expect(summaryAmount(ws, 'UPI out')).toBe(10) // 1_000 paise (Payment)
     expect(cellFormula(summaryCellValue(ws, 'UPI net'))).toBe('B9-B10')
     // credit sale 120_000 paise → 1200
     expect(summaryAmount(ws, 'Credit Sales')).toBe(1200)
@@ -269,19 +320,73 @@ describe('buildEodReportXlsx', () => {
     const auditSheet = sheet(wb, 'Audit')
 
     const txnSerials: string[] = []
-    for (let r = 2; r <= (txnSheet.rowCount || 10); r++) {
+    for (let r = 2; r <= (txnSheet.rowCount || 20); r++) {
       const v = txnSheet.getCell(r, 1).value
       if (v == null || v === '') break
       txnSerials.push(String(v))
     }
-    expect(txnSerials).toEqual(['C-1', 'R-2', 'C-1', '1'])
+    // Live: SA C-1, SA R-2, PU C-1, RE 1, PA 1, IN 1, EX 1
+    expect(txnSerials).toEqual(['C-1', 'R-2', 'C-1', '1', '1', '1', '1'])
     expect(txnSerials).not.toContain('C-3')
 
-    // Audit row 2
-    expect(auditSheet.getCell(2, 1).value).toBe('SA-C-3-23052026')
-    expect(String(auditSheet.getCell(2, 2).value)).toContain('C-3')
-    expect(auditSheet.getCell(2, 3).value).toBe(999) // 99_900 paise
-    expect(auditSheet.getCell(2, 4).value).toBe('SA-C-3.1-23052026')
+    // Audit: voided RE then voided SA (fixture order)
+    expect(auditSheet.getCell(2, 1).value).toBe('RE-2-23052026')
+    expect(auditSheet.getCell(2, 4).value).toBe('RE-2.1-23052026')
+    expect(auditSheet.getCell(3, 1).value).toBe('SA-C-3-23052026')
+    expect(String(auditSheet.getCell(3, 2).value)).toContain('C-3')
+    expect(auditSheet.getCell(3, 3).value).toBe(999) // 99_900 paise
+    expect(auditSheet.getCell(3, 4).value).toBe('SA-C-3.1-23052026')
+  })
+
+  it('Money sheet lists live RE/PA/IN/EX only — not sales or voided money', async () => {
+    const wb = await loadWorkbook()
+    const ws = sheet(wb, 'Money')
+
+    // Headers pinned
+    expect(ws.getCell(1, 1).value).toBe('Time')
+    expect(ws.getCell(1, 2).value).toBe('No.')
+    expect(ws.getCell(1, 3).value).toBe('Type')
+    expect(ws.getCell(1, 4).value).toBe('Party')
+    expect(ws.getCell(1, 9).value).toBe('Discount')
+    expect(ws.getCell(1, 10).value).toBe('Total (₹)')
+    expect(ws.getCell(1, 11).value).toBe('Remarks')
+
+    const types: string[] = []
+    const parties: string[] = []
+    for (let r = 2; r <= (ws.rowCount || 20); r++) {
+      const type = ws.getCell(r, 3).value
+      if (type == null || type === '') break
+      types.push(String(type))
+      parties.push(String(ws.getCell(r, 4).value))
+    }
+
+    expect(types).toEqual(['Receipt', 'Payment', 'Income', 'Expense'])
+    expect(parties).toEqual(['Ravi Traders', 'Supplier Co', 'Commission', 'Tea'])
+    // Sales and Purchases must not appear
+    expect(types).not.toContain('Sale')
+    expect(types).not.toContain('Purchase')
+    expect(parties).not.toContain('Walk-in buyer')
+    expect(parties).not.toContain('Voided receipt party')
+
+    // Receipt row: time, serial, cash/upi in, settlement discount, total, remarks
+    expect(ws.getCell(2, 1).value).toBe('2026-05-23T10:15:00.000Z')
+    expect(ws.getCell(2, 2).value).toBe('1')
+    expect(ws.getCell(2, 5).value).toBe(50) // cashIn 5_000 paise
+    expect(ws.getCell(2, 7).value).toBe(20) // upiIn 2_000
+    expect(ws.getCell(2, 9).value).toBe(1) // discount 100 paise
+    expect(ws.getCell(2, 10).value).toBe(70) // total 7_000
+    expect(ws.getCell(2, 11).value).toBe('partial settle')
+
+    // Payment: cash/upi out
+    expect(ws.getCell(3, 3).value).toBe('Payment')
+    expect(ws.getCell(3, 6).value).toBe(30) // cashOut 3_000
+    expect(ws.getCell(3, 8).value).toBe(10) // upiOut 1_000
+    expect(ws.getCell(3, 9).value).toBe(0.5) // discount 50 paise
+
+    // Income / Expense labels as party
+    expect(ws.getCell(4, 5).value).toBe(5) // Income cashIn 500
+    expect(ws.getCell(5, 6).value).toBe(2) // Expense cashOut 200
+    expect(ws.getCell(5, 11).value).toBe('staff tea')
   })
 
   it('returns a non-empty ArrayBuffer', async () => {

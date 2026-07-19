@@ -12,13 +12,13 @@ We chose multi-sheet XLSX because the EOD report is the shopkeeper's reconciliat
 2. **Inventory** — Group, Product, Opening, Purchased, Sold, Transfer (in−out), Closing, Physical (empty for shopkeeper), Diff. Quantities are **default-bag units** (grams ÷ product Default Bag Size), documented in a header note — consistent with the cashier Inventory view. Movement columns and Closing are static; Diff is `=Closing−Physical`.
 3. **Transactions** — Live (non-voided) only, compact columns: No. (`displayTxnSerial`), Type, Mode, Counterparty, Total (₹), Cash in, UPI in, Cash out, UPI out, Credit, Discount, Loading, Remarks.
 4. **Line Items** — Live stock-moving txns only (SA/PU/ST). One row per `txn_line` (`Line Kind` = `goods`) plus cart-level synthetic rows: `loading` (one per Sale when `loadingApplied` or `loadingCharges` > 0 — not split across goods lines; no per-line loading in SQLite), `additional` (`additionalCharges` > 0), `discount` (Sale Discount > 0). Columns: Time, Order Id (`displayTxnSerial`), Line Id, Line Kind, Transaction Type, Party Name, Product, Qty, Bag Size (kg or Loose), Rate (₹), Amt, Loading Charges, Total (order total on the last row of each order). Money-only types (RE/PA/IN/EX) are out of scope here.
-5. **Audit** — Voided transactions: id, display serial/type, total, successorId.
+5. **Money** — Live (non-voided) non-stock money movements only: Receipts, Payments, Income, Expenses. Columns: Time, No., Type, Party (customer / walk-in / free-form label), Cash in/out, UPI in/out, Discount (Settlement Discount on RE/PA), Total (₹), Remarks. No goods cart lines. Sales, Purchases, and Stock Transfers do not appear here.
+6. **Audit** — Voided transactions: id, display serial/type, total, successorId.
 
 #### Future (not shipped)
 
 - Live cross-sheet formulas (e.g. Summary nets from Transactions columns; inventory closing from line movements).
-- Money / non-stock sheet for Receipts, Payments, Income, Expenses.
-- Transaction Summary sheet; per-entity ledgers (Sales, Purchases, Receipts+Payments, Expenses+Income).
+- Transaction Summary sheet; further per-entity ledgers (Sales, Purchases, Receipts+Payments, Expenses+Income).
 - Stock Transfers decomposed into synthetic Sale+Purchase pairs on Inventory (today Transfer is a single net column).
 - Per-line Loading Charges in the ledger (explicitly cut — report uses synthetic `loading` rows).
 

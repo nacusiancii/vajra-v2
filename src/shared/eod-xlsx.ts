@@ -37,6 +37,7 @@ export const EOD_SHEET_NAMES = [
   'Inventory',
   'Transactions',
   'Line Items',
+  'Money',
   'Audit'
 ] as const
 export type EodSheetName = (typeof EOD_SHEET_NAMES)[number]
@@ -45,8 +46,11 @@ export type EodSheetName = (typeof EOD_SHEET_NAMES)[number]
 export const EOD_LINE_KINDS = ['goods', 'loading', 'discount', 'additional'] as const
 export type EodLineKind = (typeof EOD_LINE_KINDS)[number]
 
-/** Stock-moving types with cart lines — money-only types belong on a sibling Money sheet. */
+/** Stock-moving types with cart lines — money-only types belong on the Money sheet. */
 const LINE_ITEMS_TXN_TYPES = new Set(['SA', 'PU', 'ST'])
+
+/** Non-stock money movement types on the Money sheet (RE/PA/IN/EX). */
+const MONEY_TXN_TYPES = new Set<Txn['type']>(['RE', 'PA', 'IN', 'EX'])
 
 const MONEY_FMT = '0.00'
 const QTY_FMT = '0.00'
@@ -313,6 +317,54 @@ function buildTransactionsSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
   setColWidths(ws, [10, 14, 10, 22, 12, 12, 12, 12, 12, 12, 12, 12, 24])
 }
 
+/**
+ * Money sheet — live (non-voided) Receipts, Payments, Income, Expenses only.
+ * No goods cart lines; party is customerName / walk-in / free-form label.
+ */
+function buildMoneySheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
+  const ws = wb.addWorksheet('Money')
+  const moneyTxns = txns.filter((t) => !t.voided && MONEY_TXN_TYPES.has(t.type))
+
+  const headers = [
+    'Time',
+    'No.',
+    'Type',
+    'Party',
+    'Cash in',
+    'Cash out',
+    'UPI in',
+    'UPI out',
+    'Discount',
+    'Total (₹)',
+    'Remarks'
+  ]
+  const headerRow = ws.getRow(1)
+  headers.forEach((h, i) => {
+    headerRow.getCell(i + 1).value = h
+  })
+  styleHeaderRow(headerRow, headers.length)
+  ws.views = [{ state: 'frozen', ySplit: 1 }]
+
+  moneyTxns.forEach((t, i) => {
+    const r = i + 2
+    const excelRow = ws.getRow(r)
+    excelRow.getCell(1).value = t.createdAt
+    excelRow.getCell(2).value = displayTxnSerial(t)
+    excelRow.getCell(3).value = TXN_TYPE_LABELS[t.type]
+    excelRow.getCell(4).value = counterparty(t)
+    moneyCell(excelRow.getCell(5), t.cashIn)
+    moneyCell(excelRow.getCell(6), t.cashOut)
+    moneyCell(excelRow.getCell(7), t.upiIn)
+    moneyCell(excelRow.getCell(8), t.upiOut)
+    moneyCell(excelRow.getCell(9), t.discountAmount)
+    moneyCell(excelRow.getCell(10), t.total)
+    excelRow.getCell(11).value = t.remarks ?? ''
+    applyLightBorders(excelRow, headers.length)
+  })
+
+  setColWidths(ws, [24, 8, 12, 22, 12, 12, 12, 12, 12, 12, 24])
+}
+
 function buildAuditSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
   const ws = wb.addWorksheet('Audit')
   const voided = txns.filter((t) => t.voided)
@@ -503,6 +555,7 @@ export async function buildEodReportXlsx(
   buildInventorySheet(wb, inventory)
   buildTransactionsSheet(wb, txns)
   buildLineItemsSheet(wb, txns)
+  buildMoneySheet(wb, txns)
   buildAuditSheet(wb, txns)
 
   const raw = await wb.xlsx.writeBuffer()
