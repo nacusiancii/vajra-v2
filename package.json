@@ -21,6 +21,7 @@
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "sh scripts/run-parallel.sh typecheck:node typecheck:web",
     "test": "vitest run",
+    "test:report": "vitest run tests/unit/shared/eod-xlsx.test.ts",
     "test:smoke": "electron-vite build && playwright test",
     "test:smoke:headless": "electron-vite build && sh scripts/run-playwright-headless.sh",
     "verify:static": "sh scripts/run-parallel.sh lint typecheck test",

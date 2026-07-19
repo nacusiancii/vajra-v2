@@ -38,7 +38,7 @@ const inv = computed(() => inventory.value ?? [])
 const drawer = computed(() => summariseDrawer(txns.value))
 
 function exportReport(): void {
-  if (day.value) downloadEodReport(day.value, txns.value, inv.value)
+  if (day.value) void downloadEodReport(day.value, txns.value, inv.value)
 }
 
 function approve(): void {
@@ -65,7 +65,7 @@ function approve(): void {
         </div>
       </div>
       <Button variant="outline" data-testid="eod-export" @click="exportReport">
-        <Download class="mr-2 size-4" /> Export Report
+        <Download class="mr-2 size-4" /> Export Report (Excel)
       </Button>
     </div>
 
