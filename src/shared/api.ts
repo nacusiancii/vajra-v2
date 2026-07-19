@@ -30,6 +30,17 @@ import type { Draft, DraftType, SavePurchaseDraftInput, SaveSaleDraftInput } fro
 
 export type MoneyTxnType = 'RE' | 'PA' | 'EX' | 'IN'
 
+/** Payload for silent main-process EOD XLSX write. */
+export interface ExportEodReportInput {
+  /** Workbook bytes from `buildEodReportXlsx`. */
+  data: ArrayBuffer
+  /** Basename only — `yyyy-mm-dd_HH-mm-ss_eod_report.xlsx`. */
+  filename: string
+}
+
+/** Result of writing the End of Day Report to disk (main process). */
+export type EodExportResult = { ok: true; path: string } | { ok: false; error: string }
+
 export interface VajraApi {
   // ── Customers ──────────────────────────────────────────────
   listCustomers(): Promise<Customer[]>
@@ -82,6 +93,10 @@ export interface VajraApi {
   // ── Settings ───────────────────────────────────────────────
   getSettings(): Promise<AppSettings>
   updateSettings(settings: AppSettings): Promise<AppSettings>
+
+  // ── End of Day Report (silent main-process write) ──────────
+  /** Write a built `.xlsx` buffer under the export folder (no save dialog). */
+  exportEodReport(input: ExportEodReportInput): Promise<EodExportResult>
 }
 
 /**
@@ -127,5 +142,7 @@ export const IPC = {
   clearDraft: 'draft:clear',
 
   getSettings: 'settings:get',
-  updateSettings: 'settings:update'
+  updateSettings: 'settings:update',
+
+  exportEodReport: 'eod:exportReport'
 } as const

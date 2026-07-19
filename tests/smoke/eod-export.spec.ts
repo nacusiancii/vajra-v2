@@ -2,20 +2,17 @@ import { test, expect, dismissAutoPicker } from './fixtures'
 import type { Page } from '@playwright/test'
 import ExcelJS from 'exceljs'
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
 
 /**
- * Short transactional day → Export Report from Rollover produces a real .xlsx.
- * Does not approve rollover — export must work before that step.
+ * Short transactional day → Export Report from Rollover writes a real .xlsx
+ * under the silent export folder (main process fs). Does not approve rollover.
  *
  * Catalog + purchase + sale seeding mirrors transactional-core; this file stays
- * dedicated so the longer rollover narrative is not bloated with download I/O.
+ * dedicated so the longer rollover narrative is not bloated with export I/O.
  *
- * Electron note: the renderer saves via a blob URL + synthetic `<a download>`.
- * That path does not fire Playwright's page `download` event under Electron.
- * We capture via the main-process `session.will-download` hook and a known
- * save directory under the test temp tree.
+ * Electron note: export is no longer a browser download. Main writes under
+ * VAJRA_EOD_EXPORT_DIR (set by the smoke fixture to a temp tree).
  */
 
 async function goHome(page: Page): Promise<void> {
@@ -68,11 +65,11 @@ async function cashSale(page: Page): Promise<void> {
   await expect(page.getByTestId('home-page')).toBeVisible()
 }
 
-/** First completed `vajra-eod-*.xlsx` in dir, or null while still writing/empty. */
+/** First completed `*_eod_report.xlsx` in dir, or null while still writing/empty. */
 function findEodXlsx(dir: string): string | null {
   if (!fs.existsSync(dir)) return null
   for (const name of fs.readdirSync(dir)) {
-    if (!/^vajra-eod-.+\.xlsx$/.test(name)) continue
+    if (!/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_eod_report\.xlsx$/.test(name)) continue
     const full = path.join(dir, name)
     try {
       if (fs.statSync(full).size > 0) return name
@@ -83,12 +80,15 @@ function findEodXlsx(dir: string): string | null {
   return null
 }
 
-test('Rollover Export Report downloads vajra-eod-*.xlsx with expected sheets', async ({
+test('Rollover Export Report writes *_eod_report.xlsx with expected sheets', async ({
   page,
   electronApp
 }) => {
   // Seed path is shorter than full transactional-core; still needs headroom for Electron.
   test.setTimeout(60_000)
+
+  const exportDir = await electronApp.evaluate(() => process.env.VAJRA_EOD_EXPORT_DIR)
+  expect(exportDir, 'smoke fixture must set VAJRA_EOD_EXPORT_DIR').toBeTruthy()
 
   await seedProduct(page)
   await creditPurchase(page)
@@ -98,34 +98,26 @@ test('Rollover Export Report downloads vajra-eod-*.xlsx with expected sheets', a
   await expect(page.getByTestId('rollover-page')).toBeVisible()
   await expect(page.getByTestId('eod-export')).toBeVisible()
 
-  const downloadDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vajra-eod-export-'))
-  try {
-    // Route Electron's download to a known directory (no save dialog in CI).
-    await electronApp.evaluate(({ session }, dir: string) => {
-      session.defaultSession.once('will-download', (_event, item) => {
-        // dir is an absolute temp path from the test process; filename comes from
-        // a.download = vajra-eod-YYYY-MM-DD.xlsx on the renderer side.
-        item.setSavePath(`${dir}/${item.getFilename()}`)
-      })
-    }, downloadDir)
+  await page.getByTestId('eod-export').click()
 
-    await page.getByTestId('eod-export').click()
+  await expect
+    .poll(() => findEodXlsx(exportDir as string), { timeout: 15_000 })
+    .toMatch(/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_eod_report\.xlsx$/)
 
-    await expect
-      .poll(() => findEodXlsx(downloadDir), { timeout: 15_000 })
-      .toMatch(/^vajra-eod-.+\.xlsx$/)
+  const fileName = findEodXlsx(exportDir as string)
+  expect(fileName).toMatch(/^\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}_eod_report\.xlsx$/)
+  const filePath = path.join(exportDir as string, fileName as string)
 
-    const fileName = findEodXlsx(downloadDir)
-    expect(fileName).toMatch(/^vajra-eod-.+\.xlsx$/)
-    const filePath = path.join(downloadDir, fileName as string)
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.readFile(filePath)
+  const sheetNames = wb.worksheets.map((ws) => ws.name)
+  expect(sheetNames).toEqual(
+    expect.arrayContaining(['Summary', 'Inventory', 'Transactions', 'Audit'])
+  )
 
-    const wb = new ExcelJS.Workbook()
-    await wb.xlsx.readFile(filePath)
-    const sheetNames = wb.worksheets.map((ws) => ws.name)
-    expect(sheetNames).toEqual(
-      expect.arrayContaining(['Summary', 'Inventory', 'Transactions', 'Audit'])
-    )
-  } finally {
-    fs.rmSync(downloadDir, { recursive: true, force: true })
-  }
+  // Toast confirms silent write (folder name VajraExports under temp userData).
+  const toast = page.getByTestId('toast')
+  await expect(toast).toBeVisible()
+  await expect(toast).toHaveAttribute('data-toast-kind', 'success')
+  await expect(toast).toContainText(/Exported to/i)
 })

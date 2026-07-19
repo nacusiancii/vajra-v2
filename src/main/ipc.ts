@@ -1,6 +1,7 @@
 import { ipcMain } from 'electron'
-import { IPC } from '../shared/api'
+import { IPC, type ExportEodReportInput } from '../shared/api'
 import { getDb } from './db'
+import { writeEodReportFile } from './eod-export'
 import { CustomerRepo } from './repositories/customer-repo'
 import { ProductRepo } from './repositories/product-repo'
 import { TransactionRepo } from './repositories/transaction-repo'
@@ -73,6 +74,16 @@ export function registerIpcHandlers(): void {
   // ── Settings ───────────────────────────────────────────────
   ipcMain.handle(IPC.getSettings, () => settings.get())
   ipcMain.handle(IPC.updateSettings, (_e, next) => settings.update(next))
+
+  // ── End of Day Report (silent write to fixed folder) ───────
+  ipcMain.handle(IPC.exportEodReport, (_e, input: ExportEodReportInput) => {
+    const data = input?.data
+    const filename = input?.filename
+    if (!data || typeof filename !== 'string') {
+      return { ok: false as const, error: 'Missing export data' }
+    }
+    return writeEodReportFile(new Uint8Array(data), filename)
+  })
 }
 
 /** A Customer is referenced once any non-voided transaction points at it. */

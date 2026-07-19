@@ -1,23 +1,29 @@
 /**
- * Browser download wrapper for the End of Day Report (ADR-0006).
- * Workbook construction lives in the pure builder `@shared/eod-xlsx`.
+ * End of Day Report export (ADR-0006).
+ * Builds the multi-sheet workbook in the renderer, then asks the main process
+ * to write it under the silent export folder (no save dialog).
  */
 
 import type { BusinessDay, InventoryRow, Txn } from '@domain/transaction'
-import { buildEodReportXlsx, eodReportFilename, EOD_XLSX_MIME } from '@shared/eod-xlsx'
+import type { EodExportResult } from '@shared/api'
+import { buildEodReportXlsx, eodReportFilename } from '@shared/eod-xlsx'
 
-/** Save the report as a downloadable `.xlsx` (the shopkeeper picks the location). */
-export async function downloadEodReport(
+/**
+ * Build the EOD XLSX and write it via Electron main to the fixed export folder.
+ * Returns the absolute path on success, or a short error reason on failure.
+ */
+export async function exportEodReport(
   day: BusinessDay,
   txns: Txn[],
-  inventory: InventoryRow[]
-): Promise<void> {
-  const buffer = await buildEodReportXlsx(day, txns, inventory)
-  const blob = new Blob([buffer], { type: EOD_XLSX_MIME })
-  const url = URL.createObjectURL(blob)
-  const a = document.createElement('a')
-  a.href = url
-  a.download = eodReportFilename(day.startDate)
-  a.click()
-  URL.revokeObjectURL(url)
+  inventory: InventoryRow[],
+  now: Date = new Date()
+): Promise<EodExportResult> {
+  try {
+    const buffer = await buildEodReportXlsx(day, txns, inventory)
+    const filename = eodReportFilename(now)
+    return await window.api.exportEodReport({ data: buffer, filename })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : 'Could not build export'
+    return { ok: false, error: message }
+  }
 }

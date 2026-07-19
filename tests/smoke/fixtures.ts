@@ -26,11 +26,14 @@ export const test = base.extend<Fixtures>({
   // eslint-disable-next-line no-empty-pattern
   electronApp: async ({}, use) => {
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vajra-test-'))
+    // Injectable EOD export folder (silent main write) — keeps CI off ~/Documents.
+    const eodExportDir = path.join(userDataDir, 'VajraExports')
 
     const env = {
       ...process.env,
       ELECTRON_DISABLE_SANDBOX: '1',
-      VAJRA_USER_DATA: userDataDir
+      VAJRA_USER_DATA: userDataDir,
+      VAJRA_EOD_EXPORT_DIR: eodExportDir
     } as Record<string, string>
     // Electron-hosted terminals (VS Code, agent harnesses) export this; inheriting
     // it makes the app boot as plain Node and every launch fails.

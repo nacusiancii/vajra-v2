@@ -160,8 +160,10 @@ function cellFormula(value: ExcelJS.CellValue): string {
 }
 
 describe('eodReportFilename', () => {
-  it('uses vajra-eod-YYYY-MM-DD.xlsx', () => {
-    expect(eodReportFilename('2026-05-23')).toBe('vajra-eod-2026-05-23.xlsx')
+  it('uses local wall-clock yyyy-mm-dd_HH-mm-ss_eod_report.xlsx', () => {
+    // Fixed local components via Date ctor (year, monthIndex, day, h, m, s)
+    const when = new Date(2026, 4, 23, 14, 7, 9) // 2026-05-23 14:07:09 local
+    expect(eodReportFilename(when)).toBe('2026-05-23_14-07-09_eod_report.xlsx')
   })
 })
 

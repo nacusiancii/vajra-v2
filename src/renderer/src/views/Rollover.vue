@@ -21,7 +21,8 @@ import {
 } from '@/components/ui/table'
 import { useTransactionsQuery } from '@/queries/transactions'
 import { useInventoryQuery, useBusinessDayQuery, useApproveRollover } from '@/queries/operations'
-import { downloadEodReport } from '@/lib/eod-report'
+import { exportEodReport } from '@/lib/eod-report'
+import { showToast } from '@/lib/toast'
 import { formatRupees, formatStockQty } from '@/lib/format'
 import { summariseDrawer } from '@domain/transaction'
 
@@ -32,13 +33,29 @@ const { data: inventory } = useInventoryQuery()
 const approveRollover = useApproveRollover()
 
 const confirmOpen = ref(false)
+const exporting = ref(false)
 
 const txns = computed(() => transactions.value ?? [])
 const inv = computed(() => inventory.value ?? [])
 const drawer = computed(() => summariseDrawer(txns.value))
 
-function exportReport(): void {
-  if (day.value) void downloadEodReport(day.value, txns.value, inv.value)
+async function exportReport(): Promise<void> {
+  if (!day.value || exporting.value) return
+  exporting.value = true
+  try {
+    const result = await exportEodReport(day.value, txns.value, inv.value)
+    if (result.ok) {
+      // Short label: folder + filename (full absolute path can be long on Windows).
+      const parts = result.path.split(/[/\\]/).filter(Boolean)
+      const label =
+        parts.length >= 2 ? `${parts[parts.length - 2]}/${parts[parts.length - 1]}` : result.path
+      showToast(`Exported to ${label}`, 'success')
+    } else {
+      showToast(result.error || 'Export failed', 'error')
+    }
+  } finally {
+    exporting.value = false
+  }
 }
 
 function approve(): void {
@@ -64,7 +81,12 @@ function approve(): void {
           </p>
         </div>
       </div>
-      <Button variant="outline" data-testid="eod-export" @click="exportReport">
+      <Button
+        variant="outline"
+        data-testid="eod-export"
+        :disabled="exporting"
+        @click="exportReport"
+      >
         <Download class="mr-2 size-4" /> Export Report (Excel)
       </Button>
     </div>
