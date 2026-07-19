@@ -1,4 +1,5 @@
 import type { Database } from 'better-sqlite3'
+import { localToday, resolveNextBusinessDayStartDate } from '../../domain/business-day'
 import {
   canApproveRollover,
   projectInventory,
@@ -115,16 +116,18 @@ export class BusinessDayRepo {
 
   /**
    * Approve the Rollover: freeze the live projection as the next day's Opening Stock,
-   * wipe the closing day's transactional data, close it, and open the next Business Day.
+   * wipe the closing day's transactional data, close it, and open the next Business Day
+   * with the explicit `nextStartDate` (YYYY-MM-DD) from the UI.
    * Requires a fresh EOD export matching the current ledger generation.
    * Returns the newly opened day.
    */
-  approveRollover(): BusinessDay {
+  approveRollover(nextStartDate: string): BusinessDay {
     const day = this.current()
     if (!canApproveRollover(day)) {
       throw new Error('Export Report after the latest transactions before approving Rollover')
     }
     const closing = this.inventory()
+    const startDate = resolveNextBusinessDayStartDate(nextStartDate, day.startDate, localToday())
 
     const tx = this.db.transaction(() => {
       this.db
@@ -140,8 +143,8 @@ export class BusinessDayRepo {
         .run(day.id)
 
       const next = this.db
-        .prepare(`INSERT INTO business_day (start_date) VALUES (date('now'))`)
-        .run()
+        .prepare(`INSERT INTO business_day (start_date) VALUES (?)`)
+        .run(startDate)
       const nextId = Number(next.lastInsertRowid)
 
       const insertOpening = this.db.prepare(

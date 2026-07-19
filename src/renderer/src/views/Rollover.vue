@@ -1,9 +1,11 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { Download, RefreshCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
 import {
   Dialog,
   DialogContent,
@@ -26,6 +28,12 @@ import { exportEodReport } from '@/lib/eod-report'
 import { showToast } from '@/lib/toast'
 import { formatRupees, formatStockQty } from '@/lib/format'
 import { canApproveRollover, summariseDrawer } from '@domain/transaction'
+import {
+  localToday,
+  minNextBusinessDayStartDate,
+  preselectNextBusinessDayStartDate,
+  validateNextBusinessDayStartDate
+} from '@domain/business-day'
 
 const router = useRouter()
 const queryClient = useQueryClient()
@@ -36,12 +44,40 @@ const approveRollover = useApproveRollover()
 
 const confirmOpen = ref(false)
 const exporting = ref(false)
+const nextStartDate = ref('')
+
+const today = localToday()
 
 const txns = computed(() => transactions.value ?? [])
 const inv = computed(() => inventory.value ?? [])
 const drawer = computed(() => summariseDrawer(txns.value))
 
 const exportFresh = computed(() => (day.value ? canApproveRollover(day.value) : false))
+
+const dateMin = computed(() =>
+  day.value ? minNextBusinessDayStartDate(day.value.startDate, today) : today
+)
+
+const dateValidation = computed(() => {
+  if (!day.value || !nextStartDate.value) {
+    return { ok: false as const, reason: 'Choose the next Business Day date.' }
+  }
+  return validateNextBusinessDayStartDate(nextStartDate.value, day.value.startDate, today)
+})
+
+const canApprove = computed(
+  () => exportFresh.value && dateValidation.value.ok && !approveRollover.isPending.value
+)
+
+// Preselect when the open Business Day loads (or changes after a prior rollover).
+watch(
+  () => day.value?.startDate,
+  (startDate) => {
+    if (!startDate) return
+    nextStartDate.value = preselectNextBusinessDayStartDate(startDate, today)
+  },
+  { immediate: true }
+)
 
 async function exportReport(): Promise<void> {
   if (!day.value || exporting.value) return
@@ -50,7 +86,6 @@ async function exportReport(): Promise<void> {
     const result = await exportEodReport(day.value, txns.value, inv.value)
     if (result.ok) {
       await queryClient.invalidateQueries({ queryKey: ['businessDay'] })
-      // Short label: folder + filename (full absolute path can be long on Windows).
       const parts = result.path.split(/[/\\]/).filter(Boolean)
       const label =
         parts.length >= 2 ? `${parts[parts.length - 2]}/${parts[parts.length - 1]}` : result.path
@@ -64,8 +99,8 @@ async function exportReport(): Promise<void> {
 }
 
 function approve(): void {
-  if (!exportFresh.value) return
-  approveRollover.mutate(undefined, {
+  if (!canApprove.value) return
+  approveRollover.mutate(nextStartDate.value, {
     onSuccess: () => {
       confirmOpen.value = false
       void router.push('/')
@@ -164,16 +199,36 @@ function approve(): void {
       </div>
     </div>
 
-    <div class="flex items-center justify-between border-t pt-4">
-      <p class="max-w-xl text-sm text-muted-foreground">
-        Approving wipes this day's transactions and opens the next Business Day with the closing
-        stock above as its Opening Stock. A fresh Export Report is required first (including empty
-        days) so the day book file always exists.
-      </p>
+    <div class="flex flex-col gap-4 border-t pt-4 sm:flex-row sm:items-end sm:justify-between">
+      <div class="flex flex-col gap-3">
+        <p class="max-w-xl text-sm text-muted-foreground">
+          Approving wipes this day's transactions and opens the next Business Day with the closing
+          stock above as its Opening Stock. A fresh Export Report is required first (including empty
+          days) so the day book file always exists.
+        </p>
+        <div class="flex max-w-xs flex-col gap-1.5">
+          <Label for="next-business-day">Next Business Day</Label>
+          <Input
+            id="next-business-day"
+            v-model="nextStartDate"
+            type="date"
+            :min="dateMin"
+            data-testid="rollover-next-start-date"
+            class="w-full"
+          />
+          <p
+            v-if="nextStartDate && !dateValidation.ok"
+            class="text-sm text-destructive"
+            data-testid="rollover-next-date-error"
+          >
+            {{ dateValidation.reason }}
+          </p>
+        </div>
+      </div>
       <Button
         size="lg"
         data-testid="rollover-approve-open"
-        :disabled="!exportFresh"
+        :disabled="!canApprove"
         @click="confirmOpen = true"
       >
         Approve Rollover
@@ -186,12 +241,16 @@ function approve(): void {
           <DialogTitle>Approve Rollover?</DialogTitle>
           <DialogDescription>
             This finalises Business Day {{ day?.startDate }}. All {{ txns.length }} transaction(s)
-            will be wiped and a new Business Day will open. This cannot be undone.
+            will be wiped and a new Business Day will open on
+            <span class="font-medium tabular-nums" data-testid="rollover-confirm-next-date">{{
+              nextStartDate
+            }}</span
+            >. This cannot be undone.
           </DialogDescription>
         </DialogHeader>
         <DialogFooter>
           <Button variant="outline" @click="confirmOpen = false">Cancel</Button>
-          <Button data-testid="rollover-approve-confirm" :disabled="!exportFresh" @click="approve">
+          <Button data-testid="rollover-approve-confirm" :disabled="!canApprove" @click="approve">
             Approve &amp; Start Next Day
           </Button>
         </DialogFooter>
