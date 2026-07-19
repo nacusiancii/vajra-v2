@@ -10,7 +10,7 @@ let db: Database.Database | null = null
  * changes. During development (issue #75), older versions are wiped rather than
  * migrated — see openAtCurrentVersion.
  */
-const SCHEMA_VERSION = 4
+const SCHEMA_VERSION = 5
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
@@ -76,7 +76,11 @@ const SCHEMA = `
     closed_at       TEXT,
     -- High-water for Credit Sale sequences reserved at voucher print before finish (ADR-0009).
     -- Invoice and voucher share the same transaction ID; this only holds pre-finish reservations.
-    credit_sale_reserved INTEGER NOT NULL DEFAULT 0
+    credit_sale_reserved INTEGER NOT NULL DEFAULT 0,
+    -- Finished-ledger watermark: bumped on every create / Edit void-successor.
+    -- last_export_generation is set when EOD export succeeds; Approve requires equality.
+    ledger_generation INTEGER NOT NULL DEFAULT 0,
+    last_export_generation INTEGER
   );
 
   CREATE TABLE IF NOT EXISTS opening_stock (

@@ -63,6 +63,8 @@ export interface VajraApi {
   // ── Business Day, Inventory, Rollover ──────────────────────
   currentBusinessDay(): Promise<BusinessDay>
   inventory(): Promise<InventoryRow[]>
+  /** Capture last_export_generation after a successful End of Day Report export. */
+  recordEodExport(): Promise<BusinessDay>
   approveRollover(): Promise<BusinessDay>
 
   // ── Transactions ───────────────────────────────────────────
@@ -121,6 +123,7 @@ export const IPC = {
 
   currentBusinessDay: 'businessDay:current',
   inventory: 'inventory:get',
+  recordEodExport: 'eod:recordExport',
   approveRollover: 'rollover:approve',
 
   listTransactions: 'txn:list',

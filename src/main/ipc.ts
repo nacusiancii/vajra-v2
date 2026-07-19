@@ -45,6 +45,7 @@ export function registerIpcHandlers(): void {
   // ── Business Day, Inventory, Rollover ──────────────────────
   ipcMain.handle(IPC.currentBusinessDay, () => businessDay.current())
   ipcMain.handle(IPC.inventory, () => businessDay.inventory())
+  ipcMain.handle(IPC.recordEodExport, () => businessDay.recordEodExport())
   ipcMain.handle(IPC.approveRollover, () => businessDay.approveRollover())
 
   // ── Transactions ───────────────────────────────────────────
