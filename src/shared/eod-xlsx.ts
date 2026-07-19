@@ -7,9 +7,12 @@
  * - Stock → default-bag-equivalent units (same as formatStockQty / Rollover UI),
  *   with a header note on the Inventory sheet.
  *
- * Aggregates are static values from Vajra's projection library (summariseDrawer /
- * InventoryRow). Live cross-sheet formulas are a later slice; Diff may use a
- * simple Closing−Physical formula once Physical is filled.
+ * Live Excel formulas (same-sheet only, cheap + stable):
+ * - Summary: Cash net = Cash in − Cash out; UPI net = UPI in − UPI out
+ * - Inventory Diff: Closing − Physical (Physical left empty for input)
+ *
+ * Everything else stays static from Vajra's projection library (summariseDrawer /
+ * InventoryRow). No cross-sheet SUM from Transactions in this slice.
  */
 
 import ExcelJS from 'exceljs'
@@ -108,6 +111,24 @@ function qtyCell(cell: ExcelJS.Cell, bags: number): void {
   cell.alignment = { horizontal: 'right' }
 }
 
+/**
+ * Summary drawer layout (column B amounts). Row numbers are part of the formula
+ * contract pinned by unit tests — do not renumber without updating tests + ADR.
+ *
+ *   6 Cash in (static)    7 Cash out (static)    8 Cash net (=B6-B7)
+ *   9 UPI in (static)    10 UPI out (static)    11 UPI net (=B9-B10)
+ *  12 Credit Sales (static)  13 Credit Purchases (static)
+ */
+const SUMMARY_HEADER_ROW = 5
+const SUMMARY_CASH_IN_ROW = 6
+const SUMMARY_CASH_OUT_ROW = 7
+const SUMMARY_CASH_NET_ROW = 8
+const SUMMARY_UPI_IN_ROW = 9
+const SUMMARY_UPI_OUT_ROW = 10
+const SUMMARY_UPI_NET_ROW = 11
+const SUMMARY_CREDIT_SALES_ROW = 12
+const SUMMARY_CREDIT_PURCHASES_ROW = 13
+
 function buildSummarySheet(wb: ExcelJS.Workbook, day: BusinessDay, txns: Txn[]): void {
   const ws = wb.addWorksheet('Summary')
   const drawer = summariseDrawer(txns)
@@ -120,30 +141,44 @@ function buildSummarySheet(wb: ExcelJS.Workbook, day: BusinessDay, txns: Txn[]):
   ws.getCell('B2').value = day.startDate
   ws.getCell('A3').value = 'Generated'
   ws.getCell('B3').value =
-    'For reconciliation — drawer totals are computed in Vajra (static values).'
+    'For reconciliation — in/out and credit totals from Vajra; Cash net and UPI net are Excel formulas on this sheet.'
 
-  const rows: [string, number][] = [
-    ['Cash in', drawer.cashIn],
-    ['Cash out', drawer.cashOut],
-    ['Cash net', drawer.cashNet],
-    ['UPI in', drawer.upiIn],
-    ['UPI out', drawer.upiOut],
-    ['UPI net', drawer.upiNet],
-    ['Credit Sales', drawer.creditSales],
-    ['Credit Purchases', drawer.creditPurchases]
+  ws.getCell(SUMMARY_HEADER_ROW, 1).value = 'Item'
+  ws.getCell(SUMMARY_HEADER_ROW, 2).value = 'Amount (₹)'
+  styleHeaderRow(ws.getRow(SUMMARY_HEADER_ROW), 2)
+
+  const staticRows: [number, string, number][] = [
+    [SUMMARY_CASH_IN_ROW, 'Cash in', drawer.cashIn],
+    [SUMMARY_CASH_OUT_ROW, 'Cash out', drawer.cashOut],
+    [SUMMARY_UPI_IN_ROW, 'UPI in', drawer.upiIn],
+    [SUMMARY_UPI_OUT_ROW, 'UPI out', drawer.upiOut],
+    [SUMMARY_CREDIT_SALES_ROW, 'Credit Sales', drawer.creditSales],
+    [SUMMARY_CREDIT_PURCHASES_ROW, 'Credit Purchases', drawer.creditPurchases]
   ]
-
-  const headerRow = 5
-  ws.getCell(headerRow, 1).value = 'Item'
-  ws.getCell(headerRow, 2).value = 'Amount (₹)'
-  styleHeaderRow(ws.getRow(headerRow), 2)
-
-  rows.forEach(([label, paise], i) => {
-    const r = headerRow + 1 + i
+  for (const [r, label, paise] of staticRows) {
     ws.getCell(r, 1).value = label
     moneyCell(ws.getCell(r, 2), paise)
     applyLightBorders(ws.getRow(r), 2)
-  })
+  }
+
+  // Same-sheet nets — update when shopkeeper edits in/out cells in Excel.
+  ws.getCell(SUMMARY_CASH_NET_ROW, 1).value = 'Cash net'
+  const cashNetCell = ws.getCell(SUMMARY_CASH_NET_ROW, 2)
+  cashNetCell.value = {
+    formula: `B${SUMMARY_CASH_IN_ROW}-B${SUMMARY_CASH_OUT_ROW}`
+  }
+  cashNetCell.numFmt = MONEY_FMT
+  cashNetCell.alignment = { horizontal: 'right' }
+  applyLightBorders(ws.getRow(SUMMARY_CASH_NET_ROW), 2)
+
+  ws.getCell(SUMMARY_UPI_NET_ROW, 1).value = 'UPI net'
+  const upiNetCell = ws.getCell(SUMMARY_UPI_NET_ROW, 2)
+  upiNetCell.value = {
+    formula: `B${SUMMARY_UPI_IN_ROW}-B${SUMMARY_UPI_OUT_ROW}`
+  }
+  upiNetCell.numFmt = MONEY_FMT
+  upiNetCell.alignment = { horizontal: 'right' }
+  applyLightBorders(ws.getRow(SUMMARY_UPI_NET_ROW), 2)
 
   setColWidths(ws, [22, 16])
 }
