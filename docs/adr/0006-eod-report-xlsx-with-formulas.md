@@ -2,20 +2,20 @@
 
 The End of Day Report exports as a multi-sheet `.xlsx` file written with **ExcelJS**. HTML is no longer the shopkeeper-facing export path.
 
-**v1 aggregates are static values** computed in Vajra from the same projection library the UI uses (`summariseDrawer`, Inventory rows). Live cross-sheet formulas that recompute totals inside Excel are preferred later; they are not required for this slice. Diff on Inventory may already use a simple `=Closing−Physical` formula so the shopkeeper can fill Physical and see the gap.
+**v1 formula vs static cells.** Cheap same-sheet formulas ship where the layout is stable and the shopkeeper benefits immediately: on **Summary**, Cash net is `=B6-B7` (Cash in − Cash out) and UPI net is `=B9-B10` (UPI in − UPI out); on **Inventory**, each product Diff is `=G{r}-H{r}` (Closing − Physical), with Physical left empty for reconciliation input. Everything else is a **static value** written from Vajra's projection library (`summariseDrawer` for drawer in/out and credit totals; Inventory Opening/Purchased/Sold/Transfer/Closing from `InventoryRow`). Closing stock is not re-derived from the Transactions sheet. Cross-sheet `SUM`s (e.g. Summary nets from Transactions columns) stay future work until column letters are pinned and tested.
 
 We chose multi-sheet XLSX because the EOD report is the shopkeeper's reconciliation tool, not a presentation artifact. They open the file in Excel or LibreOffice, enter physical counts, and keep the file outside Vajra. Vajra never reads the export back.
 
 #### Sheets (shipped)
 
-1. **Summary** — Business Day startDate, generated note, drawer rows: Cash in/out/net, UPI in/out/net, Credit Sales, Credit Purchases (same numbers as `summariseDrawer`). Static values for v1.
-2. **Inventory** — Group, Product, Opening, Purchased, Sold, Transfer (in−out), Closing, Physical (empty for shopkeeper), Diff. Quantities are **default-bag units** (grams ÷ product Default Bag Size), documented in a header note — consistent with the cashier Inventory view. Closing is static; Diff may be `=Closing−Physical`.
+1. **Summary** — Business Day startDate, generated note, drawer rows: Cash in/out/net, UPI in/out/net, Credit Sales, Credit Purchases. In/out and credit amounts are static from `summariseDrawer`; Cash net and UPI net are same-sheet Excel formulas (row layout pinned by unit tests).
+2. **Inventory** — Group, Product, Opening, Purchased, Sold, Transfer (in−out), Closing, Physical (empty for shopkeeper), Diff. Quantities are **default-bag units** (grams ÷ product Default Bag Size), documented in a header note — consistent with the cashier Inventory view. Movement columns and Closing are static; Diff is `=Closing−Physical`.
 3. **Transactions** — Live (non-voided) only, compact columns: No. (`displayTxnSerial`), Type, Mode, Counterparty, Total (₹), Cash in, UPI in, Cash out, UPI out, Credit, Discount, Loading, Remarks. Full line-item explosion is out of scope.
 4. **Audit** — Voided transactions: id, display serial/type, total, successorId.
 
 #### Future (not shipped)
 
-- Live cross-sheet formulas for drawer nets and inventory closing.
+- Live cross-sheet formulas (e.g. Summary nets from Transactions columns; inventory closing from line movements).
 - Transaction Summary sheet; per-entity ledgers (Sales, Purchases, Receipts+Payments, Expenses+Income).
 - Stock Transfers decomposed into synthetic Sale+Purchase pairs on Inventory (today Transfer is a single net column).
 

@@ -134,16 +134,29 @@ function sheet(wb: ExcelJS.Workbook, name: EodSheetName): ExcelJS.Worksheet {
   return ws!
 }
 
-/** Find a label in column A and return the numeric value of column B on that row. */
-function summaryAmount(ws: ExcelJS.Worksheet, label: string): number {
+/** Find a label in column A and return column B's raw cell value on that row. */
+function summaryCellValue(ws: ExcelJS.Worksheet, label: string): ExcelJS.CellValue {
   for (let r = 1; r <= (ws.rowCount || 20); r++) {
     if (ws.getCell(r, 1).value === label) {
-      const v = ws.getCell(r, 2).value
-      expect(typeof v).toBe('number')
-      return v as number
+      return ws.getCell(r, 2).value
     }
   }
   throw new Error(`Summary label not found: ${label}`)
+}
+
+/** Find a label in column A and return the numeric value of column B on that row. */
+function summaryAmount(ws: ExcelJS.Worksheet, label: string): number {
+  const v = summaryCellValue(ws, label)
+  expect(typeof v).toBe('number')
+  return v as number
+}
+
+/** ExcelJS may return formula as string or `{ formula }` after round-trip. */
+function cellFormula(value: ExcelJS.CellValue): string {
+  if (value != null && typeof value === 'object' && 'formula' in value) {
+    return String((value as { formula: string }).formula)
+  }
+  throw new Error(`Expected formula cell, got: ${JSON.stringify(value)}`)
 }
 
 describe('eodReportFilename', () => {
@@ -159,19 +172,24 @@ describe('buildEodReportXlsx', () => {
     expect(names).toEqual([...EOD_SHEET_NAMES])
   })
 
-  it('Summary has expected cash net and credit sales (rupees)', async () => {
+  it('Summary has static in/out and formula nets; credit sales (rupees)', async () => {
     const wb = await loadWorkbook()
     const ws = sheet(wb, 'Summary')
     expect(ws.getCell('B2').value).toBe('2026-05-23')
-    // cashIn 50k+5k=55_000 paise → 550; cashOut 10_000 → 100; net 450
-    expect(summaryAmount(ws, 'Cash net')).toBe(450)
+    // cashIn 50k+5k=55_000 paise → 550; cashOut 10_000 → 100
+    expect(summaryAmount(ws, 'Cash in')).toBe(550)
+    expect(summaryAmount(ws, 'Cash out')).toBe(100)
+    // Cash net / UPI net are same-sheet formulas (row layout pinned)
+    expect(cellFormula(summaryCellValue(ws, 'Cash net'))).toBe('B6-B7')
+    expect(summaryAmount(ws, 'UPI in')).toBe(20) // 2_000 paise
+    expect(summaryAmount(ws, 'UPI out')).toBe(0)
+    expect(cellFormula(summaryCellValue(ws, 'UPI net'))).toBe('B9-B10')
     // credit sale 120_000 paise → 1200
     expect(summaryAmount(ws, 'Credit Sales')).toBe(1200)
-    expect(summaryAmount(ws, 'Cash in')).toBe(550)
     expect(summaryAmount(ws, 'Credit Purchases')).toBe(0)
   })
 
-  it('Inventory has empty Physical and Diff formula', async () => {
+  it('Inventory has empty Physical and Diff formula per product row', async () => {
     const wb = await loadWorkbook()
     const ws = sheet(wb, 'Inventory')
     // data starts at row 3 (row 1 note, row 2 headers)
@@ -179,11 +197,12 @@ describe('buildEodReportXlsx', () => {
     expect(ws.getCell(3, 2).value).toBe('Toor Dal Premium')
     // opening 500_000 g / 50_000 = 10 bags
     expect(ws.getCell(3, 3).value).toBe(10)
-    // Physical empty
+    // Closing static (600_000 g / 50_000 = 12 bags) — not re-derived from Transactions
+    expect(ws.getCell(3, 7).value).toBe(12)
+    // Physical empty for shopkeeper input
     expect(ws.getCell(3, 8).value).toBeNull()
-    // Diff formula Closing − Physical
-    const diff = ws.getCell(3, 9).value
-    expect(diff).toEqual({ formula: 'G3-H3' })
+    // Diff formula Closing − Physical (ExcelJS formula shape)
+    expect(cellFormula(ws.getCell(3, 9).value)).toBe('G3-H3')
   })
 
   it('Transactions excludes voided; Audit includes voided with successor', async () => {
