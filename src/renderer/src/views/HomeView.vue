@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
+import { useQueryClient } from '@tanstack/vue-query'
 import { RouterLink, useRouter } from 'vue-router'
 import {
   Banknote,
@@ -26,13 +27,15 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useClearDraft, useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
 import { useBusinessDayQuery, useInventoryQuery } from '@/queries/operations'
-import { downloadEodReport } from '@/lib/eod-report'
+import { exportEodReport } from '@/lib/eod-report'
 import { formatRupees } from '@/lib/format'
+import { showToast } from '@/lib/toast'
 import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
 import { displayTxnSerial, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
 import type { Draft } from '@domain/draft'
 
 const router = useRouter()
+const queryClient = useQueryClient()
 const { data: transactions } = useTransactionsQuery()
 const { data: day } = useBusinessDayQuery()
 const { data: inventory } = useInventoryQuery()
@@ -43,10 +46,25 @@ const clearDraft = useClearDraft()
 const recent = computed(() => (transactions.value ?? []).filter((t) => !t.voided).slice(0, 5))
 const drafts = computed(() => allDrafts.value ?? [])
 
-/** Same path as Rollover Export Report — shared `downloadEodReport` (ADR-0006). */
-function exportDayReport(): void {
-  if (day.value) {
-    void downloadEodReport(day.value, transactions.value ?? [], inventory.value ?? [])
+const exporting = ref(false)
+
+/** Same path as Rollover Export Report — silent folder + toast (ADR-0006). */
+async function exportDayReport(): Promise<void> {
+  if (!day.value || exporting.value) return
+  exporting.value = true
+  try {
+    const result = await exportEodReport(day.value, transactions.value ?? [], inventory.value ?? [])
+    if (result.ok) {
+      await queryClient.invalidateQueries({ queryKey: ['businessDay'] })
+      const parts = result.path.split(/[/\\]/).filter(Boolean)
+      const label =
+        parts.length >= 2 ? `${parts[parts.length - 2]}/${parts[parts.length - 1]}` : result.path
+      showToast(`Exported to ${label}`, 'success')
+    } else {
+      showToast(result.error || 'Export failed', 'error')
+    }
+  } finally {
+    exporting.value = false
   }
 }
 
@@ -376,7 +394,8 @@ const managementLinks: HomeLink[] = [
         <button
           type="button"
           data-testid="home-eod-export"
-          class="group flex items-start gap-4 rounded-xl border bg-card p-4 text-left transition hover:border-foreground/20 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          class="group flex items-start gap-4 rounded-xl border bg-card p-4 text-left transition hover:border-foreground/20 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          :disabled="exporting"
           @click="exportDayReport"
         >
           <span
@@ -387,7 +406,7 @@ const managementLinks: HomeLink[] = [
           <div class="min-w-0 flex-1">
             <h3 class="font-semibold">Export Day Report</h3>
             <p class="mt-0.5 text-sm text-muted-foreground">
-              Download the End of Day Report for the current Business Day.
+              Export the End of Day Report for the current Business Day.
             </p>
           </div>
         </button>
