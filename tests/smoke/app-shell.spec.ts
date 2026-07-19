@@ -65,6 +65,10 @@ test.describe('Home page', () => {
     await expect(section.getByRole('heading', { name: 'Inventory' })).toBeVisible()
     await expect(section.getByRole('heading', { name: 'Settings' })).toBeVisible()
     await expect(section.getByRole('heading', { name: 'Rollover' })).toBeVisible()
+    // Export quick action on Home; Approve stays on Rollover only (#155).
+    await expect(section.getByTestId('home-eod-export')).toBeVisible()
+    await expect(section.getByTestId('home-eod-export')).toContainText('Export Day Report')
+    await expect(page.getByTestId('rollover-approve-open')).toHaveCount(0)
   })
 })
 
