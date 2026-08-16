@@ -33,7 +33,7 @@
     "dev": "electron-vite dev",
     "dev:linux": "ELECTRON_DISABLE_SANDBOX=1 pnpm dev",
     "build": "pnpm typecheck && electron-vite build",
-    "postinstall": "electron-builder install-app-deps",
+    "postinstall": "install-electron && electron-builder install-app-deps",
     "build:unpack": "pnpm build && electron-builder --dir",
     "build:win": "pnpm build && electron-builder --win",
     "build:mac": "pnpm build && electron-builder --mac",
@@ -51,7 +51,7 @@
     "@tanstack/vue-table": "^8.21.3",
     "@vee-validate/zod": "^4.15.1",
     "@vueuse/core": "^14.3.0",
-    "better-sqlite3": "^12.10.0",
+    "better-sqlite3": "^13.0.3",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "exceljs": "^4.4.0",
@@ -69,9 +69,9 @@
     "@electron-toolkit/tsconfig": "2.0.0",
     "@playwright/test": "^1.60.0",
     "@types/better-sqlite3": "^7.6.13",
-    "@types/node": "22.19.19",
+    "@types/node": "24.13.3",
     "@vitejs/plugin-vue": "6.0.7",
-    "electron": "39.8.10",
+    "electron": "43.4.0",
     "electron-builder": "26.8.1",
     "electron-vite": "5.0.0",
     "eslint": "9.39.4",
@@ -84,5 +84,9 @@
     "vue": "3.5.35",
     "vue-eslint-parser": "10.4.0",
     "vue-tsc": "3.3.2"
+  },
+  "packageManager": "pnpm@11.4.0",
+  "engines": {
+    "node": ">=24"
   }
 }

@@ -37,8 +37,7 @@ Prerequisites and scripts are in [README.md](./README.md).
 
 ```bash
 pnpm install
-pnpm approve-builds   # if prompted for native modules
-pnpm dev              # or ELECTRON_DISABLE_SANDBOX=1 pnpm dev on Linux
+pnpm dev              # or pnpm dev:linux on Linux
 ```
 
 Before opening a PR, run `pnpm fix` (lint:fix + format), then push. CI runs the full

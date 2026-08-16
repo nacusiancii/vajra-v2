@@ -9,7 +9,7 @@ Desktop app for a wholesale grocery and pulses shop in Andhra Pradesh, India. Ru
 ## Prerequisites
 
 - Node 24 (see `.nvmrc`)
-- pnpm 10+
+- pnpm 11
 
 Linux only:
 
@@ -21,14 +21,9 @@ sudo apt install build-essential python3 make g++
 
 ```bash
 pnpm install
-pnpm approve-builds   # if prompted for native module builds
 ```
 
-If `electron` binary is missing after install:
-
-```bash
-node node_modules/.pnpm/electron@*/node_modules/electron/install.js
-```
+Native module builds are already allowlisted in `pnpm-workspace.yaml`. Electron 43 fetches its binary from the root `postinstall` (`install-electron`).
 
 ## Development
 
@@ -36,10 +31,10 @@ node node_modules/.pnpm/electron@*/node_modules/electron/install.js
 pnpm dev
 ```
 
-On Linux, if the sandbox blocks launch:
+On Linux (Chromium sandbox / user namespaces):
 
 ```bash
-ELECTRON_DISABLE_SANDBOX=1 pnpm dev
+pnpm dev:linux
 ```
 
 ## Verification
