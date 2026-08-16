@@ -37,7 +37,7 @@ Prerequisites and scripts are in [README.md](./README.md).
 
 ```bash
 pnpm install
-pnpm dev              # or pnpm dev:linux on Linux
+pnpm dev
 ```
 
 Before opening a PR, run `pnpm fix` (lint:fix + format), then push. CI runs the full

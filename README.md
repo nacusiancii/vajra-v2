@@ -23,7 +23,7 @@ sudo apt install build-essential python3 make g++
 pnpm install
 ```
 
-Native module builds are already allowlisted in `pnpm-workspace.yaml`. Electron 43 fetches its binary from the root `postinstall` (`install-electron`).
+Native module builds are already allowlisted in `pnpm-workspace.yaml`. `postinstall` fetches the Electron binary (`install-electron`). Set `SKIP_ELECTRON=1` to skip that (used by the `static` / `report` CI jobs).
 
 ## Development
 
@@ -31,11 +31,7 @@ Native module builds are already allowlisted in `pnpm-workspace.yaml`. Electron 
 pnpm dev
 ```
 
-On Linux (Chromium sandbox / user namespaces):
-
-```bash
-pnpm dev:linux
-```
+On Linux this also sets `ELECTRON_DISABLE_SANDBOX=1` (Chromium user namespaces). `pnpm dev:linux` is an alias.
 
 ## Verification
 
