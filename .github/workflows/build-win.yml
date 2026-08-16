@@ -31,9 +31,18 @@ jobs:
           node-version-file: .nvmrc
           cache: pnpm
 
+      - name: Cache Electron zip
+        uses: actions/cache@v4
+        with:
+          path: ${{ github.workspace }}/.cache/electron
+          key: electron-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+          restore-keys: |
+            electron-${{ runner.os }}-
+
       - name: Install dependencies
-        # postinstall rebuilds native modules for the Windows/Electron ABI
         run: pnpm install --frozen-lockfile
+        env:
+          electron_config_cache: ${{ github.workspace }}/.cache/electron
 
       - name: Version for artifact name
         id: meta
