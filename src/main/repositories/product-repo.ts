@@ -17,6 +17,7 @@ interface ProductRow {
   default_bag_size_g: number
   name_te: string | null
   remarks: string | null
+  inventory_order: number | null
   created_at: string
   updated_at: string
 }
@@ -30,6 +31,7 @@ function rowToProduct(row: ProductRow): Product {
     defaultBagSizeG: row.default_bag_size_g as BagSizeG,
     nameTe: row.name_te,
     remarks: row.remarks,
+    inventoryOrder: row.inventory_order,
     createdAt: row.created_at,
     updatedAt: row.updated_at
   }
@@ -51,7 +53,10 @@ export class ProductRepo {
         `SELECT p.*, pg.name AS product_group_name
          FROM product p
          JOIN product_group pg ON pg.id = p.product_group_id
-         ORDER BY p.name COLLATE NOCASE`
+         ORDER BY pg.name COLLATE NOCASE,
+                  p.inventory_order IS NULL,
+                  p.inventory_order,
+                  p.name COLLATE NOCASE`
       )
       .all() as ProductRow[]
     return rows.map(rowToProduct)
@@ -82,15 +87,84 @@ export class ProductRepo {
 
   update(id: number, input: UpdateProductInput): Product {
     const groupId = this.resolveProductGroup(input.productGroupName)
-    this.db
-      .prepare(
-        `UPDATE product
-         SET name = ?, product_group_id = ?, name_te = ?, remarks = ?,
-             updated_at = datetime('now')
-         WHERE id = ?`
-      )
-      .run(input.name.trim(), groupId, input.nameTe, input.remarks, id)
+    const current = this.db.prepare('SELECT product_group_id FROM product WHERE id = ?').get(id) as
+      | { product_group_id: number }
+      | undefined
+    const groupChanged = current !== undefined && current.product_group_id !== groupId
+
+    if (groupChanged) {
+      this.db
+        .prepare(
+          `UPDATE product
+           SET name = ?, product_group_id = ?, name_te = ?, remarks = ?,
+               inventory_order = NULL, updated_at = datetime('now')
+           WHERE id = ?`
+        )
+        .run(input.name.trim(), groupId, input.nameTe, input.remarks, id)
+    } else {
+      this.db
+        .prepare(
+          `UPDATE product
+           SET name = ?, product_group_id = ?, name_te = ?, remarks = ?,
+               updated_at = datetime('now')
+           WHERE id = ?`
+        )
+        .run(input.name.trim(), groupId, input.nameTe, input.remarks, id)
+    }
     return this.getById(id)!
+  }
+
+  /**
+   * Write Inventory Product Order for one Product Group.
+   * `orderedIds` must be a non-empty permutation of every Product in that group.
+   * Assigns 1..n in array order. Other groups are untouched.
+   */
+  reorderProducts(orderedIds: number[]): void {
+    if (orderedIds.length === 0) {
+      throw new Error('orderedIds must be a non-empty permutation of one Product Group')
+    }
+
+    const seen = new Set<number>()
+    for (const id of orderedIds) {
+      if (seen.has(id)) {
+        throw new Error('orderedIds must be a permutation of one Product Group')
+      }
+      seen.add(id)
+    }
+
+    const getRow = this.db.prepare('SELECT id, product_group_id FROM product WHERE id = ?')
+    const rows: { id: number; product_group_id: number }[] = []
+    for (const id of orderedIds) {
+      const row = getRow.get(id) as { id: number; product_group_id: number } | undefined
+      if (!row) {
+        throw new Error(`Product ${id} not found`)
+      }
+      rows.push(row)
+    }
+
+    const groupId = rows[0]!.product_group_id
+    if (rows.some((r) => r.product_group_id !== groupId)) {
+      throw new Error('orderedIds must share one Product Group')
+    }
+
+    const siblingCount = (
+      this.db
+        .prepare('SELECT count(*) AS n FROM product WHERE product_group_id = ?')
+        .get(groupId) as { n: number }
+    ).n
+    if (siblingCount !== orderedIds.length) {
+      throw new Error('orderedIds must include every Product in the Product Group')
+    }
+
+    const update = this.db.prepare(
+      `UPDATE product SET inventory_order = ?, updated_at = datetime('now') WHERE id = ?`
+    )
+    const apply = this.db.transaction(() => {
+      for (let i = 0; i < orderedIds.length; i++) {
+        update.run(i + 1, orderedIds[i])
+      }
+    })
+    apply()
   }
 
   delete(id: number): void {

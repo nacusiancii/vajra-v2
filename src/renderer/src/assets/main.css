@@ -3,3 +3,46 @@
 #app {
   min-height: 100vh;
 }
+
+@media print {
+  @page {
+    margin: 12mm;
+  }
+
+  [data-print-hide],
+  [data-slot='dialog-overlay'],
+  [data-slot='dialog-close'] {
+    display: none !important;
+  }
+
+  [data-slot='table-container'] {
+    overflow: visible !important;
+  }
+
+  [data-slot='dialog-content'] {
+    position: static !important;
+    transform: none !important;
+    inset: auto !important;
+    width: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    height: auto !important;
+    box-shadow: none !important;
+    border: none !important;
+    animation: none !important;
+    overflow: visible !important;
+  }
+
+  body:has([data-testid='inventory-product-dialog']) [data-print='stock'] {
+    display: none !important;
+  }
+
+  body:has([data-testid='inventory-product-dialog']) #app {
+    display: none !important;
+  }
+
+  table {
+    width: 100%;
+    font-variant-numeric: tabular-nums;
+  }
+}

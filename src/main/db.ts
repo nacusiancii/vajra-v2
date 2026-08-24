@@ -10,7 +10,7 @@ let db: Database.Database | null = null
  * changes. During development (issue #75), older versions are wiped rather than
  * migrated — see openAtCurrentVersion.
  */
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 6
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
@@ -64,6 +64,8 @@ const SCHEMA = `
     default_bag_size_g   INTEGER NOT NULL CHECK (default_bag_size_g IN (25000, 30000, 50000)),
     name_te              TEXT,
     remarks              TEXT,
+    -- Inventory Product Order within the Product Group; NULL = unset (sort by name).
+    inventory_order      INTEGER,
     created_at           TEXT    NOT NULL DEFAULT (datetime('now')),
     updated_at           TEXT    NOT NULL DEFAULT (datetime('now'))
   );
@@ -145,6 +147,7 @@ const SCHEMA = `
 
   CREATE INDEX IF NOT EXISTS idx_txn_day      ON txn(business_day_id);
   CREATE INDEX IF NOT EXISTS idx_txn_line_txn ON txn_line(txn_id);
+  CREATE INDEX IF NOT EXISTS idx_txn_line_product ON txn_line(product_id);
 
   CREATE TABLE IF NOT EXISTS setting (
     key    TEXT PRIMARY KEY,

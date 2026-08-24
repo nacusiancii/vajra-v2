@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { Plus, Pencil, Trash2, AlertCircle } from '@lucide/vue'
+import { Plus, Pencil, Trash2, AlertCircle, ChevronUp, ChevronDown } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -35,9 +35,11 @@ import {
   useProductGroupsQuery,
   useCreateProduct,
   useUpdateProduct,
-  useDeleteProduct
+  useDeleteProduct,
+  useReorderProducts
 } from '@/queries/products'
-import type { CreateProductInput, UpdateProductInput } from '@domain/types'
+import { compareInventoryProductOrder } from '@domain/product'
+import type { CreateProductInput, Product, UpdateProductInput } from '@domain/types'
 
 const store = useProductMasterStore()
 const { data: products, isLoading } = useProductsQuery()
@@ -45,11 +47,17 @@ const { data: productGroups } = useProductGroupsQuery()
 const createMutation = useCreateProduct()
 const updateMutation = useUpdateProduct()
 const deleteMutation = useDeleteProduct()
+const reorderMutation = useReorderProducts()
 
 /** Why the last Delete was blocked (or failed) — cleared on the next attempt. */
 const deleteError = ref<string | null>(null)
 
 const groupNames = computed(() => (productGroups.value ?? []).map((g) => g.name))
+
+/** Search or missing-translation filter hides a sibling — Up/Down would lie. */
+const reorderBlockedByFilter = computed(
+  () => Boolean(store.search) || store.translationFilter === 'missing'
+)
 
 const filtered = computed(() => {
   let list = products.value ?? []
@@ -68,12 +76,46 @@ const filtered = computed(() => {
     list = list.filter((p) => !p.nameTe)
   }
 
+  // list() is group-then-order; every sort is an explicit client sort.
+  list = [...list]
   if (store.sortField === 'updatedAt') {
-    list = [...list].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+    list.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+  } else if (store.sortField === 'inventoryOrder') {
+    list.sort(
+      (a, b) =>
+        a.productGroupName.localeCompare(b.productGroupName) || compareInventoryProductOrder(a, b)
+    )
+  } else {
+    list.sort((a, b) => a.name.localeCompare(b.name))
   }
 
   return list
 })
+
+function siblingsInGroup(product: Product): Product[] {
+  return (products.value ?? [])
+    .filter((p) => p.productGroupId === product.productGroupId)
+    .sort(compareInventoryProductOrder)
+}
+
+function canMove(product: Product, direction: 'up' | 'down'): boolean {
+  if (reorderBlockedByFilter.value) return false
+  const siblings = siblingsInGroup(product)
+  const i = siblings.findIndex((p) => p.id === product.id)
+  if (direction === 'up') return i > 0
+  return i >= 0 && i < siblings.length - 1
+}
+
+function handleMove(product: Product, direction: 'up' | 'down'): void {
+  const siblings = siblingsInGroup(product)
+  const i = siblings.findIndex((p) => p.id === product.id)
+  if (direction === 'up' && i > 0) {
+    ;[siblings[i - 1], siblings[i]] = [siblings[i], siblings[i - 1]]
+  } else if (direction === 'down' && i >= 0 && i < siblings.length - 1) {
+    ;[siblings[i], siblings[i + 1]] = [siblings[i + 1], siblings[i]]
+  } else return
+  reorderMutation.mutate(siblings.map((p) => p.id))
+}
 
 function handleCreate(input: CreateProductInput): void {
   createMutation.mutate(input, { onSuccess: () => store.closeDialog() })
@@ -163,10 +205,11 @@ function handleDelete(id: number): void {
 
       <!-- Sort -->
       <Select v-model="store.sortField">
-        <SelectTrigger class="w-[150px]">
+        <SelectTrigger class="w-[170px]">
           <SelectValue placeholder="Sort by" />
         </SelectTrigger>
         <SelectContent>
+          <SelectItem value="inventoryOrder">Inventory order</SelectItem>
           <SelectItem value="name">Name (A–Z)</SelectItem>
           <SelectItem value="updatedAt">Last Updated</SelectItem>
         </SelectContent>
@@ -183,7 +226,7 @@ function handleDelete(id: number): void {
             <TableHead>Bag Size</TableHead>
             <TableHead>Telugu</TableHead>
             <TableHead>Remarks</TableHead>
-            <TableHead class="w-[100px] text-right">Actions</TableHead>
+            <TableHead class="w-[184px] text-right">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -218,7 +261,39 @@ function handleDelete(id: number): void {
               {{ product.remarks || '—' }}
             </TableCell>
             <TableCell class="text-right">
-              <div class="flex justify-end gap-1">
+              <div class="flex flex-nowrap justify-end gap-1">
+                <Button
+                  v-if="store.sortField === 'inventoryOrder'"
+                  variant="ghost"
+                  size="icon"
+                  data-testid="product-move-up"
+                  aria-label="Move up"
+                  :disabled="!canMove(product, 'up')"
+                  :title="
+                    reorderBlockedByFilter
+                      ? 'Clear search and translation filter to reorder'
+                      : undefined
+                  "
+                  @click="handleMove(product, 'up')"
+                >
+                  <ChevronUp class="size-4" />
+                </Button>
+                <Button
+                  v-if="store.sortField === 'inventoryOrder'"
+                  variant="ghost"
+                  size="icon"
+                  data-testid="product-move-down"
+                  aria-label="Move down"
+                  :disabled="!canMove(product, 'down')"
+                  :title="
+                    reorderBlockedByFilter
+                      ? 'Clear search and translation filter to reorder'
+                      : undefined
+                  "
+                  @click="handleMove(product, 'down')"
+                >
+                  <ChevronDown class="size-4" />
+                </Button>
                 <Button
                   variant="ghost"
                   size="icon"

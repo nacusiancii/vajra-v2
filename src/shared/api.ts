@@ -23,6 +23,7 @@ import type {
   CreateSaleInput,
   CreateStockTransferInput,
   InventoryRow,
+  ProductLiveLine,
   Txn
 } from '../domain/transaction'
 import type { AppSettings } from '../domain/settings'
@@ -55,6 +56,8 @@ export interface VajraApi {
   updateProduct(id: number, input: UpdateProductInput): Promise<Product>
   deleteProduct(id: number): Promise<void>
   canDeleteProduct(id: number): Promise<DeleteCheck>
+  /** Persist Inventory Product Order for one Product Group (a permutation of that group's ids). */
+  reorderProducts(orderedIds: number[]): Promise<void>
 
   // ── Lookup values (for combobox autocomplete) ──────────────
   listPlaces(): Promise<Place[]>
@@ -76,6 +79,7 @@ export interface VajraApi {
   // ── Transactions ───────────────────────────────────────────
   listTransactions(): Promise<Txn[]>
   getTransaction(id: string): Promise<Txn | null>
+  listLiveGoodsLinesForProduct(productId: number): Promise<ProductLiveLine[]>
   createSale(input: CreateSaleInput): Promise<Txn>
   editSale(id: string, input: CreateSaleInput): Promise<Txn>
   /**
@@ -123,6 +127,7 @@ export const IPC = {
   updateProduct: 'product:update',
   deleteProduct: 'product:delete',
   canDeleteProduct: 'product:canDelete',
+  reorderProducts: 'product:reorder',
 
   listPlaces: 'place:list',
   listProductGroups: 'productGroup:list',
@@ -135,6 +140,7 @@ export const IPC = {
 
   listTransactions: 'txn:list',
   getTransaction: 'txn:get',
+  listLiveGoodsLinesForProduct: 'txn:listLiveGoodsLinesForProduct',
   createSale: 'txn:createSale',
   editSale: 'txn:editSale',
   reserveCreditSaleSeq: 'txn:reserveCreditSaleSeq',

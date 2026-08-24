@@ -43,6 +43,8 @@ export interface Product {
   defaultBagSizeG: BagSizeG
   nameTe: string | null
   remarks: string | null
+  /** Inventory Product Order within the Product Group; null = unset (sort by name). */
+  inventoryOrder: number | null
   createdAt: string
   updatedAt: string
 }

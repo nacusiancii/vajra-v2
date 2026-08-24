@@ -15,6 +15,7 @@ const api: VajraApi = {
   updateProduct: (id, input) => ipcRenderer.invoke(IPC.updateProduct, id, input),
   deleteProduct: (id) => ipcRenderer.invoke(IPC.deleteProduct, id),
   canDeleteProduct: (id) => ipcRenderer.invoke(IPC.canDeleteProduct, id),
+  reorderProducts: (orderedIds) => ipcRenderer.invoke(IPC.reorderProducts, orderedIds),
 
   listPlaces: () => ipcRenderer.invoke(IPC.listPlaces),
   listProductGroups: () => ipcRenderer.invoke(IPC.listProductGroups),
@@ -28,6 +29,8 @@ const api: VajraApi = {
 
   listTransactions: () => ipcRenderer.invoke(IPC.listTransactions),
   getTransaction: (id) => ipcRenderer.invoke(IPC.getTransaction, id),
+  listLiveGoodsLinesForProduct: (productId) =>
+    ipcRenderer.invoke(IPC.listLiveGoodsLinesForProduct, productId),
   createSale: (input) => ipcRenderer.invoke(IPC.createSale, input),
   editSale: (id, input) => ipcRenderer.invoke(IPC.editSale, id, input),
   reserveCreditSaleSeq: () => ipcRenderer.invoke(IPC.reserveCreditSaleSeq),
