@@ -65,6 +65,8 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.editStockTransfer, (_e, id, input) =>
     transactions.editStockTransfer(id, input)
   )
+  ipcMain.handle(IPC.createJournal, (_e, input) => transactions.createJournal(input))
+  ipcMain.handle(IPC.editJournal, (_e, id, input) => transactions.editJournal(id, input))
   ipcMain.handle(IPC.createMoneyTxn, (_e, type, input) => transactions.createMoneyTxn(type, input))
   ipcMain.handle(IPC.editMoneyTxn, (_e, id, type, input) =>
     transactions.editMoneyTxn(id, type, input)

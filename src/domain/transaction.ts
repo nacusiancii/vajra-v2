@@ -12,7 +12,7 @@
 import { bulkStockDeltaG, looseStockDeltaG, roundHalfAway } from './units'
 
 /** Two-letter transaction-type codes — a closed set (ADR-0009). */
-export type TxnType = 'SA' | 'PU' | 'RE' | 'PA' | 'EX' | 'IN' | 'ST'
+export type TxnType = 'SA' | 'PU' | 'RE' | 'PA' | 'EX' | 'IN' | 'ST' | 'JN'
 
 export const TXN_TYPE_LABELS: Record<TxnType, string> = {
   SA: 'Sale',
@@ -21,10 +21,13 @@ export const TXN_TYPE_LABELS: Record<TxnType, string> = {
   PA: 'Payment',
   EX: 'Expense',
   IN: 'Income',
-  ST: 'Stock Transfer'
+  ST: 'Stock Transfer',
+  JN: 'Journal'
 }
 
 export type SaleMode = 'cash' | 'credit'
+/** Accounting side of a Journal note. Not Sale/Purchase Cash vs Credit mode. */
+export type JournalSide = 'debit' | 'credit'
 export type TxnLineSide = 'single' | 'source' | 'target'
 
 // ── Read models (returned by the repository) ─────────────────────────────────
@@ -70,6 +73,11 @@ export interface Txn {
   walkinPlace: string | null
   walkinPhone: string | null
   label: string | null
+  /**
+   * Journal Debit/Credit. Non-null iff `type === 'JN'`.
+   * Not `saleMode`. Not a drawer column.
+   */
+  journalSide: JournalSide | null
   /** Drawer columns — paise. */
   cashIn: number
   upiIn: number
@@ -88,7 +96,7 @@ export interface Txn {
    * On Sale (SA): cart-level **Discount** in paise — simple rupee reduction of the Sale total
    * (not Settlement Discount; not face/realized). On Receipt/Payment (RE/PA): Settlement
    * Discount write-off in paise; face is cash + UPI + discount and `total` stays realized.
-   * Always 0 for Purchase, Expense, Income, Stock Transfer.
+   * Always 0 for Purchase, Expense, Income, Stock Transfer, Journal.
    */
   discountAmount: number
   remarks: string | null
@@ -252,6 +260,15 @@ export interface CreateMoneyTxnInput {
   upiCollected: number
   /** Settlement write-off in paise. RE/PA only; always 0 for Expense/Income. */
   discountAmount: number
+  remarks: string | null
+}
+
+export interface CreateJournalInput {
+  /** Free-form Party. Stored in `txn.label`. */
+  party: string
+  side: JournalSide
+  /** Integer paise, must be > 0. */
+  amount: number
   remarks: string | null
 }
 

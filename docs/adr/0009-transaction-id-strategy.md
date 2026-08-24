@@ -12,7 +12,7 @@ TT[-MODE]-SEQ[.REV]-DDMMYYYY
 
 | Part       | Meaning                                                                                                                                        |
 | ---------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| `TT`       | Type code: `SA` Sale, `PU` Purchase, `RE` Receipt, `PA` Payment, `EX` Expense, `IN` Income, `ST` Stock Transfer                                |
+| `TT`       | Type code: `SA` Sale, `PU` Purchase, `RE` Receipt, `PA` Payment, `EX` Expense, `IN` Income, `ST` Stock Transfer, `JN` Journal                  |
 | `MODE`     | For `SA` and `PU` only: `C` (Cash) or `R` (Credit). Omitted for other types                                                                    |
 | `SEQ`      | Per-Business-Day sequence for that `(TT, MODE)` (or `TT` alone when no mode), starting at 1                                                    |
 | `REV`      | Optional edit revision. The first finished row has no `.REV`. Each Edit successor of that sequence keeps the same `SEQ` and uses `.1`, `.2`, … |
@@ -25,6 +25,7 @@ Examples:
 - `SA-R-3-18072026` — Credit Sale sequence 3 (invoice **and** voucher both print this ID)
 - `PU-C-1-18072026` / `PU-R-2-18072026` — Cash / Credit Purchases, separate sequences
 - `RE-4-18072026` — Receipt (no mode segment)
+- `JN-4-18072026` — Journal sequence 4 (no mode segment)
 
 Cash and Credit sequences for Sales are independent; same for Purchases. Credit Voucher does not allocate a second sequence.
 

@@ -145,6 +145,14 @@ _Avoid_: Misc payment, other expense.
 A cash or UPI inflow with no counterparty record — commissions and similar one-off money in. The mirror of Expense. Touches no stock. No Settlement Discount.
 _Avoid_: Other income, misc income.
 
+### Journal
+
+**Journal**:
+A day-book note on the current Business Day that does not move Inventory, cash, UPI, Credit Sales, or Credit Purchases. The cashier records **Party**, **Debit or Credit**, and **Amount**. **Party** here is a free-text name on the Journal row — not a Customer Master pick, not a Party Master, and not a synonym for Customer Master. Journals are finished transactional rows: they receive a Transaction ID, appear in live lists, Edit as Void+Successor, and are wiped at Rollover. They do not print. They are not Drafts. They are not Expense or Income (those move cash/UPI). They are not remarks attached to another transaction.
+_Avoid_: memo, contra, voucher, journal entry, Party Master, Dr/Cr, using "mode" for Journal Debit/Credit; treating Journal Party as a Customer Master synonym.
+
+A Journal's **Debit** / **Credit** is the accounting side of the note. It is not Credit Sale / Credit Purchase mode, not the Transactions "credit" badge, and it does not land in Credit Sales Total or Credit Purchases Total.
+
 ### Editing and audit
 
 **Edit** (UX term):
@@ -166,7 +174,7 @@ A settings-level toggle that lets Vajra operate without a printer. When on, fini
 ### Identifiers
 
 **Transaction ID**:
-The single identifier for a finished transactional row (Sale, Purchase, Receipt, Payment, Expense, Income, Stock Transfer). There is no separate user-visible number field — UI, invoices, vouchers, and chains all display or store this ID (ADR-0009). Shape encodes type, Cash/Credit mode where relevant, per-day sequence, optional edit revision, and Business Day date. Edit successors keep the same sequence and append `.1`, `.2`, … Cash and Credit Sales (and Purchases) use **separate sequences**. A Credit Sale's invoice and Credit Voucher share the same ID.
+The single identifier for a finished transactional row (Sale, Purchase, Receipt, Payment, Expense, Income, Stock Transfer, Journal). There is no separate user-visible number field — UI, invoices, vouchers, and chains all display or store this ID (ADR-0009). Shape encodes type, Cash/Credit mode where relevant, per-day sequence, optional edit revision, and Business Day date. Edit successors keep the same sequence and append `.1`, `.2`, … Cash and Credit Sales (and Purchases) use **separate sequences**. A Credit Sale's invoice and Credit Voucher share the same ID.
 _Avoid_: Sale Number / Voucher Number as a second stored field; dual counters for display vs storage.
 
 ### Stock-only movements
@@ -182,6 +190,8 @@ _Avoid_: Rebranding, repack, conversion.
 **"Credit Sales Total" / "Credit Purchases Total"**: These are totals of today's credit-mode transactions only (Credit Sales after Discount) — they exclude cash Sales/Purchases, and they are never the same figure as Receipts (cash collected) or Payments (cash paid out). A Credit Sale's total lands in Credit Sales Total the day it's made; the cash that eventually settles it lands in Receipts, possibly on a different day entirely — the two numbers are unrelated in any given day's drawer.
 
 **"Discount" vs "Settlement Discount"**: On a Sale the label is **Discount** (simple total reduction). On a Receipt or Payment the concept is **Settlement Discount** (write-off with face/realized semantics). Do not mix the terms.
+
+**"Debit" / "Credit" (Journal)**: On a Journal these are the accounting side of the note (see **Journal**). They are not Credit Sale / Credit Purchase mode, not the Transactions "credit" badge, and not Credit Sales Total / Credit Purchases Total.
 
 ## Example dialogue
 

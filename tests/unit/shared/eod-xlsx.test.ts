@@ -34,6 +34,7 @@ function stubTxn(partial: Partial<Txn> & Pick<Txn, 'type' | 'voided' | 'id'>): T
     walkinPlace: null,
     walkinPhone: null,
     label: null,
+    journalSide: null,
     cashIn: 0,
     upiIn: 0,
     cashOut: 0,

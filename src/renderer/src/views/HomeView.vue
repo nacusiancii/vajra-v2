@@ -4,6 +4,7 @@ import { useQueryClient } from '@tanstack/vue-query'
 import { RouterLink, useRouter } from 'vue-router'
 import {
   Banknote,
+  BookText,
   Boxes,
   CircleDollarSign,
   ClipboardSignature,
@@ -30,8 +31,8 @@ import { useBusinessDayQuery, useInventoryQuery } from '@/queries/operations'
 import { exportEodReport } from '@/lib/eod-report'
 import { formatRupees } from '@/lib/format'
 import { showToast } from '@/lib/toast'
-import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
-import { displayTxnSerial, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
+import { txnCounterparty, txnEditPath, txnTypeDisplay } from '@/lib/txn-edit'
+import { displayTxnSerial, type Txn } from '@domain/transaction'
 import type { Draft } from '@domain/draft'
 
 const router = useRouter()
@@ -155,6 +156,11 @@ const secondaryTransactionLinks: HomeLink[] = [
     icon: Banknote
   },
   {
+    label: 'Journal',
+    route: '/journal',
+    icon: BookText
+  },
+  {
     label: 'Stock Transfer',
     route: '/stock-transfer',
     icon: RefreshCcw
@@ -238,7 +244,7 @@ const managementLinks: HomeLink[] = [
     </section>
 
     <!-- Secondary money/stock actions -->
-    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="secondary-actions">
+    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6" data-testid="secondary-actions">
       <Button
         v-for="link in secondaryTransactionLinks"
         :key="link.route"
@@ -341,7 +347,7 @@ const managementLinks: HomeLink[] = [
           >
             <span class="flex min-w-0 flex-1 items-center gap-2">
               <span class="tabular-nums text-muted-foreground">#{{ displayTxnSerial(t) }}</span>
-              <span class="font-medium">{{ TXN_TYPE_LABELS[t.type] }}</span>
+              <span class="font-medium">{{ txnTypeDisplay(t) }}</span>
               <Badge v-if="t.saleMode === 'credit'" variant="outline" class="text-xs">credit</Badge>
               <span class="truncate text-muted-foreground">{{ txnCounterparty(t) }}</span>
             </span>
@@ -352,7 +358,7 @@ const managementLinks: HomeLink[] = [
                 size="icon"
                 type="button"
                 data-testid="txn-edit"
-                :aria-label="`Edit ${TXN_TYPE_LABELS[t.type]} #${displayTxnSerial(t)}`"
+                :aria-label="`Edit ${txnTypeDisplay(t)} #${displayTxnSerial(t)}`"
                 @click="editTransaction(t)"
               >
                 <Pencil class="size-4" />

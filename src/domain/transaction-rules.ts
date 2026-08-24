@@ -211,6 +211,22 @@ export const MoneyTxnSchema = z
     path: ['cashCollected']
   })
 
+/**
+ * Authoritative write shape for a Journal note. Amount is integer **paise**.
+ * Party is free-form (stored in `txn.label`); Debit/Credit is not Sale/Purchase mode.
+ * Do not reuse {@link MoneyTxnSchema} — a Journal must not move the drawer.
+ */
+export const JournalSchema = z.object({
+  party: z.string().trim().min(1, 'Journal needs a Party'),
+  side: z.enum(['debit', 'credit']),
+  amount: z.number().int().positive('Amount must be greater than zero'),
+  remarks: z
+    .string()
+    .trim()
+    .transform((v) => (v === '' ? null : v))
+    .nullable()
+})
+
 // ── Goods write schemas (Sale / Purchase) ────────────────────────────────────
 
 /**

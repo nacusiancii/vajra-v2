@@ -10,7 +10,7 @@ let db: Database.Database | null = null
  * changes. During development (issue #75), older versions are wiped rather than
  * migrated — see openAtCurrentVersion.
  */
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 6
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
@@ -94,7 +94,7 @@ const SCHEMA = `
   CREATE TABLE IF NOT EXISTS txn (
     id                  TEXT    PRIMARY KEY,
     business_day_id     INTEGER NOT NULL REFERENCES business_day(id),
-    type                TEXT    NOT NULL CHECK (type IN ('SA','PU','RE','PA','EX','IN','ST')),
+    type                TEXT    NOT NULL CHECK (type IN ('SA','PU','RE','PA','EX','IN','ST','JN')),
     -- Base day sequence for (type, sale_mode); Edit successors keep the same seq (ADR-0009).
     seq                 INTEGER NOT NULL,
     -- Edit revision: 0 = first finish; 1+ = void-plus-successor chain (.1, .2 in the ID).
@@ -105,6 +105,7 @@ const SCHEMA = `
     walkin_place        TEXT,
     walkin_phone        TEXT,
     label               TEXT,
+    journal_side        TEXT,
     cash_in             INTEGER NOT NULL DEFAULT 0,
     upi_in              INTEGER NOT NULL DEFAULT 0,
     cash_out            INTEGER NOT NULL DEFAULT 0,
@@ -122,7 +123,11 @@ const SCHEMA = `
     remarks             TEXT,
     voided              INTEGER NOT NULL DEFAULT 0,
     successor_id        TEXT    REFERENCES txn(id),
-    created_at          TEXT    NOT NULL DEFAULT (datetime('now'))
+    created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
+    CHECK (
+      (type = 'JN' AND journal_side IN ('debit','credit'))
+      OR (type <> 'JN' AND journal_side IS NULL)
+    )
   );
 
   CREATE TABLE IF NOT EXISTS txn_line (

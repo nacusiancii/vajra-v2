@@ -27,6 +27,7 @@ describe('formatTxnId (ADR-0009)', () => {
     )
     expect(formatTxnId({ type: 'RE', seq: 4, startDate: '2026-07-18' })).toBe('RE-4-18072026')
     expect(formatTxnId({ type: 'ST', seq: 1, startDate: '2026-01-09' })).toBe('ST-1-09012026')
+    expect(formatTxnId({ type: 'JN', seq: 4, startDate: '2026-07-18' })).toBe('JN-4-18072026')
   })
 
   it('dateToDDMMYYYY reorders the parts', () => {
@@ -39,6 +40,7 @@ describe('formatTxnId (ADR-0009)', () => {
     expect(displayTxnSerial({ type: 'SA', seq: 3, rev: 0, saleMode: 'credit' })).toBe('R-3')
     expect(displayTxnSerial({ type: 'RE', seq: 4, rev: 0, saleMode: null })).toBe('4')
     expect(displayTxnSerial({ type: 'RE', seq: 4, rev: 2, saleMode: null })).toBe('4.2')
+    expect(displayTxnSerial({ type: 'JN', seq: 4, rev: 0, saleMode: null })).toBe('4')
   })
 })
 
@@ -136,6 +138,19 @@ describe('projectInventory', () => {
     const moong = rows.find((r) => r.productId === 2)!
     expect(moong.closing).toBe(97_500)
   })
+
+  it('ignores a Journal movement even when stockDelta is non-zero', () => {
+    const opening = new Map<number, number>([[1, 500_000]])
+    const rows = projectInventory(products, opening, [
+      { productId: 1, type: 'JN', stockDelta: 50_000 }
+    ])
+    const dal = rows.find((r) => r.productId === 1)!
+    expect(dal.purchased).toBe(0)
+    expect(dal.sold).toBe(0)
+    expect(dal.transferIn).toBe(0)
+    expect(dal.transferOut).toBe(0)
+    expect(dal.closing).toBe(500_000)
+  })
 })
 
 describe('summariseDrawer (paise)', () => {
@@ -151,6 +166,7 @@ describe('summariseDrawer (paise)', () => {
       walkinPlace: null,
       walkinPhone: null,
       label: null,
+      journalSide: null,
       cashIn: 0,
       upiIn: 0,
       cashOut: 0,
@@ -182,5 +198,48 @@ describe('summariseDrawer (paise)', () => {
     expect(s.cashNet).toBe(45_000)
     expect(s.creditSales).toBe(120_000)
     expect(s.creditPurchases).toBe(80_000)
+  })
+
+  it('a live Journal with drawer zeros does not change the drawer summary', () => {
+    const withoutJournal = [
+      stub({ type: 'SA', voided: false, cashIn: 50_000, creditAmount: 0 }),
+      stub({ type: 'SA', voided: false, cashIn: 0, creditAmount: 120_000 }),
+      stub({ type: 'PU', voided: false, cashOut: 10_000, creditAmount: 80_000 })
+    ]
+    const debitJournal = stub({
+      type: 'JN',
+      voided: false,
+      journalSide: 'debit',
+      label: 'Ravi',
+      total: 99_000,
+      creditAmount: 0
+    })
+    const creditJournal = stub({
+      type: 'JN',
+      voided: false,
+      journalSide: 'credit',
+      label: 'Bank',
+      total: 99_000,
+      creditAmount: 0
+    })
+    const zeroDrawer: ReturnType<typeof summariseDrawer> = {
+      cashIn: 0,
+      upiIn: 0,
+      cashOut: 0,
+      upiOut: 0,
+      cashNet: 0,
+      upiNet: 0,
+      creditSales: 0,
+      creditPurchases: 0
+    }
+
+    expect(summariseDrawer([...withoutJournal, debitJournal])).toEqual(
+      summariseDrawer(withoutJournal)
+    )
+    expect(summariseDrawer([...withoutJournal, creditJournal])).toEqual(
+      summariseDrawer(withoutJournal)
+    )
+    expect(summariseDrawer([debitJournal])).toEqual(zeroDrawer)
+    expect(summariseDrawer([creditJournal])).toEqual(zeroDrawer)
   })
 })

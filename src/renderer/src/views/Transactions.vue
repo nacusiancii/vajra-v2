@@ -14,8 +14,8 @@ import {
 } from '@/components/ui/table'
 import { useTransactionsQuery } from '@/queries/transactions'
 import { formatRupees } from '@/lib/format'
-import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
-import { displayTxnSerial, summariseDrawer, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
+import { txnCounterparty, txnEditPath, txnTypeDisplay } from '@/lib/txn-edit'
+import { displayTxnSerial, summariseDrawer, type Txn } from '@domain/transaction'
 
 const router = useRouter()
 const { data: transactions, isLoading } = useTransactionsQuery()
@@ -98,7 +98,7 @@ function edit(t: Txn): void {
               displayTxnSerial(t)
             }}</TableCell>
             <TableCell>
-              {{ TXN_TYPE_LABELS[t.type] }}
+              {{ txnTypeDisplay(t) }}
               <Badge v-if="t.saleMode === 'credit'" variant="outline" class="ml-1 text-xs"
                 >credit</Badge
               >

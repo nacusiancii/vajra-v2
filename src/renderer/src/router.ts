@@ -18,6 +18,7 @@ const router = createRouter({
     { path: '/payment', name: 'payment', component: () => import('./views/MoneyTxn.vue') },
     { path: '/expense', name: 'expense', component: () => import('./views/MoneyTxn.vue') },
     { path: '/income', name: 'income', component: () => import('./views/MoneyTxn.vue') },
+    { path: '/journal', name: 'journal', component: () => import('./views/Journal.vue') },
     {
       path: '/stock-transfer',
       name: 'stock-transfer',

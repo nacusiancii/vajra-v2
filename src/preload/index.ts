@@ -35,6 +35,8 @@ const api: VajraApi = {
   editPurchase: (id, input) => ipcRenderer.invoke(IPC.editPurchase, id, input),
   createStockTransfer: (input) => ipcRenderer.invoke(IPC.createStockTransfer, input),
   editStockTransfer: (id, input) => ipcRenderer.invoke(IPC.editStockTransfer, id, input),
+  createJournal: (input) => ipcRenderer.invoke(IPC.createJournal, input),
+  editJournal: (id, input) => ipcRenderer.invoke(IPC.editJournal, id, input),
   createMoneyTxn: (type, input) => ipcRenderer.invoke(IPC.createMoneyTxn, type, input),
   editMoneyTxn: (id, type, input) => ipcRenderer.invoke(IPC.editMoneyTxn, id, type, input),
 

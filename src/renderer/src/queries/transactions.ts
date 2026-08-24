@@ -6,6 +6,7 @@ import {
   type UseQueryReturnType
 } from '@tanstack/vue-query'
 import type {
+  CreateJournalInput,
   CreateMoneyTxnInput,
   CreatePurchaseInput,
   CreateSaleInput,
@@ -108,6 +109,28 @@ export function useEditStockTransfer(): UseMutationReturnType<
   return useMutation({
     mutationFn: ({ id, input }: { id: string; input: CreateStockTransferInput }) =>
       window.api.editStockTransfer(id, input),
+    onSuccess: () => invalidateAll(qc)
+  })
+}
+
+export function useCreateJournal(): UseMutationReturnType<Txn, Error, CreateJournalInput, unknown> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (input: CreateJournalInput) => window.api.createJournal(input),
+    onSuccess: () => invalidateAll(qc)
+  })
+}
+
+export function useEditJournal(): UseMutationReturnType<
+  Txn,
+  Error,
+  { id: string; input: CreateJournalInput },
+  unknown
+> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: ({ id, input }: { id: string; input: CreateJournalInput }) =>
+      window.api.editJournal(id, input),
     onSuccess: () => invalidateAll(qc)
   })
 }

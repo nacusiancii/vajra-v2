@@ -3,10 +3,12 @@ import {
   formatTxnId,
   lineStockDelta,
   moneyRealized,
+  type CreateJournalInput,
   type CreateMoneyTxnInput,
   type CreatePurchaseInput,
   type CreateSaleInput,
   type CreateStockTransferInput,
+  type JournalSide,
   type SaleLineInput,
   type SaleMode,
   type Txn,
@@ -15,6 +17,7 @@ import {
 } from '../../domain/transaction'
 import {
   grandTotal,
+  JournalSchema,
   lineTotal,
   MoneyTxnSchema,
   PurchaseWriteSchema,
@@ -36,6 +39,7 @@ interface TxnRow {
   walkin_place: string | null
   walkin_phone: string | null
   label: string | null
+  journal_side: JournalSide | null
   cash_in: number
   upi_in: number
   cash_out: number
@@ -261,6 +265,23 @@ export class TransactionRepo {
     )
   }
 
+  createJournal(input: CreateJournalInput, inherit?: { seq: number; rev: number }): Txn {
+    const parsed = JournalSchema.parse(input)
+    return this.insert(
+      'JN',
+      [],
+      {
+        label: parsed.party,
+        journalSide: parsed.side,
+        total: parsed.amount,
+        creditAmount: 0,
+        drawer: ZERO_DRAWER,
+        remarks: parsed.remarks
+      },
+      inherit
+    )
+  }
+
   createMoneyTxn(
     type: Extract<TxnType, 'RE' | 'PA' | 'EX' | 'IN'>,
     input: CreateMoneyTxnInput,
@@ -304,6 +325,10 @@ export class TransactionRepo {
 
   editStockTransfer(id: string, input: CreateStockTransferInput): Txn {
     return this.replace(id, 'ST', (inherit) => this.createStockTransferWithInherit(input, inherit))
+  }
+
+  editJournal(id: string, input: CreateJournalInput): Txn {
+    return this.replace(id, 'JN', (inherit) => this.createJournal(input, inherit))
   }
 
   editMoneyTxn(
@@ -380,6 +405,7 @@ export class TransactionRepo {
       customerId?: number | null
       walkin?: { name: string; place: string; phone: string | null } | null
       label?: string | null
+      journalSide?: JournalSide | null
       additionalCharges?: number
       loadingCharges?: number
       /** Sale opt-in flag; always 0 for non-Sales. */
@@ -414,11 +440,11 @@ export class TransactionRepo {
         .prepare(
           `INSERT INTO txn (
              id, business_day_id, type, seq, rev, sale_mode, customer_id,
-             walkin_name, walkin_place, walkin_phone, label,
+             walkin_name, walkin_place, walkin_phone, label, journal_side,
              cash_in, upi_in, cash_out, upi_out,
              additional_charges, loading_charges, loading_applied,
              total, credit_amount, discount_amount, remarks
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
         )
         .run(
           id,
@@ -432,6 +458,7 @@ export class TransactionRepo {
           fields.walkin?.place ?? null,
           fields.walkin?.phone ?? null,
           fields.label ?? null,
+          fields.journalSide ?? null,
           fields.drawer.cashIn,
           fields.drawer.upiIn,
           fields.drawer.cashOut,
@@ -641,6 +668,7 @@ export class TransactionRepo {
       walkinPlace: row.walkin_place,
       walkinPhone: row.walkin_phone,
       label: row.label,
+      journalSide: row.journal_side,
       cashIn: row.cash_in,
       upiIn: row.upi_in,
       cashOut: row.cash_out,

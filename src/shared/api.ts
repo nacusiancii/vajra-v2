@@ -18,6 +18,7 @@ import type {
 } from '../domain/types'
 import type {
   BusinessDay,
+  CreateJournalInput,
   CreateMoneyTxnInput,
   CreatePurchaseInput,
   CreateSaleInput,
@@ -87,6 +88,8 @@ export interface VajraApi {
   editPurchase(id: string, input: CreatePurchaseInput): Promise<Txn>
   createStockTransfer(input: CreateStockTransferInput): Promise<Txn>
   editStockTransfer(id: string, input: CreateStockTransferInput): Promise<Txn>
+  createJournal(input: CreateJournalInput): Promise<Txn>
+  editJournal(id: string, input: CreateJournalInput): Promise<Txn>
   createMoneyTxn(type: MoneyTxnType, input: CreateMoneyTxnInput): Promise<Txn>
   editMoneyTxn(id: string, type: MoneyTxnType, input: CreateMoneyTxnInput): Promise<Txn>
 
@@ -142,6 +145,8 @@ export const IPC = {
   editPurchase: 'txn:editPurchase',
   createStockTransfer: 'txn:createStockTransfer',
   editStockTransfer: 'txn:editStockTransfer',
+  createJournal: 'txn:createJournal',
+  editJournal: 'txn:editJournal',
   createMoneyTxn: 'txn:createMoney',
   editMoneyTxn: 'txn:editMoney',
 
