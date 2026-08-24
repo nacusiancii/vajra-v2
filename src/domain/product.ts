@@ -41,3 +41,17 @@ export const UpdateProductSchema = z.object({
 })
 
 export type CreateProductParsed = z.infer<typeof CreateProductSchema>
+
+/** Presentation sort inside a Product Group. Nulls last, then name. Not a stock formula. */
+export function compareInventoryProductOrder(
+  a: { inventoryOrder: number | null; name: string },
+  b: { inventoryOrder: number | null; name: string }
+): number {
+  const aSet = a.inventoryOrder != null
+  const bSet = b.inventoryOrder != null
+  if (aSet && bSet && a.inventoryOrder !== b.inventoryOrder) {
+    return a.inventoryOrder! - b.inventoryOrder!
+  }
+  if (aSet !== bSet) return aSet ? -1 : 1
+  return a.name.localeCompare(b.name)
+}

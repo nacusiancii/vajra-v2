@@ -98,9 +98,27 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('drawer-summary')).toContainText('6,000')
   await goHome(page)
 
-  // Inventory projection: 10 − 2 = 8.
+  // Inventory projection: 10 − 2 = 8. Click-through: live goods lines, not invoice totals.
   await openManagement(page, 'Inventory')
   await expect(page.getByTestId('inventory-row')).toContainText('8')
+  await expect(page.getByTestId('inventory-print')).toBeVisible()
+  await page.getByTestId('inventory-row').filter({ hasText: 'Toor Dal' }).click()
+  const productDialog = page.getByTestId('inventory-product-dialog')
+  await expect(productDialog).toBeVisible()
+  await expect(productDialog.getByTestId('inventory-product-line')).toHaveCount(2)
+  await expect(productDialog).toContainText('Credit Purchase')
+  await expect(productDialog).toContainText('Cash Sale')
+  await expect(productDialog).toContainText('Counter Customer')
+  await expect(productDialog).not.toContainText('voided')
+  await expect(
+    productDialog.getByTestId('inventory-product-line').filter({ hasText: 'Credit Purchase' })
+  ).toContainText('30,000')
+  await expect(
+    productDialog.getByTestId('inventory-product-line').filter({ hasText: 'Cash Sale' })
+  ).toContainText('6,000')
+  await expect(productDialog.getByTestId('inventory-product-print')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(productDialog).not.toBeVisible()
   await goHome(page)
 
   // ── Rollover: export required, then closing 8 becomes next Opening Stock ──

@@ -54,6 +54,26 @@ export interface TxnLine {
   lineTotal: number
 }
 
+/** One live (non-voided) Sale / Purchase / Stock Transfer goods line for a Product today. */
+export interface ProductLiveLine {
+  lineId: number
+  txnId: string
+  type: TxnType
+  seq: number
+  rev: number
+  saleMode: SaleMode | null
+  createdAt: string
+  customerName: string | null
+  walkinName: string | null
+  side: TxnLineSide
+  isLoose: boolean
+  bagSizeG: number | null
+  quintalRate: number | null // paise / quintal; null on Loose and ST
+  perKgRate: number | null // paise / kg; null on bag lines and ST
+  qty: number // bags, or kg if Loose
+  lineTotal: number // paise; goods only; 0 on ST
+}
+
 export interface Txn {
   id: string
   type: TxnType

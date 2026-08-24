@@ -2,14 +2,14 @@ import { defineStore } from 'pinia'
 import { ref } from 'vue'
 import type { Product } from '@domain/types'
 
-export type SortField = 'name' | 'updatedAt'
+export type SortField = 'name' | 'updatedAt' | 'inventoryOrder'
 export type TranslationFilter = 'all' | 'missing'
 
 export const useProductMasterStore = defineStore('productMaster', () => {
   const search = ref('')
   const groupFilter = ref<string[]>([])
   const translationFilter = ref<TranslationFilter>('all')
-  const sortField = ref<SortField>('name')
+  const sortField = ref<SortField>('inventoryOrder')
 
   const dialogOpen = ref(false)
   const editingProduct = ref<Product | null>(null)

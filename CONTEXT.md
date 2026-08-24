@@ -49,6 +49,10 @@ _Avoid_: Anonymous customer, guest customer.
 A single SKU identified by its name. Belongs to exactly one Product Group. Every Product is a Bulk Product — sold by bag (with Bag Type chosen at sale/purchase time) or Loose (by kg). Has an optional **remarks** field (single free-text, overwritable). Default Bag Size is immutable after creation.
 _Avoid_: SKU (as a separate concept), item, Packaged Product.
 
+**Inventory Product Order**:
+The shopkeeper-controlled sequence of Products on the Inventory view and its printable. Lives on the Product Master — not on Opening Stock, not as stored current stock. Applied **within** a Product Group: group headings stay, and Product Groups themselves stay in name order. Until a Product has an order set (NULL), that Product sorts by name after any siblings that have an order, so an untouched catalog stays Product Group then name. The cashier changes it with Up/Down on the Product Master list, not by typing a number in the Product dialog.
+_Avoid_: rank, position, SKU sort, display order, sort key, sequence number (as a cashier-typed field).
+
 **Product Group**:
 A category that groups related Products, e.g., "Toor Dal" groups "Toor Dal Premium" and "Toor Dal Regular." Used for browsing and reporting, not for pricing or stock.
 _Avoid_: Category, family.
@@ -182,6 +186,10 @@ _Avoid_: Rebranding, repack, conversion.
 **"Credit Sales Total" / "Credit Purchases Total"**: These are totals of today's credit-mode transactions only (Credit Sales after Discount) — they exclude cash Sales/Purchases, and they are never the same figure as Receipts (cash collected) or Payments (cash paid out). A Credit Sale's total lands in Credit Sales Total the day it's made; the cash that eventually settles it lands in Receipts, possibly on a different day entirely — the two numbers are unrelated in any given day's drawer.
 
 **"Discount" vs "Settlement Discount"**: On a Sale the label is **Discount** (simple total reduction). On a Receipt or Payment the concept is **Settlement Discount** (write-off with face/realized semantics). Do not mix the terms.
+
+**"Party Name" (column label)**: On the Inventory Product-lines printable and the End of Day Report Line Items sheet, the counterparty column is headed **Party Name**. Values are still Customer Master name, Walk-in Customer (`"Walk in"`), or `—` for Stock Transfer. Party is not an entity (Customer Master _Avoid_ still holds).
+
+**"Sl. No." (Inventory Product lines)**: A 1-based row number on that Product’s live lines for the open Business Day. It is not the Transaction ID and not `displayTxnSerial`.
 
 ## Example dialogue
 

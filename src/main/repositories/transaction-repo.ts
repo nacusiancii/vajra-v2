@@ -7,10 +7,12 @@ import {
   type CreatePurchaseInput,
   type CreateSaleInput,
   type CreateStockTransferInput,
+  type ProductLiveLine,
   type SaleLineInput,
   type SaleMode,
   type Txn,
   type TxnLine,
+  type TxnLineSide,
   type TxnType
 } from '../../domain/transaction'
 import {
@@ -64,6 +66,25 @@ interface LineRow {
   qty: number
   stock_delta: number
   line_total: number
+}
+
+interface ProductLiveLineRow {
+  line_id: number
+  side: TxnLineSide
+  is_loose: number
+  bag_size_g: number | null
+  quintal_rate: number | null
+  per_kg_rate: number | null
+  qty: number
+  line_total: number
+  txn_id: string
+  type: TxnType
+  seq: number
+  rev: number
+  sale_mode: SaleMode | null
+  created_at: string
+  customer_name: string | null
+  walkin_name: string | null
 }
 
 interface ProductMeta {
@@ -126,6 +147,49 @@ export class TransactionRepo {
       )
       .get(id) as TxnRow | undefined
     return row ? this.hydrate(row) : undefined
+  }
+
+  /**
+   * Live (non-voided) Sale / Purchase / Stock Transfer goods lines for one Product
+   * on the open Business Day. Dedicated SQL — `list()` includes Voided rows.
+   */
+  listLiveGoodsLinesForProduct(productId: number): ProductLiveLine[] {
+    const dayId = this.currentDayId()
+    const rows = this.db
+      .prepare(
+        `SELECT
+           l.id AS line_id, l.side, l.is_loose, l.bag_size_g, l.quintal_rate, l.per_kg_rate,
+           l.qty, l.line_total,
+           t.id AS txn_id, t.type, t.seq, t.rev, t.sale_mode, t.created_at,
+           c.name AS customer_name, t.walkin_name
+         FROM txn_line l
+         JOIN txn t ON t.id = l.txn_id
+         LEFT JOIN customer c ON c.id = t.customer_id
+         WHERE t.business_day_id = ?
+           AND t.voided = 0
+           AND l.product_id = ?
+           AND t.type IN ('SA', 'PU', 'ST')
+         ORDER BY t.created_at ASC, l.id ASC`
+      )
+      .all(dayId, productId) as ProductLiveLineRow[]
+    return rows.map((r) => ({
+      lineId: r.line_id,
+      txnId: r.txn_id,
+      type: r.type,
+      seq: r.seq,
+      rev: r.rev,
+      saleMode: r.sale_mode,
+      createdAt: r.created_at,
+      customerName: r.customer_name,
+      walkinName: r.walkin_name,
+      side: r.side,
+      isLoose: r.is_loose === 1,
+      bagSizeG: r.bag_size_g,
+      quintalRate: r.quintal_rate,
+      perKgRate: r.per_kg_rate,
+      qty: r.qty,
+      lineTotal: r.line_total
+    }))
   }
 
   // ── Creates ──────────────────────────────────────────────────────────────────

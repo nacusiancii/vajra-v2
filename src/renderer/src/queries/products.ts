@@ -38,6 +38,7 @@ export function useCreateProduct(): UseMutationReturnType<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEYS.products })
       void qc.invalidateQueries({ queryKey: KEYS.productGroups })
+      void qc.invalidateQueries({ queryKey: ['inventory'] })
     }
   })
 }
@@ -55,6 +56,7 @@ export function useUpdateProduct(): UseMutationReturnType<
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEYS.products })
       void qc.invalidateQueries({ queryKey: KEYS.productGroups })
+      void qc.invalidateQueries({ queryKey: ['inventory'] })
     }
   })
 }
@@ -71,6 +73,18 @@ export function useDeleteProduct(): UseMutationReturnType<void, Error, number, u
     },
     onSuccess: () => {
       void qc.invalidateQueries({ queryKey: KEYS.products })
+      void qc.invalidateQueries({ queryKey: ['inventory'] })
+    }
+  })
+}
+
+export function useReorderProducts(): UseMutationReturnType<void, Error, number[], unknown> {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (orderedIds: number[]) => window.api.reorderProducts(orderedIds),
+    onSuccess: () => {
+      void qc.invalidateQueries({ queryKey: KEYS.products })
+      void qc.invalidateQueries({ queryKey: ['inventory'] })
     }
   })
 }

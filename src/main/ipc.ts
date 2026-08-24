@@ -37,6 +37,9 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.updateProduct, (_e, id, input) => products.update(id, input))
   ipcMain.handle(IPC.deleteProduct, (_e, id) => products.delete(id))
   ipcMain.handle(IPC.canDeleteProduct, (_e, id) => products.canDelete(id))
+  ipcMain.handle(IPC.reorderProducts, (_e, orderedIds: number[]) =>
+    products.reorderProducts(orderedIds)
+  )
 
   // ── Lookups ────────────────────────────────────────────────
   ipcMain.handle(IPC.listPlaces, () => customers.listPlaces())
@@ -56,6 +59,9 @@ export function registerIpcHandlers(): void {
   // ── Transactions ───────────────────────────────────────────
   ipcMain.handle(IPC.listTransactions, () => transactions.list())
   ipcMain.handle(IPC.getTransaction, (_e, id) => transactions.getById(id) ?? null)
+  ipcMain.handle(IPC.listLiveGoodsLinesForProduct, (_e, productId: number) =>
+    transactions.listLiveGoodsLinesForProduct(productId)
+  )
   ipcMain.handle(IPC.createSale, (_e, input) => transactions.createSale(input))
   ipcMain.handle(IPC.editSale, (_e, id, input) => transactions.editSale(id, input))
   ipcMain.handle(IPC.reserveCreditSaleSeq, () => transactions.reserveCreditSaleSeq())

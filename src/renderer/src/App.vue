@@ -19,6 +19,7 @@ function goBack(): void {
 <template>
   <div class="flex min-h-screen flex-col bg-background text-foreground">
     <header
+      data-print-hide
       class="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-backdrop-filter:bg-background/60"
     >
       <div class="mx-auto flex h-14 max-w-6xl items-center gap-3 px-6">
@@ -41,6 +42,7 @@ function goBack(): void {
     <!-- Global toast (EOD export success/failure and similar feedback) -->
     <div
       v-if="toast.visible"
+      data-print-hide
       class="fixed bottom-6 right-6 z-50 max-w-sm rounded-md border px-4 py-3 text-sm shadow-lg"
       :class="
         toast.kind === 'error'
