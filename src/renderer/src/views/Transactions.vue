@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { Pencil } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
   Table,
   TableBody,
@@ -15,13 +16,23 @@ import {
 import { useTransactionsQuery } from '@/queries/transactions'
 import { formatRupees } from '@/lib/format'
 import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
-import { displayTxnSerial, summariseDrawer, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
+import {
+  contributesToCashNet,
+  displayTxnSerial,
+  summariseDrawer,
+  TXN_TYPE_LABELS,
+  type Txn
+} from '@domain/transaction'
 
 const router = useRouter()
 const { data: transactions, isLoading } = useTransactionsQuery()
 
 const txns = computed(() => transactions.value ?? [])
 const drawer = computed(() => summariseDrawer(txns.value))
+const cashNetFilter = ref(false)
+const visibleRows = computed(() =>
+  cashNetFilter.value ? txns.value.filter(contributesToCashNet) : txns.value
+)
 
 /** Net cash + UPI a transaction moved through the drawer (signed). */
 function drawerImpact(t: Txn): number {
@@ -63,6 +74,17 @@ function edit(t: Txn): void {
       </div>
     </div>
 
+    <div class="flex flex-wrap items-center gap-3">
+      <label class="flex cursor-pointer items-center gap-2 text-sm">
+        <Checkbox
+          :model-value="cashNetFilter"
+          data-testid="cash-net-filter"
+          @update:model-value="cashNetFilter = $event === true"
+        />
+        <span class="font-medium">Cash net</span>
+      </label>
+    </div>
+
     <!-- Ledger -->
     <div class="rounded-md border">
       <Table>
@@ -88,8 +110,13 @@ function edit(t: Txn): void {
               No transactions yet today.
             </TableCell>
           </TableRow>
+          <TableRow v-else-if="visibleRows.length === 0">
+            <TableCell :colspan="7" class="py-8 text-center text-muted-foreground">
+              No matches
+            </TableCell>
+          </TableRow>
           <TableRow
-            v-for="t in txns"
+            v-for="t in visibleRows"
             :key="t.id"
             data-testid="txn-row"
             :class="t.voided ? 'text-muted-foreground line-through' : ''"
