@@ -61,6 +61,7 @@ test.describe('Product Master', () => {
 
     // Delete
     await page.getByTestId('delete-product-btn').click()
+    await page.getByTestId('master-delete-confirm').click()
     await expect(page.getByText('0 products')).toBeVisible()
   })
 })

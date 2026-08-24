@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AlertTriangle, Banknote, FileSignature, Save, ShoppingCart, Trash2 } from '@lucide/vue'
-import { Button } from '@/components/ui/button'
+import { Button, focusRingClass } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -178,8 +178,7 @@ const finishTint = computed(() =>
 )
 
 function segmentClass(m: SaleMode): string {
-  const base =
-    'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors'
+  const base = `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${focusRingClass}`
   if (mode.value !== m) return `${base} text-muted-foreground hover:text-foreground`
   return m === 'cash' ? `${base} bg-emerald-600 text-white` : `${base} bg-amber-600 text-white`
 }
@@ -479,12 +478,8 @@ function finish(): void {
   }
 }
 
-function onSlipDone(): void {
+function leaveFinishedSale(): void {
   slipOpen.value = false
-  void router.push('/')
-}
-
-function onCreditFinishDone(): void {
   creditFinishOpen.value = false
   void router.push('/')
 }
@@ -813,8 +808,8 @@ watch(
         :phone="finishedInvoicePhone"
         :product-face-names="finishedProductFaceNames"
         :print-customer-copy="printCustomerCopy"
-        @update:open="(v) => (slipOpen = v)"
-        @done="onSlipDone"
+        @update:open="(v) => (v ? (slipOpen = true) : leaveFinishedSale())"
+        @done="leaveFinishedSale"
       />
 
       <!-- Credit finish: invoice + voucher together (Print on / two copies off by default) -->
@@ -830,10 +825,10 @@ watch(
         :product-face-names="finishedProductFaceNames"
         :print-invoice="creditPrintInvoice"
         :print-two-copies="creditPrintTwoCopies"
-        @update:open="(v) => (creditFinishOpen = v)"
+        @update:open="(v) => (v ? (creditFinishOpen = true) : leaveFinishedSale())"
         @update:print-invoice="(v) => (creditPrintInvoice = v)"
         @update:print-two-copies="(v) => (creditPrintTwoCopies = v)"
-        @done="onCreditFinishDone"
+        @done="leaveFinishedSale"
       />
     </div>
   </div>

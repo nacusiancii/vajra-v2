@@ -118,9 +118,10 @@ function edit(t: Txn): void {
                 variant="ghost"
                 size="icon"
                 data-testid="txn-edit"
+                :aria-label="`Edit ${TXN_TYPE_LABELS[t.type]} #${displayTxnSerial(t)}`"
                 @click="edit(t)"
               >
-                <Pencil class="size-4" />
+                <Pencil class="size-4" aria-hidden="true" />
               </Button>
             </TableCell>
           </TableRow>

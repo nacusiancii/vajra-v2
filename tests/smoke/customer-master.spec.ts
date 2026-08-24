@@ -52,6 +52,7 @@ test.describe('Customer Master', () => {
 
     // Delete
     await page.getByTestId('delete-customer-btn').click()
+    await page.getByTestId('master-delete-confirm').click()
     await expect(page.getByText('0 customers')).toBeVisible()
   })
 

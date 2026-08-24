@@ -27,6 +27,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
 import ProductDialog from '@/components/product/ProductDialog.vue'
+import MasterDeleteDialog from '@/components/MasterDeleteDialog.vue'
 import { formatBagKg } from '@/lib/format'
 import { userFacingError } from '@/lib/utils'
 import { useProductMasterStore } from '@/stores/product-master'
@@ -48,6 +49,8 @@ const deleteMutation = useDeleteProduct()
 
 /** Why the last Delete was blocked (or failed) — cleared on the next attempt. */
 const deleteError = ref<string | null>(null)
+const deleteDialogOpen = ref(false)
+const pendingDelete = ref<{ id: number; name: string } | null>(null)
 
 const groupNames = computed(() => (productGroups.value ?? []).map((g) => g.name))
 
@@ -91,6 +94,18 @@ function handleDelete(id: number): void {
     }
   })
 }
+
+function requestDelete(product: { id: number; name: string }): void {
+  pendingDelete.value = { id: product.id, name: product.name }
+  deleteDialogOpen.value = true
+}
+
+function confirmDelete(): void {
+  const target = pendingDelete.value
+  deleteDialogOpen.value = false
+  pendingDelete.value = null
+  if (target) handleDelete(target.id)
+}
 </script>
 
 <template>
@@ -129,6 +144,7 @@ function handleDelete(id: number): void {
         placeholder="Search by name..."
         class="max-w-xs"
         data-testid="product-search"
+        aria-label="Search products"
       />
 
       <!-- Product Group filter (multi-select) -->
@@ -152,7 +168,7 @@ function handleDelete(id: number): void {
 
       <!-- Translation filter -->
       <Select v-model="store.translationFilter">
-        <SelectTrigger class="w-[160px]">
+        <SelectTrigger class="w-[160px]" aria-label="Translation filter">
           <SelectValue placeholder="Translation" />
         </SelectTrigger>
         <SelectContent>
@@ -163,7 +179,7 @@ function handleDelete(id: number): void {
 
       <!-- Sort -->
       <Select v-model="store.sortField">
-        <SelectTrigger class="w-[150px]">
+        <SelectTrigger class="w-[150px]" aria-label="Sort">
           <SelectValue placeholder="Sort by" />
         </SelectTrigger>
         <SelectContent>
@@ -206,8 +222,11 @@ function handleDelete(id: number): void {
             <TableCell>
               <TooltipProvider v-if="!product.nameTe">
                 <Tooltip>
-                  <TooltipTrigger>
-                    <AlertCircle class="size-4 text-yellow-500" />
+                  <TooltipTrigger as-child>
+                    <span class="inline-flex">
+                      <AlertCircle class="size-4 text-yellow-500" aria-hidden="true" />
+                      <span class="sr-only">Telugu name missing</span>
+                    </span>
                   </TooltipTrigger>
                   <TooltipContent>Telugu name missing</TooltipContent>
                 </Tooltip>
@@ -223,17 +242,19 @@ function handleDelete(id: number): void {
                   variant="ghost"
                   size="icon"
                   data-testid="edit-product-btn"
+                  :aria-label="`Edit ${product.name}`"
                   @click="store.openEditDialog(product)"
                 >
-                  <Pencil class="size-4" />
+                  <Pencil class="size-4" aria-hidden="true" />
                 </Button>
                 <Button
                   variant="ghost"
                   size="icon"
                   data-testid="delete-product-btn"
-                  @click="handleDelete(product.id)"
+                  :aria-label="`Delete ${product.name}`"
+                  @click="requestDelete(product)"
                 >
-                  <Trash2 class="size-4 text-destructive" />
+                  <Trash2 class="size-4 text-destructive" aria-hidden="true" />
                 </Button>
               </div>
             </TableCell>
@@ -249,6 +270,14 @@ function handleDelete(id: number): void {
       @update:open="(v) => (v ? null : store.closeDialog())"
       @create="handleCreate"
       @update="handleUpdate"
+    />
+
+    <MasterDeleteDialog
+      :open="deleteDialogOpen"
+      kind="product"
+      :name="pendingDelete?.name ?? ''"
+      @update:open="(v) => (deleteDialogOpen = v)"
+      @confirm="confirmDelete"
     />
   </div>
 </template>

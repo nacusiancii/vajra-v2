@@ -246,10 +246,11 @@ defineExpose({ ensureLineAndFocusProduct })
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Remove line"
               data-testid="cart-remove"
               @click="removeLine(index)"
             >
-              <Trash2 class="size-4 text-destructive" />
+              <Trash2 class="size-4 text-destructive" aria-hidden="true" />
             </Button>
           </TableCell>
         </TableRow>

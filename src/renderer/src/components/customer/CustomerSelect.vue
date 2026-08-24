@@ -94,22 +94,22 @@ function onUpdate(id: number, input: UpdateCustomerInput): void {
           type="button"
           variant="outline"
           size="icon"
-          title="Add Customer"
+          aria-label="Add Customer"
           data-testid="customer-add"
           @click="openAdd"
         >
-          <UserPlus class="size-4" />
+          <UserPlus class="size-4" aria-hidden="true" />
         </Button>
         <Button
           v-if="selectedCustomer"
           type="button"
           variant="outline"
           size="icon"
-          title="Edit Customer"
+          aria-label="Edit Customer"
           data-testid="customer-edit"
           @click="openEdit"
         >
-          <Pencil class="size-4" />
+          <Pencil class="size-4" aria-hidden="true" />
         </Button>
       </div>
     </div>

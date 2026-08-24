@@ -2,8 +2,9 @@
 import { computed } from 'vue'
 import { RouterView, RouterLink, useRoute, useRouter } from 'vue-router'
 import { ArrowLeft } from '@lucide/vue'
-import { Button } from '@/components/ui/button'
+import { Button, focusRingClass } from '@/components/ui/button'
 import { useToastState } from '@/lib/toast'
+import { cn } from '@/lib/utils'
 
 const route = useRoute()
 const router = useRouter()
@@ -28,7 +29,12 @@ function goBack(): void {
         </Button>
         <RouterLink
           to="/"
-          class="text-sm font-semibold uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground transition-colors"
+          :class="
+            cn(
+              'rounded-md px-1 text-sm font-semibold uppercase tracking-[0.15em] text-muted-foreground hover:text-foreground transition-colors',
+              focusRingClass
+            )
+          "
         >
           Vajra
         </RouterLink>

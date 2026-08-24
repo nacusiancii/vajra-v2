@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useQueryClient } from '@tanstack/vue-query'
 import { RouterLink, useRouter } from 'vue-router'
 import {
@@ -22,15 +22,18 @@ import {
   Users,
   Wallet
 } from '@lucide/vue'
-import { Button } from '@/components/ui/button'
+import { Button, focusRingClass } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import HomeShortcutHint from '@/components/HomeShortcutHint.vue'
 import { useClearDraft, useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
 import { useBusinessDayQuery, useInventoryQuery } from '@/queries/operations'
 import { exportEodReport } from '@/lib/eod-report'
 import { formatRupees } from '@/lib/format'
+import { HOME_SHORTCUTS, isShortcutBlocked } from '@/lib/home-shortcuts'
 import { showToast } from '@/lib/toast'
 import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
+import { cn } from '@/lib/utils'
 import { displayTxnSerial, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
 import type { Draft } from '@domain/draft'
 
@@ -90,6 +93,26 @@ function editTransaction(t: Txn): void {
   // Recent only lists live tips; Edit is always available on those rows.
   void router.push(txnEditPath(t))
 }
+
+const shortcutByTo: Record<string, string> = Object.fromEntries(
+  HOME_SHORTCUTS.map((s) => [s.to, s.key])
+)
+
+function onHomeKeydown(event: KeyboardEvent): void {
+  if (isShortcutBlocked(event)) return
+  const match = HOME_SHORTCUTS.find((s) => s.key === event.key)
+  if (!match) return
+  event.preventDefault()
+  void router.push(match.to)
+}
+
+onMounted(() => {
+  window.addEventListener('keydown', onHomeKeydown)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('keydown', onHomeKeydown)
+})
 
 interface HomeLink {
   label: string
@@ -229,9 +252,14 @@ const managementLinks: HomeLink[] = [
           :variant="entry.variant"
           class="justify-start"
         >
-          <RouterLink :to="entry.route" :data-testid="entry.testId">
+          <RouterLink
+            :to="entry.route"
+            :data-testid="entry.testId"
+            :aria-keyshortcuts="shortcutByTo[entry.route]"
+          >
             <component :is="entry.icon" class="size-4" />
             {{ entry.label }}
+            <HomeShortcutHint>{{ shortcutByTo[entry.route] }}</HomeShortcutHint>
           </RouterLink>
         </Button>
       </div>
@@ -246,9 +274,12 @@ const managementLinks: HomeLink[] = [
         variant="outline"
         class="justify-start gap-2"
       >
-        <RouterLink :to="link.route">
+        <RouterLink :to="link.route" :aria-keyshortcuts="shortcutByTo[link.route]">
           <component :is="link.icon" class="size-4" />
           {{ link.label }}
+          <HomeShortcutHint v-if="shortcutByTo[link.route]">
+            {{ shortcutByTo[link.route] }}
+          </HomeShortcutHint>
         </RouterLink>
       </Button>
     </section>
@@ -320,7 +351,10 @@ const managementLinks: HomeLink[] = [
         <CardTitle>Recent Transactions</CardTitle>
         <CardDescription>
           The latest non-voided entries in the current Business Day.
-          <RouterLink to="/transactions" class="underline hover:text-foreground">
+          <RouterLink
+            to="/transactions"
+            :class="cn('underline hover:text-foreground', focusRingClass)"
+          >
             See all →
           </RouterLink>
         </CardDescription>
@@ -355,7 +389,7 @@ const managementLinks: HomeLink[] = [
                 :aria-label="`Edit ${TXN_TYPE_LABELS[t.type]} #${displayTxnSerial(t)}`"
                 @click="editTransaction(t)"
               >
-                <Pencil class="size-4" />
+                <Pencil class="size-4" aria-hidden="true" />
               </Button>
             </span>
           </li>
@@ -377,7 +411,13 @@ const managementLinks: HomeLink[] = [
           v-for="link in managementLinks"
           :key="link.route"
           :to="link.route"
-          class="group flex items-start gap-4 rounded-xl border bg-card p-4 transition hover:border-foreground/20 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+          :aria-keyshortcuts="shortcutByTo[link.route]"
+          :class="
+            cn(
+              'group flex items-start gap-4 rounded-xl border bg-card p-4 transition hover:border-foreground/20 hover:bg-muted/40',
+              focusRingClass
+            )
+          "
         >
           <span
             class="flex size-10 shrink-0 items-center justify-center rounded-lg border bg-background text-muted-foreground transition group-hover:text-foreground"
@@ -385,7 +425,12 @@ const managementLinks: HomeLink[] = [
             <component :is="link.icon" class="size-5" />
           </span>
           <div class="min-w-0 flex-1">
-            <h3 class="font-semibold">{{ link.label }}</h3>
+            <div class="flex items-center gap-2">
+              <h3 class="font-semibold">{{ link.label }}</h3>
+              <HomeShortcutHint v-if="shortcutByTo[link.route]">
+                {{ shortcutByTo[link.route] }}
+              </HomeShortcutHint>
+            </div>
             <p class="mt-0.5 text-sm text-muted-foreground">{{ link.description }}</p>
           </div>
         </RouterLink>
@@ -394,7 +439,12 @@ const managementLinks: HomeLink[] = [
         <button
           type="button"
           data-testid="home-eod-export"
-          class="group flex items-start gap-4 rounded-xl border bg-card p-4 text-left transition hover:border-foreground/20 hover:bg-muted/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50"
+          :class="
+            cn(
+              'group flex items-start gap-4 rounded-xl border bg-card p-4 text-left transition hover:border-foreground/20 hover:bg-muted/40 disabled:pointer-events-none disabled:opacity-50',
+              focusRingClass
+            )
+          "
           :disabled="exporting"
           @click="exportDayReport"
         >

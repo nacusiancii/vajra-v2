@@ -2,7 +2,7 @@
 import { computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Banknote, FileSignature, Save, Trash2, Truck } from '@lucide/vue'
-import { Button } from '@/components/ui/button'
+import { Button, focusRingClass } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import {
@@ -121,8 +121,7 @@ const finishTint = computed(() =>
 )
 
 function segmentClass(m: SaleMode): string {
-  const base =
-    'inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors'
+  const base = `inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${focusRingClass}`
   if (mode.value !== m) return `${base} text-muted-foreground hover:text-foreground`
   return m === 'cash' ? `${base} bg-emerald-600 text-white` : `${base} bg-amber-600 text-white`
 }
