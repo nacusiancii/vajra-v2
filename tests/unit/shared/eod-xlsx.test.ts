@@ -77,6 +77,7 @@ const txns: Txn[] = [
     customerName: 'Walk-in buyer',
     cashIn: 50_000,
     total: 50_000,
+    // stored ₹10 vs default ₹12 for 1×50 kg → lump under DEFAULT_LOADING_CHARGE
     loadingCharges: 1_000,
     loadingApplied: true,
     discountAmount: 0,
@@ -239,6 +240,61 @@ function sheet(wb: ExcelJS.Workbook, name: EodSheetName): ExcelJS.Worksheet {
   return ws!
 }
 
+type LineItemRow = {
+  orderId: string
+  lineId: string | number
+  kind: string
+  type: string
+  product: string
+  qty: number | null
+  bagSize: number | string | null
+  rate: number | null
+  lineTotal: number | null
+  loading: number | null
+  invoiceTotal: number | null
+}
+
+function numericOrNull(value: ExcelJS.CellValue): number | null {
+  return typeof value === 'number' ? value : null
+}
+
+function readLineItemRows(ws: ExcelJS.Worksheet): LineItemRow[] {
+  const rows: LineItemRow[] = []
+  for (let r = 2; r <= (ws.rowCount || 20); r++) {
+    const orderId = ws.getCell(r, 2).value
+    if (orderId == null || orderId === '') break
+    const bagVal = ws.getCell(r, 9).value
+    rows.push({
+      orderId: String(orderId),
+      lineId: ws.getCell(r, 3).value as string | number,
+      kind: String(ws.getCell(r, 4).value),
+      type: String(ws.getCell(r, 5).value),
+      product: String(ws.getCell(r, 7).value ?? ''),
+      qty: numericOrNull(ws.getCell(r, 8).value),
+      bagSize: typeof bagVal === 'number' || typeof bagVal === 'string' ? bagVal : null,
+      rate: numericOrNull(ws.getCell(r, 10).value),
+      lineTotal: numericOrNull(ws.getCell(r, 11).value),
+      loading: numericOrNull(ws.getCell(r, 12).value),
+      invoiceTotal: numericOrNull(ws.getCell(r, 13).value)
+    })
+  }
+  return rows
+}
+
+async function loadIsolatedLineItems(
+  isolatedTxns: Txn[],
+  loadingCharge?: Parameters<typeof buildEodReportXlsx>[3]
+): Promise<{ ws: ExcelJS.Worksheet; rows: LineItemRow[] }> {
+  const buf =
+    loadingCharge === undefined
+      ? await buildEodReportXlsx(day, isolatedTxns, inventory)
+      : await buildEodReportXlsx(day, isolatedTxns, inventory, loadingCharge)
+  const wb = new ExcelJS.Workbook()
+  await wb.xlsx.load(buf as unknown as ExcelJS.Buffer)
+  const ws = sheet(wb, 'Line Items')
+  return { ws, rows: readLineItemRows(ws) }
+}
+
 /** Find a label in column A and return column B's raw cell value on that row. */
 function summaryCellValue(ws: ExcelJS.Worksheet, label: string): ExcelJS.CellValue {
   for (let r = 1; r <= (ws.rowCount || 20); r++) {
@@ -279,6 +335,16 @@ describe('buildEodReportXlsx', () => {
     expect(names).toEqual([...EOD_SHEET_NAMES])
     expect(names).toContain('Line Items')
     expect(names).toContain('Money')
+    expect(names).toContain('Journal')
+    expect(names).toEqual([
+      'Summary',
+      'Inventory',
+      'Transactions',
+      'Line Items',
+      'Money',
+      'Journal',
+      'Audit'
+    ])
   })
 
   it('Summary has static in/out and formula nets; credit sales (rupees)', async () => {
@@ -400,49 +466,15 @@ describe('buildEodReportXlsx', () => {
     const ws = sheet(wb, 'Line Items')
 
     // Headers: Time, Order Id, Line Id, Line Kind, Transaction Type, Party Name,
-    // Product, Qty, Bag Size, Rate, Amt, Loading Charges, Total
+    // Product, Qty, Bag Size, Rate, Line Total, Loading Charges, Invoice Total
     expect(ws.getCell(1, 4).value).toBe('Line Kind')
+    expect(ws.getCell(1, 11).value).toBe('Line Total')
     expect(ws.getCell(1, 12).value).toBe('Loading Charges')
+    expect(ws.getCell(1, 13).value).toBe('Invoice Total')
 
-    type Row = {
-      orderId: string
-      lineId: string | number
-      kind: string
-      type: string
-      product: string
-      qty: number | null
-      bagSize: number | string | null
-      rate: number | null
-      amt: number | null
-      loading: number | null
-      total: number | null
-    }
-    const rows: Row[] = []
-    for (let r = 2; r <= (ws.rowCount || 20); r++) {
-      const orderId = ws.getCell(r, 2).value
-      if (orderId == null || orderId === '') break
-      const qtyVal = ws.getCell(r, 8).value
-      const bagVal = ws.getCell(r, 9).value
-      const rateVal = ws.getCell(r, 10).value
-      const amtVal = ws.getCell(r, 11).value
-      const loadVal = ws.getCell(r, 12).value
-      const totalVal = ws.getCell(r, 13).value
-      rows.push({
-        orderId: String(orderId),
-        lineId: ws.getCell(r, 3).value as string | number,
-        kind: String(ws.getCell(r, 4).value),
-        type: String(ws.getCell(r, 5).value),
-        product: String(ws.getCell(r, 7).value ?? ''),
-        qty: typeof qtyVal === 'number' ? qtyVal : null,
-        bagSize: typeof bagVal === 'number' || typeof bagVal === 'string' ? bagVal : null,
-        rate: typeof rateVal === 'number' ? rateVal : null,
-        amt: typeof amtVal === 'number' ? amtVal : null,
-        loading: typeof loadVal === 'number' ? loadVal : null,
-        total: typeof totalVal === 'number' ? totalVal : null
-      })
-    }
+    const rows = readLineItemRows(ws)
 
-    // Cash sale: goods then one cart-level loading synthetic (not split onto goods).
+    // Cash sale: goods then one lump loading row (stored ₹10 vs default ₹12).
     const saleGoods = rows.find(
       (r) => r.kind === 'goods' && r.type === 'Sale' && r.product === 'Toor Dal Premium'
     )
@@ -451,23 +483,32 @@ describe('buildEodReportXlsx', () => {
     expect(saleGoods!.qty).toBe(1)
     expect(saleGoods!.bagSize).toBe(50) // 50_000 g → 50 kg
     expect(saleGoods!.rate).toBe(9800) // 980_000 paise → ₹9800 quintal
-    expect(saleGoods!.amt).toBe(490) // 49_000 paise
+    expect(saleGoods!.lineTotal).toBe(490) // 49_000 paise
     expect(saleGoods!.loading).toBeNull()
+    expect(saleGoods!.invoiceTotal).toBeNull()
 
     const loadingRow = rows.find((r) => r.kind === 'loading')
     expect(loadingRow).toBeDefined()
     expect(loadingRow!.type).toBe('Sale')
+    expect(loadingRow!.lineId).toBe('loading')
     expect(loadingRow!.product).toBe('Loading Charges')
     expect(loadingRow!.loading).toBe(10) // 1_000 paise → ₹10
-    expect(loadingRow!.amt).toBeNull()
-    // Order total on last row of that sale (loading is last)
-    expect(loadingRow!.total).toBe(500) // 50_000 paise
+    expect(loadingRow!.lineTotal).toBeNull()
+    // Invoice Total on last row of that sale (loading is last)
+    expect(loadingRow!.invoiceTotal).toBe(500) // 50_000 paise
 
     // Credit sale has discount synthetic
+    const creditGoods = rows.find(
+      (r) => r.kind === 'goods' && r.type === 'Sale' && r.product === 'Moong Dal'
+    )
+    expect(creditGoods).toBeDefined()
+    expect(creditGoods!.invoiceTotal).toBeNull()
+
     const discountRow = rows.find((r) => r.kind === 'discount')
     expect(discountRow).toBeDefined()
     expect(discountRow!.product).toBe('Discount')
-    expect(discountRow!.amt).toBe(5) // 500 paise
+    expect(discountRow!.lineTotal).toBe(5) // 500 paise
+    expect(discountRow!.invoiceTotal).toBe(1200) // 120_000 paise on last row of the credit sale
 
     // Only goods + synthetic kinds; no Receipt (money-only)
     expect(
@@ -483,7 +524,7 @@ describe('buildEodReportXlsx', () => {
       rows.every((r) => r.type === 'Sale' || r.type === 'Purchase' || r.type === 'Stock Transfer')
     ).toBe(true)
 
-    // Voided sale lines excluded
+    // Voided sale lines excluded; shared cash sale is lump so still one loading row
     expect(rows.some((r) => r.product === 'Void product')).toBe(false)
     expect(rows.filter((r) => r.kind === 'loading')).toHaveLength(1)
 
@@ -492,6 +533,289 @@ describe('buildEodReportXlsx', () => {
       (r) => r.kind === 'goods' && r.type === 'Purchase' && r.product === 'Toor Dal Premium'
     )
     expect(puGoods).toBeDefined()
-    expect(puGoods!.amt).toBe(100)
+    expect(puGoods!.lineTotal).toBe(100)
+  })
+
+  it('Invoice Total is static t.total on the last row of each order only', async () => {
+    const wb = await loadWorkbook()
+    const ws = sheet(wb, 'Line Items')
+    expect(ws.getCell(1, 13).value).toBe('Invoice Total')
+
+    const rows = readLineItemRows(ws)
+    const cashGoods = rows.find(
+      (r) => r.kind === 'goods' && r.type === 'Sale' && r.product === 'Toor Dal Premium'
+    )
+    const cashLoading = rows.find((r) => r.kind === 'loading')
+    const creditGoods = rows.find(
+      (r) => r.kind === 'goods' && r.type === 'Sale' && r.product === 'Moong Dal'
+    )
+    const creditDiscount = rows.find((r) => r.kind === 'discount')
+
+    expect(cashGoods!.invoiceTotal).toBeNull()
+    expect(cashLoading!.invoiceTotal).toBe(500)
+    expect(creditGoods!.invoiceTotal).toBeNull()
+    expect(creditDiscount!.invoiceTotal).toBe(1200)
+
+    for (let r = 2; r <= (ws.rowCount || 20); r++) {
+      const orderId = ws.getCell(r, 2).value
+      if (orderId == null || orderId === '') break
+      const v = ws.getCell(r, 13).value
+      expect(
+        v != null && typeof v === 'object' && 'formula' in v,
+        `col 13 row ${r} must not be a formula`
+      ).toBe(false)
+    }
+  })
+
+  it('emits two price-level loading rows when reconstruction matches', async () => {
+    const sale = stubTxn({
+      id: 'SA-ISO-LEVELS',
+      type: 'SA',
+      voided: false,
+      saleMode: 'cash',
+      cashIn: 95_200,
+      total: 95_200,
+      loadingCharges: 5_200,
+      loadingApplied: true,
+      lines: [
+        stubLine({
+          id: 1,
+          productName: 'Toor 25 kg',
+          qty: 4,
+          bagSizeG: 25_000,
+          lineTotal: 40_000,
+          stockDelta: -100_000
+        }),
+        stubLine({
+          id: 2,
+          productName: 'Toor 50 kg',
+          qty: 1,
+          bagSizeG: 50_000,
+          lineTotal: 50_000,
+          stockDelta: -50_000
+        })
+      ]
+    })
+    const { rows } = await loadIsolatedLineItems([sale])
+    const loadingRows = rows.filter((r) => r.kind === 'loading')
+    expect(loadingRows).toHaveLength(2)
+    expect(loadingRows[0]).toMatchObject({
+      product: '4 × ₹10 (≤30 kg)',
+      lineId: 'loading-upto-30',
+      qty: 4,
+      rate: 10,
+      loading: 40,
+      lineTotal: null,
+      invoiceTotal: null
+    })
+    expect(loadingRows[1]).toMatchObject({
+      product: '1 × ₹12 (above)',
+      lineId: 'loading-above',
+      qty: 1,
+      rate: 12,
+      loading: 12,
+      lineTotal: null,
+      invoiceTotal: 952
+    })
+    expect(loadingRows.reduce((sum, r) => sum + (r.loading ?? 0), 0)).toBe(52)
+  })
+
+  it('merges two weights at the same price into one loading row', async () => {
+    const sale = stubTxn({
+      id: 'SA-ISO-MERGE',
+      type: 'SA',
+      voided: false,
+      saleMode: 'cash',
+      cashIn: 75_000,
+      total: 75_000,
+      loadingCharges: 5_000,
+      loadingApplied: true,
+      lines: [
+        stubLine({
+          id: 1,
+          productName: 'Toor 25 kg',
+          qty: 4,
+          bagSizeG: 25_000,
+          lineTotal: 40_000,
+          stockDelta: -100_000
+        }),
+        stubLine({
+          id: 2,
+          productName: 'Toor 30 kg',
+          qty: 1,
+          bagSizeG: 30_000,
+          lineTotal: 30_000,
+          stockDelta: -30_000
+        })
+      ]
+    })
+    const { rows } = await loadIsolatedLineItems([sale])
+    const loadingRows = rows.filter((r) => r.kind === 'loading')
+    expect(loadingRows).toHaveLength(1)
+    expect(loadingRows[0]).toMatchObject({
+      product: '5 × ₹10 (≤30 kg)',
+      lineId: 'loading-upto-30',
+      qty: 5,
+      rate: 10,
+      loading: 50,
+      lineTotal: null
+    })
+  })
+
+  it('omits a zero-charge loading level (Loose 8 kg + 1×50 kg)', async () => {
+    const sale = stubTxn({
+      id: 'SA-ISO-ZERO',
+      type: 'SA',
+      voided: false,
+      saleMode: 'cash',
+      cashIn: 59_200,
+      total: 59_200,
+      loadingCharges: 1_200,
+      loadingApplied: true,
+      lines: [
+        stubLine({
+          id: 1,
+          productName: 'Loose Toor',
+          isLoose: true,
+          qty: 8,
+          bagSizeG: null,
+          quintalRate: null,
+          perKgRate: 1_000,
+          lineTotal: 8_000,
+          stockDelta: -8_000
+        }),
+        stubLine({
+          id: 2,
+          productName: 'Toor 50 kg',
+          qty: 1,
+          bagSizeG: 50_000,
+          lineTotal: 50_000,
+          stockDelta: -50_000
+        })
+      ]
+    })
+    const { rows } = await loadIsolatedLineItems([sale])
+    const loadingRows = rows.filter((r) => r.kind === 'loading')
+    expect(loadingRows).toHaveLength(1)
+    expect(loadingRows[0]).toMatchObject({
+      product: '1 × ₹12 (above)',
+      lineId: 'loading-above',
+      qty: 1,
+      rate: 12,
+      loading: 12
+    })
+    expect(loadingRows.some((r) => r.product.includes('≤10'))).toBe(false)
+  })
+
+  it('emits no loading rows for a free-band sale (loadingCharges 0)', async () => {
+    const sale = stubTxn({
+      id: 'SA-ISO-FREE',
+      type: 'SA',
+      voided: false,
+      saleMode: 'cash',
+      cashIn: 8_000,
+      total: 8_000,
+      loadingCharges: 0,
+      loadingApplied: true,
+      lines: [
+        stubLine({
+          id: 1,
+          productName: 'Loose Toor',
+          isLoose: true,
+          qty: 8,
+          bagSizeG: null,
+          quintalRate: null,
+          perKgRate: 1_000,
+          lineTotal: 8_000,
+          stockDelta: -8_000
+        })
+      ]
+    })
+    const { rows } = await loadIsolatedLineItems([sale])
+    expect(rows.filter((r) => r.kind === 'loading')).toHaveLength(0)
+    expect(rows.some((r) => r.kind === 'goods' && r.product === 'Loose Toor')).toBe(true)
+  })
+
+  it('falls back to one lump loading row when stored amount mismatches defaults', async () => {
+    const sale = stubTxn({
+      id: 'SA-ISO-LUMP',
+      type: 'SA',
+      voided: false,
+      saleMode: 'cash',
+      cashIn: 50_000,
+      total: 50_000,
+      loadingCharges: 1_000,
+      loadingApplied: true,
+      lines: [
+        stubLine({
+          id: 1,
+          productName: 'Toor 50 kg',
+          qty: 1,
+          bagSizeG: 50_000,
+          lineTotal: 49_000,
+          stockDelta: -50_000
+        })
+      ]
+    })
+    const { rows } = await loadIsolatedLineItems([sale])
+    const loadingRows = rows.filter((r) => r.kind === 'loading')
+    expect(loadingRows).toHaveLength(1)
+    expect(loadingRows[0]).toMatchObject({
+      product: 'Loading Charges',
+      lineId: 'loading',
+      qty: null,
+      rate: null,
+      loading: 10,
+      lineTotal: null
+    })
+  })
+
+  it('Journal has Party/Debit/Credit/Amount headers and an empty body', async () => {
+    const wb = await loadWorkbook()
+    const ws = sheet(wb, 'Journal')
+    expect(ws.getCell(1, 1).value).toBe('Party')
+    expect(ws.getCell(1, 2).value).toBe('Debit')
+    expect(ws.getCell(1, 3).value).toBe('Credit')
+    expect(ws.getCell(1, 4).value).toBe('Amount')
+    expect(ws.rowCount).toBe(1)
+    const row2col1 = ws.getCell(2, 1).value
+    expect(row2col1 == null || row2col1 === '').toBe(true)
+  })
+
+  it('uses the passed loadingCharge rules instead of the default', async () => {
+    const sale = stubTxn({
+      id: 'SA-ISO-RULES',
+      type: 'SA',
+      voided: false,
+      saleMode: 'cash',
+      cashIn: 50_000,
+      total: 50_000,
+      loadingCharges: 1_000,
+      loadingApplied: true,
+      lines: [
+        stubLine({
+          id: 1,
+          productName: 'Toor 50 kg',
+          qty: 1,
+          bagSizeG: 50_000,
+          lineTotal: 49_000,
+          stockDelta: -50_000
+        })
+      ]
+    })
+    const { rows } = await loadIsolatedLineItems([sale], {
+      breakpoints: [{ upToKg: 50, chargePaise: 1_000 }],
+      aboveLastPaise: 1_200
+    })
+    const loadingRows = rows.filter((r) => r.kind === 'loading')
+    expect(loadingRows).toHaveLength(1)
+    expect(loadingRows[0]).toMatchObject({
+      product: '1 × ₹10 (≤50 kg)',
+      lineId: 'loading-upto-50',
+      qty: 1,
+      rate: 10,
+      loading: 10,
+      lineTotal: null
+    })
   })
 })

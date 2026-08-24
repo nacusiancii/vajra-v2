@@ -21,7 +21,8 @@ export async function exportEodReport(
   now: Date = new Date()
 ): Promise<EodExportResult> {
   try {
-    const buffer = await buildEodReportXlsx(day, txns, inventory)
+    const settings = await window.api.getSettings()
+    const buffer = await buildEodReportXlsx(day, txns, inventory, settings.loadingCharge)
     const filename = eodReportFilename(now)
     const result = await window.api.exportEodReport({ data: buffer, filename })
     if (result.ok) {

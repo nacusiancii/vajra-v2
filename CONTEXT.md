@@ -73,7 +73,7 @@ A cart-line option on Sales and Purchases as an alternative to picking a Bag Typ
 _Avoid_: open sale, by-weight line (as a synonym), unpackaged.
 
 **Loading Charge**:
-An opt-in surcharge applied at the cart level on Sales only. Computed from configurable weight breakpoints: a list of { upToKg → charge } plus a charge for anything above the last breakpoint. Default: ≤ 10 kg → ₹0, ≤ 30 kg → ₹10, above → ₹12. Applies **per bag** (each bag of a bag line is charged by its bag weight) and **per Loose line** (the whole loose quantity is one parcel charged by its total kg). Not applied to Purchases. On a finished transaction the stored Loading Charge is the promised amount printed on the invoice — never recomputed from settings; settings breakpoints only drive suggestions for new carts and Edit successors.
+An opt-in surcharge applied at the cart level on Sales only. Computed from configurable weight breakpoints: a list of { upToKg → charge } plus a charge for anything above the last breakpoint. Default: ≤ 10 kg → ₹0, ≤ 30 kg → ₹10, above → ₹12. Applies **per bag** (each bag of a bag line is charged by its bag weight) and **per Loose line** (the whole loose quantity is one parcel charged by its total kg). Not applied to Purchases. On a finished transaction the stored Loading Charge is the promised amount printed on the invoice — never recomputed from settings; settings breakpoints only drive suggestions for new carts and Edit successors. The End of Day Report Line Items sheet reconstructs one synthetic loading row per price level from **current** settings breakpoints (bags and Loose that share a breakpoint are one row). If that reconstruction does not equal the stored Loading Charge, the report writes one lump loading row with the stored amount instead. Settings are not snapshotted on the Sale.
 _Avoid_: Hamali, handling fee.
 
 ### Stock movements
@@ -144,6 +144,10 @@ _Avoid_: Misc payment, other expense.
 **Income**:
 A cash or UPI inflow with no counterparty record — commissions and similar one-off money in. The mirror of Expense. Touches no stock. No Settlement Discount.
 _Avoid_: Other income, misc income.
+
+**Journal**:
+A note for a movement that does not affect drawer balances or Inventory. The shopkeeper’s columns are Party, Debit, Credit, Amount. Capture (creating Journal rows in Vajra) is issue #164 and is not shipped. The End of Day Report includes an empty Journal sheet with those headers so the file is ready when capture lands. Distinct from Expense and Income, which do move cash/UPI and already appear on the Money sheet.
+_Avoid_: renaming Expense or Income to Journal; using Journal as a txn type until #164.
 
 ### Editing and audit
 

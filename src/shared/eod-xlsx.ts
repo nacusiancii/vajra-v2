@@ -15,11 +15,18 @@
  * InventoryRow). No cross-sheet SUM from Transactions in this slice.
  *
  * Line Items: goods rows from txn_line plus cart-level synthetic rows
- * (loading / additional / discount). Loading is never split across goods lines
- * and is not stored per line in SQLite.
+ * (loading / additional / discount). Loading may be multiple price-level rows;
+ * mismatch is one lump; no per-line SQLite loading. Still never split across
+ * goods lines.
  */
 
 import ExcelJS from 'exceljs'
+import {
+  loadingPriceLevelProductLabel,
+  saleLoadingBreakdown,
+  type LoadingPriceLevel
+} from '@domain/loading-charge-levels'
+import { DEFAULT_LOADING_CHARGE, type LoadingChargeRules } from '@domain/settings'
 import {
   displayTxnSerial,
   summariseDrawer,
@@ -38,6 +45,7 @@ export const EOD_SHEET_NAMES = [
   'Transactions',
   'Line Items',
   'Money',
+  'Journal',
   'Audit'
 ] as const
 export type EodSheetName = (typeof EOD_SHEET_NAMES)[number]
@@ -365,6 +373,22 @@ function buildMoneySheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
   setColWidths(ws, [24, 8, 12, 22, 12, 12, 12, 12, 12, 12, 24])
 }
 
+/**
+ * Journal — header row only in this cut. Capture of Journal rows is issue #164.
+ * Not a txn type; Expense and Income stay on the Money sheet.
+ */
+function buildJournalSheet(wb: ExcelJS.Workbook): void {
+  const ws = wb.addWorksheet('Journal')
+  const headers = ['Party', 'Debit', 'Credit', 'Amount']
+  const headerRow = ws.getRow(1)
+  headers.forEach((h, i) => {
+    headerRow.getCell(i + 1).value = h
+  })
+  styleHeaderRow(headerRow, headers.length)
+  ws.views = [{ state: 'frozen', ySplit: 1 }]
+  setColWidths(ws, [22, 22, 22, 12])
+}
+
 function buildAuditSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
   const ws = wb.addWorksheet('Audit')
   const voided = txns.filter((t) => t.voided)
@@ -390,9 +414,8 @@ function buildAuditSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
   setColWidths(ws, [28, 22, 12, 28])
 }
 
-/** Whether this Sale should emit a synthetic loading row (cart-level, not per goods line). */
-function saleHasLoadingRow(t: Txn): boolean {
-  return t.type === 'SA' && (t.loadingApplied || t.loadingCharges > 0)
+function loadingLevelLineId(level: LoadingPriceLevel): string {
+  return level.key.kind === 'upTo' ? `loading-upto-${level.key.upToKg}` : 'loading-above'
 }
 
 function lineProductLabel(line: TxnLine): string {
@@ -404,13 +427,14 @@ function lineProductLabel(line: TxnLine): string {
 /**
  * Line Items — live SA/PU/ST only: goods rows from txn_line, then synthetic
  * cart-level rows for loading / additional / discount. Money-only types omitted
- * (sibling Money sheet). Loading is never split across goods lines.
+ * (sibling Money sheet). Loading may be multiple price-level rows; mismatch is
+ * one lump. Never split across goods lines; not stored per line in SQLite.
  *
  * Column contract (pinned by unit tests):
  * Time, Order Id, Line Id, Line Kind, Transaction Type, Party Name, Product,
- * Qty, Bag Size, Rate, Amt, Loading Charges, Total.
+ * Qty, Bag Size, Rate, Line Total, Loading Charges, Invoice Total.
  */
-function buildLineItemsSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
+function buildLineItemsSheet(wb: ExcelJS.Workbook, txns: Txn[], rules: LoadingChargeRules): void {
   const ws = wb.addWorksheet('Line Items')
   const live = txns.filter((t) => !t.voided && LINE_ITEMS_TXN_TYPES.has(t.type))
 
@@ -425,9 +449,9 @@ function buildLineItemsSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
     'Qty',
     'Bag Size',
     'Rate',
-    'Amt',
+    'Line Total',
     'Loading Charges',
-    'Total'
+    'Invoice Total'
   ]
   const headerRow = ws.getRow(1)
   headers.forEach((h, i) => {
@@ -482,19 +506,37 @@ function buildLineItemsSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
       applyLightBorders(excelRow, headers.length)
     }
 
-    if (saleHasLoadingRow(t)) {
-      const excelRow = ws.getRow(rowIdx++)
-      writeCommon(excelRow, 'loading', 'loading')
-      excelRow.getCell(7).value = 'Loading Charges'
-      excelRow.getCell(8).value = null
-      excelRow.getCell(9).value = ''
-      excelRow.getCell(10).value = null
-      excelRow.getCell(11).value = null
-      excelRow.getCell(11).numFmt = MONEY_FMT
-      moneyCell(excelRow.getCell(12), t.loadingCharges)
-      excelRow.getCell(13).value = null
-      excelRow.getCell(13).numFmt = MONEY_FMT
-      applyLightBorders(excelRow, headers.length)
+    if (t.type === 'SA') {
+      const breakdown = saleLoadingBreakdown(t.lines, t.loadingCharges, rules)
+      if (breakdown.kind === 'levels') {
+        for (const level of breakdown.levels) {
+          const excelRow = ws.getRow(rowIdx++)
+          writeCommon(excelRow, 'loading', loadingLevelLineId(level))
+          excelRow.getCell(7).value = loadingPriceLevelProductLabel(level)
+          qtyCell(excelRow.getCell(8), level.count)
+          excelRow.getCell(9).value = ''
+          moneyCell(excelRow.getCell(10), level.chargePerParcel)
+          excelRow.getCell(11).value = null
+          excelRow.getCell(11).numFmt = MONEY_FMT
+          moneyCell(excelRow.getCell(12), level.amountPaise)
+          excelRow.getCell(13).value = null
+          excelRow.getCell(13).numFmt = MONEY_FMT
+          applyLightBorders(excelRow, headers.length)
+        }
+      } else if (breakdown.kind === 'lump') {
+        const excelRow = ws.getRow(rowIdx++)
+        writeCommon(excelRow, 'loading', 'loading')
+        excelRow.getCell(7).value = 'Loading Charges'
+        excelRow.getCell(8).value = null
+        excelRow.getCell(9).value = ''
+        excelRow.getCell(10).value = null
+        excelRow.getCell(11).value = null
+        excelRow.getCell(11).numFmt = MONEY_FMT
+        moneyCell(excelRow.getCell(12), t.loadingCharges)
+        excelRow.getCell(13).value = null
+        excelRow.getCell(13).numFmt = MONEY_FMT
+        applyLightBorders(excelRow, headers.length)
+      }
     }
 
     if (t.additionalCharges > 0) {
@@ -528,7 +570,7 @@ function buildLineItemsSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
       applyLightBorders(excelRow, headers.length)
     }
 
-    // Order Total on the last row of this txn when any line was written.
+    // Invoice Total on the last row of this txn when any line was written.
     if (rowIdx > orderStartRow) {
       moneyCell(ws.getRow(rowIdx - 1).getCell(13), t.total)
     }
@@ -545,7 +587,8 @@ function buildLineItemsSheet(wb: ExcelJS.Workbook, txns: Txn[]): void {
 export async function buildEodReportXlsx(
   day: BusinessDay,
   txns: Txn[],
-  inventory: InventoryRow[]
+  inventory: InventoryRow[],
+  loadingCharge: LoadingChargeRules = DEFAULT_LOADING_CHARGE
 ): Promise<ArrayBuffer> {
   const wb = new ExcelJS.Workbook()
   wb.creator = 'Vajra'
@@ -554,8 +597,9 @@ export async function buildEodReportXlsx(
   buildSummarySheet(wb, day, txns)
   buildInventorySheet(wb, inventory)
   buildTransactionsSheet(wb, txns)
-  buildLineItemsSheet(wb, txns)
+  buildLineItemsSheet(wb, txns, loadingCharge)
   buildMoneySheet(wb, txns)
+  buildJournalSheet(wb)
   buildAuditSheet(wb, txns)
 
   const raw = await wb.xlsx.writeBuffer()
