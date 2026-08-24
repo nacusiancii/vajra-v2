@@ -467,3 +467,8 @@ export function summariseDrawer(txns: Txn[]): DrawerSummary {
   s.upiNet = s.upiIn - s.upiOut
   return s
 }
+
+/** Live row whose cash columns contribute to Cash net. */
+export function contributesToCashNet(t: Txn): boolean {
+  return !t.voided && (t.cashIn !== 0 || t.cashOut !== 0)
+}
