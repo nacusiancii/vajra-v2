@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { AlertTriangle, Banknote, FileSignature, Save, ShoppingCart, Trash2 } from '@lucide/vue'
 import { Button, focusRingClass } from '@/components/ui/button'
@@ -41,6 +41,7 @@ import {
 import { validateSaleDraftCounterparty, type SaleDraftPayload } from '@domain/draft'
 import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
+import { isTypingOrOverlayTarget } from '@/lib/home-shortcuts'
 import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
 import { normalizeWalkin, type CreateSaleInput, type SaleMode, type Txn } from '@domain/transaction'
@@ -87,6 +88,7 @@ const customerId = ref<number | null>(null)
 const walkinName = ref('')
 const walkinPlace = ref('')
 const walkinPhone = ref('')
+const walkinNameInput = ref<ComponentPublicInstance | null>(null)
 
 // Cash or Credit is pre-chosen on the first screen (query `mode`) or hydrated from
 // Edit / Draft. The in-cart toggle can still flip it. null only while Edit/Draft load.
@@ -158,6 +160,21 @@ watch(
   },
   { immediate: true }
 )
+
+function focusWalkinNameIfIdle(): void {
+  if (counterpartyMode.value !== 'walkin') return
+  if (isTypingOrOverlayTarget(document.activeElement)) return
+  const el = walkinNameInput.value?.$el
+  if (el instanceof HTMLInputElement) el.focus()
+}
+
+// Native `autofocus` is a document-load hint and does not run after Vue Router
+// `push` (Home digit 1). Focus the walk-in name once the cart is on screen.
+onMounted(() => {
+  void nextTick(() => {
+    window.setTimeout(() => focusWalkinNameIfIdle(), 0)
+  })
+})
 
 const shellTint = computed(() => {
   if (mode.value === 'cash') return 'bg-emerald-50/60 dark:bg-emerald-950/20'
@@ -621,6 +638,7 @@ watch(
                 <div class="grid gap-2">
                   <Label>Name</Label>
                   <Input
+                    ref="walkinNameInput"
                     v-model="walkinName"
                     placeholder="Optional"
                     autofocus

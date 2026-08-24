@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onMounted, ref, watch, type ComponentPublicInstance } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { Banknote, FileSignature, Save, Trash2, Truck } from '@lucide/vue'
 import { Button, focusRingClass } from '@/components/ui/button'
@@ -40,6 +40,7 @@ import {
 import { validatePurchaseDraftCounterparty, type PurchaseDraftPayload } from '@domain/draft'
 import NumericField from '@/components/NumericField.vue'
 import { formatRupees } from '@/lib/format'
+import { isTypingOrOverlayTarget } from '@/lib/home-shortcuts'
 import { formatMoneyDomain } from '@/lib/numeric-field'
 import { userFacingError } from '@/lib/utils'
 import { normalizeWalkin, type CreatePurchaseInput, type SaleMode } from '@domain/transaction'
@@ -75,6 +76,7 @@ const customerId = ref<number | null>(null)
 const walkinName = ref('')
 const walkinPlace = ref('')
 const walkinPhone = ref('')
+const walkinNameInput = ref<ComponentPublicInstance | null>(null)
 
 // Cash or Credit is pre-chosen on the first screen (query `mode`) or hydrated from
 // Edit / Draft. The in-cart toggle can still flip it. null only while Edit/Draft load.
@@ -95,6 +97,21 @@ const error = ref<string | null>(null)
 // Customer Master pick → first product line only when that line is still empty.
 watch(customerId, (id) => {
   if (id != null) goodsCart.value?.ensureLineAndFocusProduct()
+})
+
+function focusWalkinNameIfIdle(): void {
+  if (counterpartyMode.value !== 'walkin') return
+  if (isTypingOrOverlayTarget(document.activeElement)) return
+  const el = walkinNameInput.value?.$el
+  if (el instanceof HTMLInputElement) el.focus()
+}
+
+// Native `autofocus` does not run after Vue Router `push`. Same hole as Cash Sale
+// when Walk-in is already selected (e.g. a walk-in Draft resume).
+onMounted(() => {
+  void nextTick(() => {
+    window.setTimeout(() => focusWalkinNameIfIdle(), 0)
+  })
 })
 
 const productList = computed(() => products.value ?? [])
@@ -428,6 +445,7 @@ watch(
                 <div class="grid gap-2">
                   <Label>Name</Label>
                   <Input
+                    ref="walkinNameInput"
                     v-model="walkinName"
                     placeholder="Optional"
                     autofocus

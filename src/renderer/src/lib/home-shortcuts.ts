@@ -12,10 +12,14 @@ export const HOME_SHORTCUTS = [
 const BLOCKED_TARGET =
   'input, textarea, select, [contenteditable="true"], [role="combobox"], [role="dialog"], [data-slot="dialog-content"], [data-slot="popover-content"], [data-slot="select-content"]'
 
+/** True when focus is in a field or overlay the cashier is already using. */
+export function isTypingOrOverlayTarget(el: EventTarget | null): boolean {
+  if (!(el instanceof Element)) return false
+  return el.closest(BLOCKED_TARGET) != null
+}
+
 /** True when a Home digit shortcut must not fire (modifiers, repeat, or a typing/overlay target). */
 export function isShortcutBlocked(event: KeyboardEvent): boolean {
   if (event.ctrlKey || event.altKey || event.metaKey || event.repeat) return true
-  const el = event.target
-  if (!(el instanceof Element)) return false
-  return el.closest(BLOCKED_TARGET) != null
+  return isTypingOrOverlayTarget(event.target)
 }
