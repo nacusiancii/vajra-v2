@@ -12,3 +12,4 @@ We chose a separate day-scoped store over ledger rows so Inventory stays a pure 
 - Home and the open cart both expose Clear; Home lists Drafts for Resume.
 - Wire wipe-on-Rollover-approve into the same approve path that deletes the day's ledger (implementation may ship with Rollover work; the retention rule is decided here).
 - The draft-cap setting is global (one pool for Sale + Purchase). Changing the default or exposing the control in Settings is a product tweak, not a model change; per-type caps remain rejected unless a real workflow demands them.
+- Journals are not draftable (ADR-0011). Drafts remain Sale and Purchase only.
