@@ -260,7 +260,7 @@ const managementLinks: HomeLink[] = [
     </section>
 
     <!-- Secondary money/stock actions -->
-    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5" data-testid="secondary-actions">
+    <section class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="secondary-actions">
       <Button
         v-for="link in secondaryTransactionLinks"
         :key="link.route"
