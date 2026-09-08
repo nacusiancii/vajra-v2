@@ -11,6 +11,7 @@ import {
   FileSignature,
   HandCoins,
   type LucideIcon,
+  NotebookPen,
   Package,
   Pencil,
   ReceiptText,
@@ -26,24 +27,31 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useClearDraft, useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
+import { useDayEntriesQuery } from '@/queries/journals'
 import { useBusinessDayQuery, useInventoryQuery } from '@/queries/operations'
 import { exportEodReport } from '@/lib/eod-report'
 import { formatRupees } from '@/lib/format'
 import { showToast } from '@/lib/toast'
 import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
 import { displayTxnSerial, TXN_TYPE_LABELS, type Txn } from '@domain/transaction'
+import { displayJournalSerial, type Journal } from '@domain/journal'
 import type { Draft } from '@domain/draft'
 
 const router = useRouter()
 const queryClient = useQueryClient()
 const { data: transactions } = useTransactionsQuery()
+const { data: dayEntries } = useDayEntriesQuery()
 const { data: day } = useBusinessDayQuery()
 const { data: inventory } = useInventoryQuery()
 /** Sale + Purchase Drafts share one pool; list both on Home (ADR-0010). */
 const { data: allDrafts } = useDraftsQuery()
 const clearDraft = useClearDraft()
-/** Live tips only — voided predecessors stay on the full ledger, not Recent. */
-const recent = computed(() => (transactions.value ?? []).filter((t) => !t.voided).slice(0, 5))
+/** Live tips only — voided txns and journals stay on the full day-list, not Recent. */
+const recent = computed(() =>
+  (dayEntries.value ?? [])
+    .filter((e) => (e.kind === 'txn' ? !e.txn.voided : !e.journal.voided))
+    .slice(0, 5)
+)
 const drafts = computed(() => allDrafts.value ?? [])
 
 const exporting = ref(false)
@@ -89,6 +97,15 @@ function clearHomeDraft(d: Draft): void {
 function editTransaction(t: Txn): void {
   // Recent only lists live tips; Edit is always available on those rows.
   void router.push(txnEditPath(t))
+}
+
+function journalParties(j: Journal): string {
+  if (j.debit && j.credit) return `${j.debit.name} · ${j.credit.name}`
+  return j.debit?.name ?? j.credit?.name ?? '—'
+}
+
+function editJournal(j: Journal): void {
+  void router.push({ path: '/journal', query: { edit: String(j.id) } })
 }
 
 interface HomeLink {
@@ -155,6 +172,11 @@ const secondaryTransactionLinks: HomeLink[] = [
     icon: Banknote
   },
   {
+    label: 'Journal',
+    route: '/journal',
+    icon: NotebookPen
+  },
+  {
     label: 'Stock Transfer',
     route: '/stock-transfer',
     icon: RefreshCcw
@@ -175,10 +197,10 @@ const managementLinks: HomeLink[] = [
     description: 'Customer names, places, and Telugu translations.'
   },
   {
-    label: 'Transactions',
+    label: 'Transactions & Records',
     route: '/transactions',
     icon: ReceiptText,
-    description: 'Current Business Day transaction ledger.'
+    description: 'Current Business Day transactions and records.'
   },
   {
     label: 'Inventory',
@@ -314,10 +336,10 @@ const managementLinks: HomeLink[] = [
       </CardContent>
     </Card>
 
-    <!-- Recent Transactions -->
+    <!-- Recent live tips (txns + journals share five slots) -->
     <Card data-testid="recent-transactions">
       <CardHeader>
-        <CardTitle>Recent Transactions</CardTitle>
+        <CardTitle>Recent</CardTitle>
         <CardDescription>
           The latest non-voided entries in the current Business Day.
           <RouterLink to="/transactions" class="underline hover:text-foreground">
@@ -330,35 +352,75 @@ const managementLinks: HomeLink[] = [
           v-if="recent.length === 0"
           class="flex min-h-[120px] items-center justify-center rounded-xl border border-dashed text-sm text-muted-foreground"
         >
-          No transactions yet today.
+          No entries yet today.
         </div>
         <ul v-else class="divide-y">
-          <li
-            v-for="t in recent"
-            :key="t.id"
-            class="flex items-center justify-between gap-3 py-2 text-sm"
-            data-testid="home-txn-row"
-          >
-            <span class="flex min-w-0 flex-1 items-center gap-2">
-              <span class="tabular-nums text-muted-foreground">#{{ displayTxnSerial(t) }}</span>
-              <span class="font-medium">{{ TXN_TYPE_LABELS[t.type] }}</span>
-              <Badge v-if="t.saleMode === 'credit'" variant="outline" class="text-xs">credit</Badge>
-              <span class="truncate text-muted-foreground">{{ txnCounterparty(t) }}</span>
-            </span>
-            <span class="flex shrink-0 items-center gap-2">
-              <span class="tabular-nums">{{ formatRupees(t.total) }}</span>
-              <Button
-                variant="ghost"
-                size="icon"
-                type="button"
-                data-testid="txn-edit"
-                :aria-label="`Edit ${TXN_TYPE_LABELS[t.type]} #${displayTxnSerial(t)}`"
-                @click="editTransaction(t)"
-              >
-                <Pencil class="size-4" />
-              </Button>
-            </span>
-          </li>
+          <template v-for="row in recent" :key="row.id">
+            <li
+              v-if="row.kind === 'txn'"
+              class="flex items-center justify-between gap-3 py-2 text-sm"
+              data-testid="home-txn-row"
+            >
+              <span class="flex min-w-0 flex-1 items-center gap-2">
+                <span class="tabular-nums text-muted-foreground"
+                  >#{{ displayTxnSerial(row.txn) }}</span
+                >
+                <span class="font-medium">{{ TXN_TYPE_LABELS[row.txn.type] }}</span>
+                <Badge v-if="row.txn.saleMode === 'credit'" variant="outline" class="text-xs"
+                  >credit</Badge
+                >
+                <span class="truncate text-muted-foreground">{{ txnCounterparty(row.txn) }}</span>
+              </span>
+              <span class="flex shrink-0 items-center gap-2">
+                <span class="tabular-nums">{{ formatRupees(row.txn.total) }}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  data-testid="txn-edit"
+                  :aria-label="`Edit ${TXN_TYPE_LABELS[row.txn.type]} #${displayTxnSerial(row.txn)}`"
+                  @click="editTransaction(row.txn)"
+                >
+                  <Pencil class="size-4" />
+                </Button>
+              </span>
+            </li>
+            <li
+              v-else
+              class="flex items-center justify-between gap-3 py-2 text-sm"
+              data-testid="home-journal-row"
+            >
+              <span class="flex min-w-0 flex-1 items-center gap-2">
+                <span class="tabular-nums text-muted-foreground">{{
+                  displayJournalSerial(row.journal)
+                }}</span>
+                <Badge variant="outline">Journal</Badge>
+                <span class="truncate text-muted-foreground">{{
+                  journalParties(row.journal)
+                }}</span>
+              </span>
+              <span class="flex shrink-0 items-center gap-2">
+                <span class="flex flex-col items-end tabular-nums">
+                  <span v-if="row.journal.debit"
+                    >Dr {{ formatRupees(row.journal.debit.amount) }}</span
+                  >
+                  <span v-if="row.journal.credit"
+                    >Cr {{ formatRupees(row.journal.credit.amount) }}</span
+                  >
+                </span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  type="button"
+                  data-testid="journal-edit"
+                  :aria-label="`Edit Journal ${displayJournalSerial(row.journal)}`"
+                  @click="editJournal(row.journal)"
+                >
+                  <Pencil class="size-4" />
+                </Button>
+              </span>
+            </li>
+          </template>
         </ul>
       </CardContent>
     </Card>

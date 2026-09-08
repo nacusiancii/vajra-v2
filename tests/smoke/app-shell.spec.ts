@@ -32,7 +32,13 @@ test.describe('Home page', () => {
 
   test('shows recent transactions affordance', async ({ page }) => {
     await expect(page.getByTestId('recent-transactions')).toBeVisible()
-    await expect(page.getByText(/No transactions yet/)).toBeVisible()
+    await expect(page.getByText(/No entries yet/)).toBeVisible()
+  })
+
+  test('shows Journal among secondary actions', async ({ page }) => {
+    await expect(
+      page.getByTestId('secondary-actions').getByRole('link', { name: 'Journal' })
+    ).toBeVisible()
   })
 
   test('recent transactions expose Edit for live entries (#29)', async ({ page }) => {
@@ -57,11 +63,36 @@ test.describe('Home page', () => {
     await expect(page.getByTestId('money-amount')).toHaveValue('50')
   })
 
+  test('recent mixes in Journal rows with Edit', async ({ page }) => {
+    await page.getByTestId('secondary-actions').getByRole('link', { name: 'Journal' }).click()
+    await expect(page.getByTestId('journal-page')).toBeVisible()
+    await page.getByTestId('journal-debit-name').fill('Ravi')
+    await page.getByTestId('journal-debit-amount').fill('100')
+    await page.getByTestId('journal-finish').click()
+    await expect(page.getByTestId('home-page')).toBeVisible()
+
+    const recent = page.getByTestId('recent-transactions')
+    const row = recent.getByTestId('home-journal-row').first()
+    await expect(row).toContainText('J-1')
+    await expect(row).toContainText('Journal')
+    await expect(row).toContainText('Ravi')
+    await expect(row).toContainText('Dr')
+    await expect(row).toContainText('₹100.00')
+    await expect(recent.getByTestId('home-txn-row')).toHaveCount(0)
+    await row.getByTestId('journal-edit').click()
+
+    await expect(page.getByTestId('journal-page')).toBeVisible()
+    await expect(page.getByRole('heading', { name: /Edit Journal/i })).toBeVisible()
+    await expect(page.getByTestId('journal-debit-name')).toHaveValue('Ravi')
+    await expect(page.getByTestId('journal-debit-amount')).toHaveValue('100')
+  })
+
   test('shows shopkeeper management links', async ({ page }) => {
     const section = page.getByTestId('management-links')
     await expect(section).toBeVisible()
     await expect(section.getByRole('heading', { name: 'Product Master' })).toBeVisible()
     await expect(section.getByRole('heading', { name: 'Customer Master' })).toBeVisible()
+    await expect(section.getByRole('heading', { name: 'Transactions & Records' })).toBeVisible()
     await expect(section.getByRole('heading', { name: 'Inventory' })).toBeVisible()
     await expect(section.getByRole('heading', { name: 'Settings' })).toBeVisible()
     await expect(section.getByRole('heading', { name: 'Rollover' })).toBeVisible()
