@@ -10,7 +10,7 @@ let db: Database.Database | null = null
  * changes. During development (issue #75), older versions are wiped rather than
  * migrated — see openAtCurrentVersion.
  */
-const SCHEMA_VERSION = 5
+const SCHEMA_VERSION = 6
 
 /**
  * Stepwise migrations: MIGRATIONS[n] upgrades a database from version n to n+1.
@@ -82,6 +82,48 @@ const SCHEMA = `
     ledger_generation INTEGER NOT NULL DEFAULT 0,
     last_export_generation INTEGER
   );
+
+  CREATE TABLE IF NOT EXISTS journal (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    business_day_id     INTEGER NOT NULL REFERENCES business_day(id),
+    seq                 INTEGER NOT NULL,
+    rev                 INTEGER NOT NULL DEFAULT 0,
+    debit_name          TEXT,
+    debit_amount        INTEGER,
+    debit_customer_id   INTEGER REFERENCES customer(id) ON DELETE SET NULL,
+    credit_name         TEXT,
+    credit_amount       INTEGER,
+    credit_customer_id  INTEGER REFERENCES customer(id) ON DELETE SET NULL,
+    remarks             TEXT,
+    voided              INTEGER NOT NULL DEFAULT 0 CHECK (voided IN (0, 1)),
+    successor_id        INTEGER REFERENCES journal(id),
+    created_at          TEXT    NOT NULL DEFAULT (datetime('now')),
+    CHECK (
+      (
+        (
+          debit_name IS NOT NULL AND length(trim(debit_name)) > 0
+          AND debit_amount IS NOT NULL AND debit_amount > 0
+        )
+        OR
+        (
+          credit_name IS NOT NULL AND length(trim(credit_name)) > 0
+          AND credit_amount IS NOT NULL AND credit_amount > 0
+        )
+      )
+      AND
+      ((debit_name IS NULL) = (debit_amount IS NULL))
+      AND
+      ((credit_name IS NULL) = (credit_amount IS NULL))
+      AND
+      (debit_customer_id IS NULL OR (debit_name IS NOT NULL AND length(trim(debit_name)) > 0))
+      AND
+      (credit_customer_id IS NULL OR (credit_name IS NOT NULL AND length(trim(credit_name)) > 0))
+    )
+  );
+
+  CREATE INDEX IF NOT EXISTS idx_journal_day ON journal(business_day_id);
+  CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_day_seq_rev
+    ON journal(business_day_id, seq, rev);
 
   CREATE TABLE IF NOT EXISTS opening_stock (
     business_day_id  INTEGER NOT NULL REFERENCES business_day(id),

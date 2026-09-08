@@ -65,7 +65,8 @@ describe('planUpdateOpenStartDate (empty open day)', () => {
     today: '2026-07-19',
     previousClosedStartDate: '2026-07-18' as string | null,
     finishedTxnCount: 0,
-    draftCount: 0
+    draftCount: 0,
+    journalCount: 0
   }
 
   it('empty day update OK — returns the proposed date', () => {
@@ -90,6 +91,12 @@ describe('planUpdateOpenStartDate (empty open day)', () => {
 
   it('with Draft rejected (clear first)', () => {
     expect(() => planUpdateOpenStartDate({ ...base, draftCount: 2 })).toThrow(/Clear Drafts/)
+  })
+
+  it('with Journal rejected (including voided)', () => {
+    expect(() => planUpdateOpenStartDate({ ...base, journalCount: 1 })).toThrow(
+      'Cannot change the Business Day date after Journals exist.'
+    )
   })
 
   it('rejects invalid or too-early dates', () => {
