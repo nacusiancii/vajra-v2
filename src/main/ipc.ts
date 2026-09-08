@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { mergeDayList } from '../domain/journal'
 import { IPC, type ExportEodReportInput } from '../shared/api'
 import { getDb } from './db'
 import { writeEodReportFile } from './eod-export'
@@ -8,6 +9,7 @@ import { TransactionRepo } from './repositories/transaction-repo'
 import { BusinessDayRepo } from './repositories/business-day-repo'
 import { SettingsRepo } from './repositories/settings-repo'
 import { DraftRepo } from './repositories/draft-repo'
+import { JournalRepo } from './repositories/journal-repo'
 
 export function registerIpcHandlers(): void {
   const db = getDb()
@@ -23,6 +25,7 @@ export function registerIpcHandlers(): void {
   const businessDay = new BusinessDayRepo(db)
   const settings = new SettingsRepo(db)
   const drafts = new DraftRepo(db, settings)
+  const journals = new JournalRepo(db)
 
   // ── Customers ──────────────────────────────────────────────
   ipcMain.handle(IPC.listCustomers, () => customers.list())
@@ -55,6 +58,7 @@ export function registerIpcHandlers(): void {
 
   // ── Transactions ───────────────────────────────────────────
   ipcMain.handle(IPC.listTransactions, () => transactions.list())
+  ipcMain.handle(IPC.listDayEntries, () => mergeDayList(transactions.list(), journals.list()))
   ipcMain.handle(IPC.getTransaction, (_e, id) => transactions.getById(id) ?? null)
   ipcMain.handle(IPC.createSale, (_e, input) => transactions.createSale(input))
   ipcMain.handle(IPC.editSale, (_e, id, input) => transactions.editSale(id, input))
@@ -76,6 +80,12 @@ export function registerIpcHandlers(): void {
   ipcMain.handle(IPC.saveSaleDraft, (_e, input) => drafts.saveSale(input))
   ipcMain.handle(IPC.savePurchaseDraft, (_e, input) => drafts.savePurchase(input))
   ipcMain.handle(IPC.clearDraft, (_e, id) => drafts.clear(id))
+
+  // ── Journals (side-record — not a TxnType) ─────────────────
+  ipcMain.handle(IPC.getJournal, (_e, id: number) => journals.get(id))
+  ipcMain.handle(IPC.createJournal, (_e, input) => journals.create(input))
+  ipcMain.handle(IPC.editJournal, (_e, id: number, input) => journals.edit(id, input))
+  ipcMain.handle(IPC.cancelJournal, (_e, id: number) => journals.cancel(id))
 
   // ── Settings ───────────────────────────────────────────────
   ipcMain.handle(IPC.getSettings, () => settings.get())

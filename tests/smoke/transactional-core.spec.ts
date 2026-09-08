@@ -120,5 +120,5 @@ test('catalog → purchase → sale → inventory → rollover', async ({ page }
   await expect(page.getByTestId('inventory-row')).toContainText('8')
   await goHome(page)
   await openManagement(page, 'Transactions')
-  await expect(page.getByText('No transactions yet today.')).toBeVisible()
+  await expect(page.getByText('No entries yet today.')).toBeVisible()
 })

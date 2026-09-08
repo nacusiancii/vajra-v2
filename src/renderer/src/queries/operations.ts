@@ -12,7 +12,8 @@ const KEYS = {
   inventory: ['inventory'] as const,
   businessDay: ['businessDay'] as const,
   settings: ['settings'] as const,
-  transactions: ['transactions'] as const
+  transactions: ['transactions'] as const,
+  dayEntries: ['dayEntries'] as const
 }
 
 export function useInventoryQuery(): UseQueryReturnType<InventoryRow[], Error> {
@@ -47,6 +48,7 @@ export function useApproveRollover(): UseMutationReturnType<BusinessDay, Error, 
       void qc.invalidateQueries({ queryKey: KEYS.businessDay })
       void qc.invalidateQueries({ queryKey: KEYS.inventory })
       void qc.invalidateQueries({ queryKey: KEYS.transactions })
+      void qc.invalidateQueries({ queryKey: KEYS.dayEntries })
     }
   })
 }

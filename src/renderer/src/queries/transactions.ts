@@ -19,7 +19,8 @@ const KEYS = {
   transactions: ['transactions'] as const,
   inventory: ['inventory'] as const,
   businessDay: ['businessDay'] as const,
-  drafts: ['drafts'] as const
+  drafts: ['drafts'] as const,
+  dayEntries: ['dayEntries'] as const
 }
 
 export function useTransactionsQuery(): UseQueryReturnType<Txn[], Error> {
@@ -34,6 +35,7 @@ function invalidateAll(qc: ReturnType<typeof useQueryClient>): void {
   void qc.invalidateQueries({ queryKey: KEYS.transactions })
   void qc.invalidateQueries({ queryKey: KEYS.inventory })
   void qc.invalidateQueries({ queryKey: KEYS.businessDay })
+  void qc.invalidateQueries({ queryKey: KEYS.dayEntries })
 }
 
 export function useCreateSale(): UseMutationReturnType<Txn, Error, CreateSaleInput, unknown> {
