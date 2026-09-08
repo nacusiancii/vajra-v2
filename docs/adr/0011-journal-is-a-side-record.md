@@ -12,7 +12,7 @@ Approving Rollover wipes Journals with the day's transactional data (ADR-0001). 
 
 Each party is a free-text name snapshot. Optionally picking an existing Customer stores a nullable FK as picker convenience — never required, never auto-created, never Walk-in, never inferred from a string match. Customer delete is not blocked by Journals (`customerHasReferences` stays `txn`-only). Journals do not feed credit totals. Debit and Credit are stored legs; house meaning (who owes whom, whether amounts should match) is deferred to that later report ticket.
 
-The cashier list page title becomes **Transactions & Records** in a later PR of this stack. The `txn` table and `TxnType` are not renamed. Journals are not draftable (ADR-0010) and do not print (ADR-0008).
+The cashier list page title is **Transactions & Records**. The `txn` table and `TxnType` are not renamed. Journals are not draftable (ADR-0010) and do not print (ADR-0008).
 
 We chose a side-record over a `JO` `TxnType` so two parties and two unmatched amounts are first-class without stuffing a note into Expense/Income, the drawer schema, or the EOD Transactions dump. Isolation is the design: Inventory, `summariseDrawer`, print, and this ticket's End of Day Report stay byte-identical whether or not Journals exist.
 
