@@ -200,7 +200,9 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 onMounted(() => {
-  if (props.autoFocus) void nextTick(() => openFilter())
+  // After a sibling Select/popover closes (Walk-in → Customer Master),
+  // nextTick loses to that layer's close-auto-focus. Same delay as focus().
+  if (props.autoFocus) window.setTimeout(() => openFilter(), 0)
 })
 
 onUnmounted(() => {
