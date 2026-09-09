@@ -409,7 +409,8 @@ watch(
                   <SelectTrigger class="w-[180px]" data-testid="purchase-counterparty-mode">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <!-- Don't restore focus to this trigger — the supplier/walk-in field auto-focuses. -->
+                  <SelectContent @close-auto-focus.prevent>
                     <SelectItem value="customer">Customer Master</SelectItem>
                     <SelectItem value="walkin">Walk in</SelectItem>
                   </SelectContent>
