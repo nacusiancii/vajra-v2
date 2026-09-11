@@ -34,6 +34,27 @@ async function recordJournal(page: Page, party: string, amount: string): Promise
   await expect(page.getByTestId('home-page')).toBeVisible()
 }
 
+async function seedCustomer(page: Page, name: string, place: string): Promise<void> {
+  await openManagement(page, 'Customer Master')
+  await page.getByTestId('add-customer-btn').click()
+  await expect(page.getByTestId('customer-dialog')).toBeVisible()
+  await page.getByTestId('customer-name-input').fill(name)
+  await page.getByTestId('customer-place-combobox').fill(place)
+  await page.getByTestId('customer-submit').click()
+  await expect(page.getByTestId('customer-dialog')).not.toBeVisible()
+  await expect(page.getByTestId('customer-row')).toContainText(name)
+  await goHome(page)
+}
+
+async function deleteCustomerFromMaster(page: Page, name: string): Promise<void> {
+  await openManagement(page, 'Customer Master')
+  const row = page.getByTestId('customer-row').filter({ hasText: name })
+  await expect(row).toBeVisible()
+  await row.getByTestId('delete-customer-btn').click()
+  await expect(page.getByText('0 customers')).toBeVisible()
+  await expect(page.getByText('No customers yet')).toBeVisible()
+}
+
 test('records a Journal on Transactions & Records without touching the ledger', async ({
   page
 }) => {
@@ -145,4 +166,54 @@ test('Rollover hides the date editor, names Journals, and wipes them', async ({ 
   await openManagement(page, 'Transactions')
   await expect(page.getByText('No entries yet today.')).toBeVisible()
   await expect(page.getByTestId('journal-row')).toHaveCount(0)
+})
+
+test('typing a Customer name without picking does not attach an id', async ({ page }) => {
+  await seedCustomer(page, 'Ravi', 'Guntur')
+  await openJournal(page)
+  await page.getByTestId('journal-debit-name').fill('Ravi')
+  await expect(page.getByTestId('journal-debit-name-option')).toBeVisible()
+  await page.getByTestId('journal-debit-name').press('Enter')
+  await expect(page.getByTestId('journal-debit-name-option')).toBeHidden()
+  await page.getByTestId('journal-debit-amount').fill('100')
+  await page.getByTestId('journal-finish').click()
+  await expect(page.getByTestId('home-page')).toBeVisible()
+
+  await deleteCustomerFromMaster(page, 'Ravi')
+  await goHome(page)
+  await openManagement(page, 'Transactions')
+  await expect(page.getByTestId('journal-row')).toContainText('Ravi')
+})
+
+test('picking a Customer still allows delete; snapshot name remains', async ({ page }) => {
+  await seedCustomer(page, 'Ravi', 'Guntur')
+  await openJournal(page)
+  await page.getByTestId('journal-debit-name').fill('Ravi')
+  const option = page.getByTestId('journal-debit-name-option')
+  await expect(option).toBeVisible()
+  await option.click()
+  await page.getByTestId('journal-debit-amount').fill('100')
+  await page.getByTestId('journal-finish').click()
+  await expect(page.getByTestId('home-page')).toBeVisible()
+
+  await deleteCustomerFromMaster(page, 'Ravi')
+  await goHome(page)
+  await openManagement(page, 'Transactions')
+  await expect(page.getByTestId('journal-row')).toContainText('Ravi')
+  await expect(page.getByTestId('journal-row')).toContainText('Dr')
+})
+
+test('editing a picked party off the Customer name still records', async ({ page }) => {
+  await seedCustomer(page, 'Ravi', 'Guntur')
+  await openJournal(page)
+  await page.getByTestId('journal-debit-name').fill('Ravi')
+  await expect(page.getByTestId('journal-debit-name-option')).toBeVisible()
+  await page.getByTestId('journal-debit-name-option').click()
+  await page.getByTestId('journal-debit-name').fill('Ravi Kumar')
+  await page.getByTestId('journal-debit-amount').fill('50')
+  await page.getByTestId('journal-finish').click()
+  await expect(page.getByTestId('home-page')).toBeVisible()
+
+  await openManagement(page, 'Transactions')
+  await expect(page.getByTestId('journal-row')).toContainText('Ravi Kumar')
 })

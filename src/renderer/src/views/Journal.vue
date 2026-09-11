@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import NumericField from '@/components/NumericField.vue'
+import JournalNameField, { type JournalNameValue } from '@/components/journal/JournalNameField.vue'
 import { useCreateJournal, useEditJournal } from '@/queries/journals'
 import { userFacingError } from '@/lib/utils'
 import { CreateJournalSchema } from '@domain/journal'
@@ -23,9 +24,11 @@ const editId = computed(() => {
 const createJournal = useCreateJournal()
 const editJournal = useEditJournal()
 
-const debitName = ref('')
+const emptyParty = (): JournalNameValue => ({ name: '', customerId: null })
+
+const debitParty = ref<JournalNameValue>(emptyParty())
 const debitAmount = ref<number | null>(null)
-const creditName = ref('')
+const creditParty = ref<JournalNameValue>(emptyParty())
 const creditAmount = ref<number | null>(null)
 const remarks = ref('')
 const error = ref<string | null>(null)
@@ -40,8 +43,16 @@ function finish(): void {
   error.value = null
 
   const parsed = CreateJournalSchema.safeParse({
-    debit: { name: debitName.value, amount: debitAmount.value, customerId: null },
-    credit: { name: creditName.value, amount: creditAmount.value, customerId: null },
+    debit: {
+      name: debitParty.value.name,
+      amount: debitAmount.value,
+      customerId: debitParty.value.customerId
+    },
+    credit: {
+      name: creditParty.value.name,
+      amount: creditAmount.value,
+      customerId: creditParty.value.customerId
+    },
     remarks: remarks.value
   })
   if (!parsed.success) {
@@ -73,9 +84,15 @@ watch(
       error.value = 'This Journal cannot be edited.'
       return
     }
-    debitName.value = journal.debit?.name ?? ''
+    debitParty.value = {
+      name: journal.debit?.name ?? '',
+      customerId: journal.debit?.customerId ?? null
+    }
     debitAmount.value = journal.debit?.amount ?? null
-    creditName.value = journal.credit?.name ?? ''
+    creditParty.value = {
+      name: journal.credit?.name ?? '',
+      customerId: journal.credit?.customerId ?? null
+    }
     creditAmount.value = journal.credit?.amount ?? null
     remarks.value = journal.remarks ?? ''
   },
@@ -102,12 +119,12 @@ watch(
       <div class="grid grid-cols-2 gap-4">
         <div class="grid gap-2">
           <Label for="journal-debit-name">Party</Label>
-          <Input
+          <JournalNameField
             id="journal-debit-name"
-            v-model="debitName"
+            v-model="debitParty"
             placeholder="Party"
+            test-id="journal-debit-name"
             autofocus
-            data-testid="journal-debit-name"
           />
         </div>
         <div class="grid gap-2">
@@ -128,11 +145,11 @@ watch(
       <div class="grid grid-cols-2 gap-4">
         <div class="grid gap-2">
           <Label for="journal-credit-name">Party</Label>
-          <Input
+          <JournalNameField
             id="journal-credit-name"
-            v-model="creditName"
+            v-model="creditParty"
             placeholder="Party"
-            data-testid="journal-credit-name"
+            test-id="journal-credit-name"
           />
         </div>
         <div class="grid gap-2">
