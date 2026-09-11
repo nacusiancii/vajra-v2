@@ -21,6 +21,7 @@ We chose multi-sheet XLSX because the EOD report is the shopkeeper's reconciliat
 - Transaction Summary sheet; further per-entity ledgers (Sales, Purchases, Receipts+Payments, Expenses+Income).
 - Stock Transfers decomposed into synthetic Sale+Purchase pairs on Inventory (today Transfer is a single net column).
 - Per-line Loading Charges in the ledger (explicitly cut — report uses synthetic `loading` rows).
+- Journal sheet (committed follow-up, not issue #164): a new sheet for Journal notes. Do not add Journal columns to Transactions or Money (ADR-0011).
 
 #### Consequences
 

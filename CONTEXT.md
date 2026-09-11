@@ -148,11 +148,11 @@ _Avoid_: Other income, misc income.
 ### Editing and audit
 
 **Edit** (UX term):
-The cashier-facing action for correcting a finished transaction within the current Business Day. Internally, an Edit is never a mutation — it is implemented as a Void of the original transaction plus the creation of a new transaction, linked by a Successor reference. The cashier sees one button labelled "Edit"; under the hood the chain grows.
+The cashier-facing action for correcting a finished transaction or Journal within the current Business Day. Internally, an Edit is never a mutation — it is implemented as a Void of the original row plus the creation of a successor, linked by a Successor reference. The cashier sees one button labelled "Edit"; under the hood the chain grows. Journals use the same word and the same Void+Successor internals — Journal correction is not an in-place rewrite.
 _Avoid_: Mutation, in-place update.
 
 **Void**:
-A flag on a finished transaction marking it as superseded. The transaction row stays in place — its values are never changed — but it no longer contributes to the Inventory projection or to live totals. Voiding requires a Successor (the corrected transaction); a transaction is never voided without a replacement. Already-voided transactions cannot themselves be edited or voided again; only the live tip of a chain is mutable.
+A flag on a finished transaction marking it as superseded. The transaction row stays in place — its values are never changed — but it no longer contributes to the Inventory projection or to live totals. Voiding a transactional row requires a Successor (the corrected transaction); a transaction is never voided without a replacement. Journal **Cancel** (Delete) is the documented exception: it voids a Journal without a successor (ADR-0011) and does not change that rule for transactional rows. Already-voided transactions cannot themselves be edited or voided again; only the live tip of a chain is mutable.
 _Avoid_: Cancelled, deleted.
 
 **Successor**:
@@ -174,6 +174,12 @@ _Avoid_: Sale Number / Voucher Number as a second stored field; dual counters fo
 **Stock Transfer**:
 A rebranding or repackaging operation that moves stock from one Product to another without any money changing hands. Declared in two sides: the source Products and quantities removed, and the target Products and quantities added. Example: 6 × 50 kg bags of "Toor Dal Regular" become 12 × 25 kg bags of "Toor Dal Premium." Vajra will show the kg totals on each side so the operator can see any yield difference. Like other transactional entries, Stock Transfers are wiped at Rollover; only their net stock impact survives.
 _Avoid_: Rebranding, repack, conversion.
+
+### Day-scoped notes (not the ledger)
+
+**Journal**:
+A day-scoped note with an optional **debit** party+amount and an optional **credit** party+amount (at least one side required). Amounts need not match. No cash/UPI split. Does **not** affect Inventory, drawer, Credit Sales Total, or Credit Purchases Total. No **transaction ID**. Not a Sale/Purchase/Receipt/Payment/Expense/Income/Stock Transfer. Not on the End of Day Report in the first slice (a later report ticket adds a Journal sheet). Each party is a free-text **snapshot**, or filled by optionally picking an existing **Customer** (not required, not auto-created, not Walk-in). Optional Customer id only when picked. Customer delete does not fail because of Journals. Wiped at Rollover. **Edit** is Void+Successor. **Cancel** (Delete) voids without a successor — Journal-only; transactional rows still require a Successor. Not draftable. The on-screen field label is **Party**; that is a Journal form label, not a glossary synonym for Customer.
+_Avoid_: treating Journal as a transactional type; Party as a glossary synonym for Customer; stuffing into Expense/Income; a `JO` transaction ID; requiring a Customer; in-place Edit.
 
 ## Flagged ambiguities
 

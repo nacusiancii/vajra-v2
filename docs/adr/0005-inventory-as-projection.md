@@ -10,3 +10,4 @@ We chose this because storing inventory separately is the single most common sou
 - Voiding a Purchase or Stock Transfer can produce a _projected_ negative stock if downstream Sales have already consumed the stock the voided row supplied. Vajra surfaces this as a visible condition on the projection — it does not block the Void. The shopkeeper deals with the underlying mistake (probably by entering a corrective transaction).
 - The formula library that drives the projection is shared between the live UI and the XLSX export. Adding a new transaction type means updating one place; both surfaces follow.
 - Opening Stock for a Business Day is the projection's frozen result at the moment of Rollover approval. It is the only stock-related value Vajra durably stores across days.
+- Journals are not a stock-movement source and do not enter the Inventory projection (ADR-0011).

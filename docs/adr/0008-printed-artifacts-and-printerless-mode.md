@@ -13,5 +13,6 @@ We chose this narrow print surface because the goods-moving moments (Sale, Credi
 - Telugu-first rendering with English fallback (ADR-0003) applies to both the Sale Invoice and the Credit Voucher for customer name, place, and product line names. Missing Telugu does not leave a blank handwriting gap.
 - Printerless Mode and the per-transaction skip prompt must both display the transaction ID, since the cashier may need to handwrite it on a manual copy and the shopkeeper will reconcile by these IDs.
 - Adding a new transaction type later (or deciding Purchases should print after all) means updating this ADR — the current catalog is intentionally closed, not a default-on shape.
+- Journals do not print (ADR-0011).
 - The "next transaction starts" boundary for Sale Invoice reprinting must be defined explicitly in code (cart-open? finish-clicked? first-line-added?) — chosen to match the cashier's mental model of "I'm done with the last one."
 - Opt-out of the second invoice copy is a per-Sale control at finish time, defaulting to two copies on.

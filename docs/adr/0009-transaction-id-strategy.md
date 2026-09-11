@@ -39,5 +39,5 @@ Cash and Credit sequences for Sales are independent; same for Purchases. Credit 
 
 - UI and prints format/display the transaction ID (or a readable substring derived only by parsing it — never a separately stored number).
 - Implementing Edit revisions and mode-split sequences is one scheme, not two features with two counters.
-- Adding a transactional type means picking a new `TT` code and updating this ADR.
+- Adding a transactional type means picking a new `TT` code and updating this ADR. Do not add `JO`. `J-{seq}` / `J-{seq}.{rev}` is a Journal display serial, out of this catalog (ADR-0011).
 - Code and docs that still say "Sale Number" / "Voucher Number" as stored fields are stale and should be updated toward transaction ID.
