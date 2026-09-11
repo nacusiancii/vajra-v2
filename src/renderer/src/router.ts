@@ -24,6 +24,11 @@ const router = createRouter({
       component: () => import('./views/StockTransfer.vue')
     },
     {
+      path: '/journal',
+      name: 'journal',
+      component: () => import('./views/Journal.vue')
+    },
+    {
       path: '/transactions',
       name: 'transactions',
       component: () => import('./views/Transactions.vue')

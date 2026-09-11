@@ -27,6 +27,7 @@ const api: VajraApi = {
   approveRollover: (nextStartDate) => ipcRenderer.invoke(IPC.approveRollover, nextStartDate),
 
   listTransactions: () => ipcRenderer.invoke(IPC.listTransactions),
+  listDayEntries: () => ipcRenderer.invoke(IPC.listDayEntries),
   getTransaction: (id) => ipcRenderer.invoke(IPC.getTransaction, id),
   createSale: (input) => ipcRenderer.invoke(IPC.createSale, input),
   editSale: (id, input) => ipcRenderer.invoke(IPC.editSale, id, input),
@@ -43,6 +44,11 @@ const api: VajraApi = {
   saveSaleDraft: (input) => ipcRenderer.invoke(IPC.saveSaleDraft, input),
   savePurchaseDraft: (input) => ipcRenderer.invoke(IPC.savePurchaseDraft, input),
   clearDraft: (id) => ipcRenderer.invoke(IPC.clearDraft, id),
+
+  getJournal: (id) => ipcRenderer.invoke(IPC.getJournal, id),
+  createJournal: (input) => ipcRenderer.invoke(IPC.createJournal, input),
+  editJournal: (id, input) => ipcRenderer.invoke(IPC.editJournal, id, input),
+  cancelJournal: (id) => ipcRenderer.invoke(IPC.cancelJournal, id),
 
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   updateSettings: (settings) => ipcRenderer.invoke(IPC.updateSettings, settings),

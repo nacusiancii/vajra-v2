@@ -27,6 +27,7 @@ import type {
 } from '../domain/transaction'
 import type { AppSettings } from '../domain/settings'
 import type { Draft, DraftType, SavePurchaseDraftInput, SaveSaleDraftInput } from '../domain/draft'
+import type { CreateJournalInput, DayEntry, Journal } from '../domain/journal'
 
 export type MoneyTxnType = 'RE' | 'PA' | 'EX' | 'IN'
 
@@ -75,6 +76,11 @@ export interface VajraApi {
 
   // ── Transactions ───────────────────────────────────────────
   listTransactions(): Promise<Txn[]>
+  /**
+   * Merged txn + Journal view model for Transactions & Records.
+   * Must not be passed to summariseDrawer, EOD, or inventory.
+   */
+  listDayEntries(): Promise<DayEntry[]>
   getTransaction(id: string): Promise<Txn | null>
   createSale(input: CreateSaleInput): Promise<Txn>
   editSale(id: string, input: CreateSaleInput): Promise<Txn>
@@ -97,6 +103,12 @@ export interface VajraApi {
   saveSaleDraft(input: SaveSaleDraftInput): Promise<Draft>
   savePurchaseDraft(input: SavePurchaseDraftInput): Promise<Draft>
   clearDraft(id: number): Promise<void>
+
+  // ── Journals (ADR-0011 — side-record, outside the ledger) ──
+  getJournal(id: number): Promise<Journal | null>
+  createJournal(input: CreateJournalInput): Promise<Journal>
+  editJournal(id: number, input: CreateJournalInput): Promise<Journal>
+  cancelJournal(id: number): Promise<void>
 
   // ── Settings ───────────────────────────────────────────────
   getSettings(): Promise<AppSettings>
@@ -134,6 +146,7 @@ export const IPC = {
   approveRollover: 'rollover:approve',
 
   listTransactions: 'txn:list',
+  listDayEntries: 'day:listEntries',
   getTransaction: 'txn:get',
   createSale: 'txn:createSale',
   editSale: 'txn:editSale',
@@ -150,6 +163,11 @@ export const IPC = {
   saveSaleDraft: 'draft:saveSale',
   savePurchaseDraft: 'draft:savePurchase',
   clearDraft: 'draft:clear',
+
+  getJournal: 'journal:get',
+  createJournal: 'journal:create',
+  editJournal: 'journal:edit',
+  cancelJournal: 'journal:cancel',
 
   getSettings: 'settings:get',
   updateSettings: 'settings:update',

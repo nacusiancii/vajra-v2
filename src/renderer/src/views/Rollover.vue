@@ -23,6 +23,7 @@ import {
   TableRow
 } from '@/components/ui/table'
 import { useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
+import { useDayEntriesQuery } from '@/queries/journals'
 import {
   useInventoryQuery,
   useBusinessDayQuery,
@@ -47,6 +48,7 @@ const { data: day } = useBusinessDayQuery()
 const { data: transactions } = useTransactionsQuery()
 const { data: inventory } = useInventoryQuery()
 const { data: drafts } = useDraftsQuery()
+const { data: dayEntries, isLoading: dayEntriesLoading } = useDayEntriesQuery()
 const approveRollover = useApproveRollover()
 const updateOpenStartDate = useUpdateOpenBusinessDayStartDate()
 
@@ -81,8 +83,12 @@ const canApprove = computed(
   () => exportFresh.value && dateValidation.value.ok && !approveRollover.isPending.value
 )
 
-/** Edit startDate only when the open day has no finished transactions. */
-const canEditStartDate = computed(() => txns.value.length === 0)
+const hasJournal = computed(() => (dayEntries.value ?? []).some((e) => e.kind === 'journal'))
+
+/** Hide while the day-list is loading so a Journal cannot flash the empty-day editor. */
+const canEditStartDate = computed(
+  () => !dayEntriesLoading.value && txns.value.length === 0 && !hasJournal.value
+)
 const hasDraftsBlockingDate = computed(() => draftList.value.length > 0)
 
 // Preselect when the open Business Day loads (or changes after a prior rollover).
@@ -327,8 +333,8 @@ function approve(): void {
         <DialogHeader>
           <DialogTitle>Approve Rollover?</DialogTitle>
           <DialogDescription>
-            This finalises Business Day {{ day?.startDate }}. All {{ txns.length }} transaction(s)
-            will be wiped and a new Business Day will open on
+            This finalises Business Day {{ day?.startDate }}. Today's transactions and Journals will
+            be wiped and are not on this End of Day Report. A new Business Day will open on
             <span class="font-medium tabular-nums" data-testid="rollover-confirm-next-date">{{
               nextStartDate
             }}</span
