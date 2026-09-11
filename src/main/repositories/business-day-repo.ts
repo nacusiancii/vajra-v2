@@ -116,9 +116,10 @@ export class BusinessDayRepo {
   }
 
   /**
-   * Change the open Business Day's startDate when the day has no finished transactions
-   * and no Drafts. Date rules match next-biz-day on Rollover: ≥ local today, and strictly
-   * after the previous closed day's startDate when one exists.
+   * Change the open Business Day's startDate when the day has no finished transactions,
+   * no Journals (including voided), and no Drafts. Date rules match next-biz-day on
+   * Rollover: ≥ local today, and strictly after the previous closed day's startDate
+   * when one exists.
    */
   updateOpenStartDate(startDate: string): BusinessDay {
     const day = this.current()
@@ -129,6 +130,13 @@ export class BusinessDayRepo {
     ).n
     const draftCount = (
       this.db.prepare(`SELECT COUNT(*) AS n FROM draft WHERE business_day_id = ?`).get(day.id) as {
+        n: number
+      }
+    ).n
+    const journalCount = (
+      this.db
+        .prepare(`SELECT COUNT(*) AS n FROM journal WHERE business_day_id = ?`)
+        .get(day.id) as {
         n: number
       }
     ).n
@@ -143,7 +151,8 @@ export class BusinessDayRepo {
       today: localCalendarDate(),
       previousClosedStartDate: previousClosed?.start_date ?? null,
       finishedTxnCount,
-      draftCount
+      draftCount,
+      journalCount
     })
 
     if (next !== day.startDate) {
@@ -154,8 +163,8 @@ export class BusinessDayRepo {
 
   /**
    * Approve the Rollover: freeze the live projection as the next day's Opening Stock,
-   * wipe the closing day's transactional data, close it, and open the next Business Day
-   * with the explicit `nextStartDate` (YYYY-MM-DD) from the UI.
+   * wipe the closing day's transactional data and Journals, close it, and open the next
+   * Business Day with the explicit `nextStartDate` (YYYY-MM-DD) from the UI.
    * Requires a fresh EOD export matching the current ledger generation.
    * Returns the newly opened day.
    */
@@ -168,6 +177,7 @@ export class BusinessDayRepo {
     const startDate = resolveNextBusinessDayStartDate(nextStartDate, day.startDate, localToday())
 
     const tx = this.db.transaction(() => {
+      this.db.prepare(`DELETE FROM journal WHERE business_day_id = ?`).run(day.id)
       this.db
         .prepare(
           `DELETE FROM txn_line WHERE txn_id IN (SELECT id FROM txn WHERE business_day_id = ?)`

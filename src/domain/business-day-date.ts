@@ -75,6 +75,8 @@ export interface PlanUpdateOpenStartDateArgs {
   finishedTxnCount: number
   /** Draft row count for the open day. */
   draftCount: number
+  /** Journal row count for the open day (voided included). */
+  journalCount: number
 }
 
 /**
@@ -83,12 +85,16 @@ export interface PlanUpdateOpenStartDateArgs {
  *
  * Rules:
  * - Block when any finished txn exists
+ * - Block when any Journal exists (including voided)
  * - Block when any Draft exists (clear Drafts first)
  * - Date: ≥ today; > previous closed startDate when known
  */
 export function planUpdateOpenStartDate(args: PlanUpdateOpenStartDateArgs): string {
   if (args.finishedTxnCount > 0) {
     throw new Error('Cannot change the Business Day date after finished transactions exist')
+  }
+  if (args.journalCount > 0) {
+    throw new Error('Cannot change the Business Day date after Journals exist.')
   }
   if (args.draftCount > 0) {
     throw new Error('Clear Drafts before changing the Business Day date')
