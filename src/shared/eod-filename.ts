@@ -3,8 +3,8 @@
  * validate the write path without `require('exceljs')`.
  *
  * ExcelJS is renderer-bundled. Main only writes the bytes. Pulling ExcelJS into
- * main made the Windows asar need nested `util-deprecate` (pnpm + electron-builder
- * 26.8.1 drops it) and the installed app crashed on launch (#187).
+ * main made the Windows asar need nested `util-deprecate`, and the installed app
+ * crashed on launch (#187).
  */
 
 /**
