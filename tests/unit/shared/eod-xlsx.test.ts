@@ -1,11 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import ExcelJS from 'exceljs'
-import {
-  buildEodReportXlsx,
-  eodReportFilename,
-  EOD_SHEET_NAMES,
-  type EodSheetName
-} from '@shared/eod-xlsx'
+import { eodReportFilename } from '@shared/eod-filename'
+import { buildEodReportXlsx, EOD_SHEET_NAMES, type EodSheetName } from '@shared/eod-xlsx'
 import type { BusinessDay, InventoryRow, Txn, TxnLine } from '@domain/transaction'
 
 function stubLine(partial: Partial<TxnLine> & Pick<TxnLine, 'id' | 'productName'>): TxnLine {

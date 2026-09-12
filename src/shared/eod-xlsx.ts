@@ -31,8 +31,6 @@ import {
 } from '@domain/transaction'
 import { gToKg, paiseToRupees, stockGToDefaultBags } from '@domain/units'
 
-export { eodReportFilename, EOD_REPORT_FILENAME_RE } from './eod-filename'
-
 /** Fixed sheet names — pinned by unit tests. */
 export const EOD_SHEET_NAMES = [
   'Summary',
