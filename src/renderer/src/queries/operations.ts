@@ -8,7 +8,8 @@ import {
 import type { BusinessDay, InventoryRow, Txn } from '@domain/transaction'
 import type { AppSettings } from '@domain/settings'
 import type { EodExportResult } from '@shared/api'
-import { buildEodReportXlsx, eodReportFilename } from '@shared/eod-xlsx'
+import { eodReportFilename } from '@shared/eod-filename'
+import { buildEodReportXlsx } from '@shared/eod-xlsx'
 
 const KEYS = {
   inventory: ['inventory'] as const,

@@ -9,7 +9,7 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import type { EodExportResult } from '../shared/api'
-import { EOD_REPORT_FILENAME_RE } from '../shared/eod-xlsx'
+import { EOD_REPORT_FILENAME_RE } from '../shared/eod-filename'
 
 export type { EodExportResult }
 
