@@ -1,38 +1,11 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
+import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
+import { dismissAutoPicker, goHome, openManagement, seedProduct } from './helpers'
 
 /**
  * High-value Draft path: park an unfinished Sale, do other work, resume, finish.
  * Inventory must not move while drafted; Finish commits a normal Sale and drops the Draft.
  */
-
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function openManagement(page: Page, name: string): Promise<void> {
-  await page
-    .getByTestId('management-links')
-    .getByRole('link', { name: new RegExp(`^${name}`) })
-    .click()
-}
-
-async function seedProduct(page: Page): Promise<void> {
-  await openManagement(page, 'Product Master')
-  await page.getByTestId('add-product-btn').click()
-  await expect(page.getByTestId('product-dialog')).toBeVisible()
-  await page.getByTestId('product-name-input').fill('Moong Dal')
-  await page.getByTestId('product-group-combobox').fill('Dal')
-  // Wait for the bag-size control to settle after group combobox layout.
-  const bagSize = page.getByTestId('product-bag-size-select')
-  await expect(bagSize).toBeVisible()
-  await bagSize.click()
-  await page.getByRole('option', { name: '50 kg' }).click()
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-  await goHome(page)
-}
 
 async function purchaseStock(page: Page): Promise<void> {
   await page.getByTestId('open-credit-purchase').click()
@@ -51,7 +24,7 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
 }) => {
   test.setTimeout(90_000)
 
-  await seedProduct(page)
+  await seedProduct(page, { name: 'Moong Dal' })
   await purchaseStock(page)
 
   // Inventory after purchase: 4 bags.
@@ -110,7 +83,7 @@ test('park Sale Draft → other work → resume → finish; inventory waits for 
 test('Save Draft blocked without counterparty', async ({ page }) => {
   test.setTimeout(60_000)
 
-  await seedProduct(page)
+  await seedProduct(page, { name: 'Moong Dal' })
   await page.getByTestId('open-cash-sale').click()
   // Walk-in is default (optional fields). Switch to Customer Master with no pick.
   await expect(page.getByTestId('sale-counterparty-mode')).toContainText('Walk in')

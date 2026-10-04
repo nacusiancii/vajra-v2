@@ -1,37 +1,15 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
-import type { Page } from '@playwright/test'
+import { test, expect } from './fixtures'
+import { dismissAutoPicker, openManagement, seedCustomer } from './helpers'
 
 /**
  * Receipt settlement model: cashier enters Cash, UPI, and discount ₹.
  * Covers create (with discount) and edit round-trip of the discount amount.
  */
 
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function openManagement(page: Page, name: string): Promise<void> {
-  await page
-    .getByTestId('management-links')
-    .getByRole('link', { name: new RegExp(`^${name}`) })
-    .click()
-}
-
-async function addCustomer(page: Page, name: string, place: string): Promise<void> {
-  await openManagement(page, 'Customer Master')
-  await page.getByTestId('add-customer-btn').click()
-  await page.getByTestId('customer-name-input').fill(name)
-  await page.getByTestId('customer-place-combobox').fill(place)
-  await page.getByTestId('customer-submit').click()
-  await expect(page.getByTestId('customer-dialog')).not.toBeVisible()
-  await goHome(page)
-}
-
 test('receipt cash + UPI + discount stores and edits round-trip', async ({ page }) => {
   test.setTimeout(60_000)
 
-  await addCustomer(page, 'Lakshmi Traders', 'Guntur')
+  await seedCustomer(page, { name: 'Lakshmi Traders', place: 'Guntur' })
 
   // ── Create Receipt: ₹700 cash + ₹200 UPI + ₹100 discount ──
   await page.getByTestId('secondary-actions').getByRole('link', { name: 'Receipt' }).click()
@@ -79,7 +57,7 @@ test('receipt cash + UPI + discount stores and edits round-trip', async ({ page 
 })
 
 test('receipt rejects all-zero entry', async ({ page }) => {
-  await addCustomer(page, 'Zero Check', 'Tenali')
+  await seedCustomer(page, { name: 'Zero Check', place: 'Tenali' })
 
   await page.getByTestId('secondary-actions').getByRole('link', { name: 'Receipt' }).click()
   await dismissAutoPicker(page)

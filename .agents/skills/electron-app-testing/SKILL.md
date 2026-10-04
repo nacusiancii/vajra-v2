@@ -43,6 +43,21 @@ test('something works', async ({ page }) => {
 
 The fixture provides `electronApp` and `page`. You write assertions against `page`.
 
+Steps that nearly every counter flow repeats live once in `tests/smoke/helpers.ts`:
+`goHome`, `openManagement`, `seedProduct`, `seedCustomer`, `dismissAutoPicker`. Import
+them instead of re-declaring a local copy in the spec; when the UI shifts, fix them there.
+
+```ts
+import { test, expect } from './fixtures'
+import { seedProduct, seedCustomer } from './helpers'
+
+test('credit sale', async ({ page }) => {
+  await seedProduct(page, { name: 'Toor Dal' }) // Dal group, 50 kg bag by default
+  await seedCustomer(page, { name: 'Ravi Kumar', place: 'Guntur', phone: '9876543210' })
+  // ...
+})
+```
+
 ## Principles
 
 1. **Build before test.** Always test the production bundle, not the dev server. The smoke scripts handle this.
@@ -88,7 +103,7 @@ as part of smoke, and it imports `fixtures.ts` unchanged.
 ## Adding a new smoke test
 
 1. Add to the spec for that flow (e.g. `sale-draft.spec.ts`), or create `tests/smoke/<flow>.spec.ts` for a new one. `app-shell.spec.ts` is only for the shell itself (window, Home, Settings, navigation).
-2. Import from `./fixtures`.
+2. Import `test`/`expect` from `./fixtures` and shared steps from `./helpers`.
 3. Write the test against `page` — use Playwright locators.
 4. Add `data-testid` attributes to Vue templates if needed for stable selectors.
 5. Run `pnpm test:smoke:headless` to verify (or `pnpm test:smoke` if you want to watch the UI).
@@ -106,6 +121,7 @@ Avoid: CSS selectors, XPath, or anything that couples to implementation structur
 ## Checklist for new test files
 
 - [ ] Uses fixture import, not raw `@playwright/test`
+- [ ] Reuses `./helpers` rather than declaring its own `goHome` / `seedProduct` copy
 - [ ] Does not launch Electron manually
 - [ ] Assertions target visible behavior
 - [ ] No hardcoded waits (`waitForTimeout`) — use Playwright auto-waiting

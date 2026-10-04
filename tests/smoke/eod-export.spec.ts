@@ -1,5 +1,6 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
+import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
+import { dismissAutoPicker, openManagement, seedProduct } from './helpers'
 import ExcelJS from 'exceljs'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -14,30 +15,6 @@ import path from 'node:path'
  * Electron note: export is no longer a browser download. Main writes under
  * VAJRA_EOD_EXPORT_DIR (set by the smoke fixture to a temp tree).
  */
-
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function openManagement(page: Page, name: string): Promise<void> {
-  await page
-    .getByTestId('management-links')
-    .getByRole('link', { name: new RegExp(`^${name}`) })
-    .click()
-}
-
-async function seedProduct(page: Page): Promise<void> {
-  await openManagement(page, 'Product Master')
-  await page.getByTestId('add-product-btn').click()
-  await page.getByTestId('product-name-input').fill('Toor Dal')
-  await page.getByTestId('product-group-combobox').fill('Dal')
-  await page.getByTestId('product-bag-size-select').click()
-  await page.getByRole('option', { name: '50 kg' }).click()
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-  await goHome(page)
-}
 
 async function creditPurchase(page: Page): Promise<void> {
   await page.getByTestId('open-credit-purchase').click()
@@ -90,7 +67,7 @@ test('Rollover Export Report writes *_eod_report.xlsx with expected sheets', asy
   const exportDir = await electronApp.evaluate(() => process.env.VAJRA_EOD_EXPORT_DIR)
   expect(exportDir, 'smoke fixture must set VAJRA_EOD_EXPORT_DIR').toBeTruthy()
 
-  await seedProduct(page)
+  await seedProduct(page, { name: 'Toor Dal' })
   await creditPurchase(page)
   await cashSale(page)
 

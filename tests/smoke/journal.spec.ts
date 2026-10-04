@@ -1,23 +1,12 @@
 import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
+import { goHome, openManagement, seedCustomer } from './helpers'
 
 /**
  * Journal is a day-scoped side-record: enter via hash (no Home button in this PR),
  * list on Transactions & Records, void-chain Edit / cancel, wipe at Rollover.
  * Isolation: drawer, inventory, and ledger_generation must not move.
  */
-
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function openManagement(page: Page, name: string): Promise<void> {
-  await page
-    .getByTestId('management-links')
-    .getByRole('link', { name: new RegExp(`^${name}`) })
-    .click()
-}
 
 async function openJournal(page: Page): Promise<void> {
   await page.evaluate(() => {
@@ -32,18 +21,6 @@ async function recordJournal(page: Page, party: string, amount: string): Promise
   await page.getByTestId('journal-debit-amount').fill(amount)
   await page.getByTestId('journal-finish').click()
   await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function seedCustomer(page: Page, name: string, place: string): Promise<void> {
-  await openManagement(page, 'Customer Master')
-  await page.getByTestId('add-customer-btn').click()
-  await expect(page.getByTestId('customer-dialog')).toBeVisible()
-  await page.getByTestId('customer-name-input').fill(name)
-  await page.getByTestId('customer-place-combobox').fill(place)
-  await page.getByTestId('customer-submit').click()
-  await expect(page.getByTestId('customer-dialog')).not.toBeVisible()
-  await expect(page.getByTestId('customer-row')).toContainText(name)
-  await goHome(page)
 }
 
 async function deleteCustomerFromMaster(page: Page, name: string): Promise<void> {
@@ -169,7 +146,7 @@ test('Rollover hides the date editor, names Journals, and wipes them', async ({ 
 })
 
 test('typing a Customer name without picking does not attach an id', async ({ page }) => {
-  await seedCustomer(page, 'Ravi', 'Guntur')
+  await seedCustomer(page, { name: 'Ravi', place: 'Guntur' })
   await openJournal(page)
   await page.getByTestId('journal-debit-name').fill('Ravi')
   await expect(page.getByTestId('journal-debit-name-option')).toBeVisible()
@@ -186,7 +163,7 @@ test('typing a Customer name without picking does not attach an id', async ({ pa
 })
 
 test('picking a Customer still allows delete; snapshot name remains', async ({ page }) => {
-  await seedCustomer(page, 'Ravi', 'Guntur')
+  await seedCustomer(page, { name: 'Ravi', place: 'Guntur' })
   await openJournal(page)
   await page.getByTestId('journal-debit-name').fill('Ravi')
   const option = page.getByTestId('journal-debit-name-option')
@@ -204,7 +181,7 @@ test('picking a Customer still allows delete; snapshot name remains', async ({ p
 })
 
 test('editing a picked party off the Customer name still records', async ({ page }) => {
-  await seedCustomer(page, 'Ravi', 'Guntur')
+  await seedCustomer(page, { name: 'Ravi', place: 'Guntur' })
   await openJournal(page)
   await page.getByTestId('journal-debit-name').fill('Ravi')
   await expect(page.getByTestId('journal-debit-name-option')).toBeVisible()

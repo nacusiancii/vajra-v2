@@ -1,28 +1,12 @@
 import { test, expect } from './fixtures'
 import type { Locator, Page } from '@playwright/test'
+import { seedProduct } from './helpers'
 
 /**
  * High-value cashier paths for NumericField (issue #21 / #108):
  * replace-all on keyboard/programmatic focus, click-to-place caret,
  * intermediate strings, qty 1dp, invalid blur revert.
  */
-
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function seedBulkProduct(page: Page): Promise<void> {
-  await page.getByTestId('management-links').getByText('Product Master').click()
-  await page.getByTestId('add-product-btn').click()
-  await page.getByTestId('product-name-input').fill('Numeric Dal')
-  await page.getByTestId('product-group-combobox').fill('Dal')
-  await page.getByTestId('product-bag-size-select').click()
-  await page.getByRole('option', { name: '50 kg' }).click()
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-  await goHome(page)
-}
 
 async function openCashSaleCart(page: Page): Promise<void> {
   await page.getByTestId('open-cash-sale').click()
@@ -56,7 +40,7 @@ test('money field: replace-all retype commits intended amount (no 2000→0→3 j
   page
 }) => {
   test.setTimeout(60_000)
-  await seedBulkProduct(page)
+  await seedProduct(page, { name: 'Numeric Dal' })
   await openCashSaleCart(page)
 
   const rate = page.getByTestId('cart-rate')
@@ -84,7 +68,7 @@ test('money field: replace-all retype commits intended amount (no 2000→0→3 j
 
 test('money field: mouse click places caret (no select-all)', async ({ page }) => {
   test.setTimeout(60_000)
-  await seedBulkProduct(page)
+  await seedProduct(page, { name: 'Numeric Dal' })
   await openCashSaleCart(page)
 
   const rate = page.getByTestId('cart-rate')
@@ -116,7 +100,7 @@ test('money field: mouse click places caret (no select-all)', async ({ page }) =
 
 test('money field: Tab focus still selects all', async ({ page }) => {
   test.setTimeout(60_000)
-  await seedBulkProduct(page)
+  await seedProduct(page, { name: 'Numeric Dal' })
   await openCashSaleCart(page)
 
   const qty = page.getByTestId('cart-qty')
@@ -144,7 +128,7 @@ test('money field: Tab focus still selects all', async ({ page }) => {
 
 test('qty field: 3.7 commits and drives line math', async ({ page }) => {
   test.setTimeout(60_000)
-  await seedBulkProduct(page)
+  await seedProduct(page, { name: 'Numeric Dal' })
   await openCashSaleCart(page)
 
   // Loose line: qty is kg, rate is ₹/kg
@@ -164,7 +148,7 @@ test('qty field: 3.7 commits and drives line math', async ({ page }) => {
 
 test('invalid blur reverts money field to last good value', async ({ page }) => {
   test.setTimeout(60_000)
-  await seedBulkProduct(page)
+  await seedProduct(page, { name: 'Numeric Dal' })
   await openCashSaleCart(page)
 
   const rate = page.getByTestId('cart-rate')
