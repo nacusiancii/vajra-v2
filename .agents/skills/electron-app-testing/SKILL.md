@@ -52,7 +52,36 @@ The fixture provides `electronApp` and `page`. You write assertions against `pag
 5. **Smoke protects counter flows, not edge cases.** Multi-step cashier paths (seed a product → purchase → sell → check Inventory, park/resume a Draft, settle a Receipt, export EOD) belong here, driven through the UI end-to-end and asserting what the shopkeeper sees. This is where `AGENTS.md` sends them — don't push them down into unit tests. Variations, validation edge cases, and pure money/stock rules belong in light unit tests under `tests/unit/`. Each test boots its own Electron, so tests are not free: extend the flow's existing spec rather than add a near-duplicate, and raise `test.setTimeout` only for genuinely long flows. Keep the whole suite around a minute on CI's 4 workers; if it creeps well past that, consolidate before adding more.
 6. **Collect artifacts on failure.** Playwright config enables screenshots on failure and traces on retry. Check `test-results/artifacts/` after a red run.
 7. **Handle Linux sandbox.** The fixture sets `ELECTRON_DISABLE_SANDBOX=1` so tests run on Linux without `--no-sandbox` flags leaking into production code.
-8. **Prefer headless.** Use `:headless` so Electron windows do not flash. Use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows. On Wayland desktops, headless must unset `WAYLAND_DISPLAY` and force X11 (`GDK_BACKEND` / `--ozone-platform=x11`); Xvfb alone is not enough.
+8. **Prefer headless.** Use `:headless` so Electron windows do not flash. Use non-headless only to watch the UI while debugging. Do not reach for Docker just to hide windows. On Wayland desktops, headless must unset `WAYLAND_DISPLAY` and force X11 (`GDK_BACKEND` / `--ozone-platform=x11`); Xvfb alone is not enough. The wrapper also pins the Xvfb screen to 1366x768 and `GDK_SCALE=1`: xvfb-run's default screen differs per distro (Arch is 640x480) and HiDPI sessions export `GDK_SCALE=2`, and either one shrinks the viewport until dialog buttons fall outside it and clicks time out. Override the screen with `VAJRA_XVFB_SCREEN=WxHxD`.
+
+## Seeing a route: `pnpm screenshot`
+
+Agents can ship UI changes but cannot see them. The screenshot harness boots the built app
+on the same fixture the smoke suite uses, opens a route, and writes a PNG you can `Read()`:
+
+```bash
+pnpm screenshot /sale                 # → screenshots/sale.png
+pnpm screenshot / /settings /rollover # one build, one PNG per route
+VAJRA_SKIP_BUILD=1 pnpm screenshot /journal   # reuse out/ when only re-looking
+```
+
+- Output: `screenshots/<slug>.png` at repo root (gitignored). `/` → `home.png`;
+  `/sale?mode=credit` → `sale-mode-credit.png`. Same route overwrites, so the path is
+  predictable and nothing accumulates. The absolute path is printed on success.
+- Headless under Xvfb when `xvfb-run` exists (same wrapper as `test:smoke:headless`);
+  otherwise it warns and opens a visible window briefly.
+- Window content is pinned to 1366x768 (shop laptop); capture is full-page so tall carts are
+  not cut off. Override with `VAJRA_SCREENSHOT_VIEWPORT=WxH`.
+- Readiness: waits for the view root (`data-testid` ending in `-page`) and web fonts. For a
+  route or dialog without one, pass `VAJRA_SCREENSHOT_WAIT=<testid>`.
+- State is a fresh, empty user data dir — exactly what the smoke fixture gives. Seeded
+  states (an open cart, a slip preview) are not in scope yet; for those, write an opt-in
+  smoke spec that navigates and calls `page.screenshot()` (see the #115 prototype notes in
+  issue #106).
+
+Files: `scripts/screenshot.sh` → `playwright.screenshot.config.ts` →
+`tests/screenshot/screenshot.spec.ts`. The spec lives outside `tests/smoke/` so it never runs
+as part of smoke, and it imports `fixtures.ts` unchanged.
 
 ## Adding a new smoke test
 
