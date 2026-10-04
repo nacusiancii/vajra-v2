@@ -30,8 +30,7 @@ Write `../vajra-grok-<task>/.grok-brief.md` by filling this template:
 # Sources
 
 - Issue #N (body + comments; newest wins): <paste decisions>
-- Read AGENTS.md + CONTEXT.md
-- Landmines: money = integer paise; mass = grams
+- Read AGENTS.md (code map & invariants — the landmines live there) + CONTEXT.md
 - Deps already installed — do NOT run pnpm install
 
 # Do

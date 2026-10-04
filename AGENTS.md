@@ -30,6 +30,19 @@ And most importantly, if you do end up touching code, leave it in a better state
 
 Before considering a change done, run **`pnpm fix`** (lint:fix + format only), then push and let CI verify. CI runs on every push — watch with `gh run watch` / `gh pr checks --watch`. Reserve `pnpm verify` / `pnpm test:smoke` for local debugging when you can't rely on CI.
 
+## Code map & invariants
+
+Layers, top to bottom (full tree in [README → Project structure](./README.md#project-structure)):
+`src/domain/` pure types + rules → `src/shared/` typed IPC contract → `src/main/` Electron main + SQLite repositories → `src/preload/` context bridge → `src/renderer/` Vue 3 app.
+
+Rules that break silently if you don't know them:
+
+- **Money is integer paise; mass is integer grams.** Rupees and kg exist only at the UI boundary — convert with the helpers in `src/domain/units.ts`. No float money in the ledger (ADR-0006).
+- **Domain stays pure.** `src/domain/` imports nothing from Electron, Node, SQLite, or the other layers. Convention, not lint-enforced — keep it that way.
+- **The IPC contract is one file.** Every renderer→main call is a method on `VajraApi` in `src/shared/api.ts`; preload exposes it, main implements it. Change the contract first, then both sides.
+- **Inventory is a projection, never stored.** `projectInventory` in `src/domain/transaction.ts` replays the day's ledger over Opening Stock (ADR-0005). Never persist a current-stock column.
+- **Bumping `SCHEMA_VERSION` wipes the database.** `src/main/db.ts` recreates any older `user_version` from scratch — no migrations during alpha. Bump only on a schema change, and say so in the PR.
+
 ## Agent skills
 
 ### Issue tracker
