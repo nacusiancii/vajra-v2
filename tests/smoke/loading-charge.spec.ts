@@ -1,5 +1,6 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
+import { test, expect } from './fixtures'
 import type { Page } from '@playwright/test'
+import { dismissAutoPicker, goHome, openManagement, seedProduct } from './helpers'
 
 /**
  * End-to-end Loading Charge flow with weight breakpoints.
@@ -8,35 +9,6 @@ import type { Page } from '@playwright/test'
  * live total, slip, cash drawer, inventory (stock unaffected by loading money).
  * Also covers a Loose cart line on a Sale.
  */
-
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function openManagement(page: Page, name: string): Promise<void> {
-  await page
-    .getByTestId('management-links')
-    .getByRole('link', { name: new RegExp(`^${name}`) })
-    .click()
-}
-
-async function addBulkProduct(
-  page: Page,
-  name: string,
-  group: string,
-  bagSizeLabel: string
-): Promise<void> {
-  await openManagement(page, 'Product Master')
-  await page.getByTestId('add-product-btn').click()
-  await page.getByTestId('product-name-input').fill(name)
-  await page.getByTestId('product-group-combobox').fill(group)
-  await page.getByTestId('product-bag-size-select').click()
-  await page.getByRole('option', { name: bagSizeLabel }).click()
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-  await goHome(page)
-}
 
 /**
  * Configure breakpoints: index 0 = ≤10kg, index 1 = ≤30kg, plus above-last.
@@ -87,7 +59,7 @@ test('loading charge: settings → sale total → slip → cash drawer', async (
 
   // Defaults: ≤10 → ₹0, ≤30 → ₹10, above → ₹12. 50kg bag → ₹12 each.
   await configureLoadingDefaults(page)
-  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  await seedProduct(page, { name: 'Toor Dal' })
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
   await startWalkinSale(page, 'Loading Customer', 'Guntur')
@@ -138,7 +110,7 @@ test('loading charge uses bag weight breakpoints, not bag-type table', async ({ 
   test.setTimeout(90_000)
 
   await configureLoadingDefaults(page)
-  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  await seedProduct(page, { name: 'Toor Dal' })
   await purchaseBulk(page, 'Toor Dal', '6000', '20')
 
   await startWalkinSale(page, 'Bag Split', 'Vijayawada')
@@ -171,7 +143,7 @@ test('loading charge zero band until weight exceeds 10 kg', async ({ page }) => 
   test.setTimeout(60_000)
 
   await configureLoadingDefaults(page)
-  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  await seedProduct(page, { name: 'Toor Dal' })
   // Purchase enough for loose later; still need bag purchase for stock
   await purchaseBulk(page, 'Toor Dal', '6000', '5')
 
@@ -204,7 +176,7 @@ test('edit keeps loading opt-in when stored charge is ₹0 (free band)', async (
   test.setTimeout(90_000)
 
   await configureLoadingDefaults(page)
-  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  await seedProduct(page, { name: 'Toor Dal' })
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
   await startWalkinSale(page, 'Free Band Edit', 'Guntur')
@@ -245,7 +217,7 @@ test('loose line: kg × price/kg total, stock delta, loading by total kg', async
   test.setTimeout(90_000)
 
   await configureLoadingDefaults(page)
-  await addBulkProduct(page, 'Toor Dal', 'Dal', '50 kg')
+  await seedProduct(page, { name: 'Toor Dal' })
   await purchaseBulk(page, 'Toor Dal', '6000', '10')
 
   await startWalkinSale(page, 'Loose Customer', 'Guntur')

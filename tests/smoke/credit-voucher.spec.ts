@@ -1,4 +1,5 @@
 import { test, expect } from './fixtures'
+import { goHome, seedCustomer, seedProduct } from './helpers'
 
 /**
  * Credit Sale finish prints Sale Invoice + Credit Voucher together.
@@ -14,26 +15,13 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   await page.getByTestId('company-name-input').fill('Sri Venkateswara Traders')
   await page.getByTestId('settings-save').click()
   await expect(page.getByTestId('settings-saved')).toBeVisible()
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
+  await goHome(page)
 
   // A Bulk product to sell.
-  await page.getByTestId('management-links').getByText('Product Master').click()
-  await page.getByTestId('add-product-btn').click()
-  await page.getByTestId('product-name-input').fill('Toor Dal')
-  await page.getByTestId('product-group-combobox').fill('Dal')
-  await page.getByTestId('product-bag-size-select').click()
-  await page.getByRole('option', { name: '50 kg' }).click()
-  await page.getByTestId('product-submit').click()
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
+  await seedProduct(page, { name: 'Toor Dal' })
 
   // A customer with a phone (Credit Sales require one).
-  await page.getByTestId('management-links').getByText('Customer Master').click()
-  await page.getByTestId('add-customer-btn').click()
-  await page.getByTestId('customer-name-input').fill('Ravi Kumar')
-  await page.getByTestId('customer-place-combobox').fill('Guntur')
-  await page.getByTestId('customer-phone-input').fill('9876543210')
-  await page.getByTestId('customer-submit').click()
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
+  await seedCustomer(page, { name: 'Ravi Kumar', place: 'Guntur', phone: '9876543210' })
 
   // ── Credit Sale ──
   await page.getByTestId('open-credit-sale').click()

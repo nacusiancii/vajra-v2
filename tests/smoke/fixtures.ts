@@ -1,4 +1,4 @@
-import { test as base, expect, type ElectronApplication, type Page } from '@playwright/test'
+import { test as base, type ElectronApplication, type Page } from '@playwright/test'
 import { _electron as electron } from '@playwright/test'
 import path from 'node:path'
 import fs from 'node:fs'
@@ -76,24 +76,3 @@ export const test = base.extend<Fixtures>({
 })
 
 export { expect } from '@playwright/test'
-
-/**
- * Dismiss an auto-opened EntityCombobox list and wait until its layer is gone.
- *
- * Two races to close:
- * 1. Auto-focus open is scheduled on nextTick. Escaping before the portal mounts
- *    is a no-op; openFilter then opens after this helper returns, so a follow-up
- *    input click races an exit animation ("element is not stable" / detached).
- * 2. Escape starts reka-ui's close animation. The search placeholder now lives
- *    on the always-visible input, so it is not a settle signal — wait for
- *    `[data-slot="popover-content"]` to detach fully (not a sleep).
- *
- * Wait for the layer to appear, Escape, then for full detach of the popover.
- */
-export async function dismissAutoPicker(page: Page): Promise<void> {
-  const content = page.locator('[data-slot="popover-content"]')
-  // Auto-open must finish before Escape is meaningful.
-  await expect(content).toBeVisible()
-  await page.keyboard.press('Escape')
-  await expect(content).toHaveCount(0)
-}

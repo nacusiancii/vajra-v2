@@ -1,5 +1,5 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
-import type { Page } from '@playwright/test'
+import { test, expect } from './fixtures'
+import { dismissAutoPicker, goHome, openManagement, seedProduct } from './helpers'
 
 /**
  * One narrative that exercises the whole transactional core end-to-end:
@@ -10,36 +10,11 @@ import type { Page } from '@playwright/test'
  * Home so the cashier can start the next action. Ledger checks open Transactions.
  */
 
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-/** Open a management card by its heading (the card's accessible name starts with it). */
-async function openManagement(page: Page, name: string): Promise<void> {
-  await page
-    .getByTestId('management-links')
-    .getByRole('link', { name: new RegExp(`^${name}`) })
-    .click()
-}
-
-async function addToorDal(page: Page): Promise<void> {
-  await page.getByTestId('management-links').getByText('Product Master').click()
-  await page.getByTestId('add-product-btn').click()
-  await page.getByTestId('product-name-input').fill('Toor Dal')
-  await page.getByTestId('product-group-combobox').fill('Dal')
-  await page.getByTestId('product-bag-size-select').click()
-  await page.getByRole('option', { name: '50 kg' }).click()
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-}
-
 test('catalog → purchase → sale → inventory → rollover', async ({ page }) => {
   // A long end-to-end narrative; needs more than the default 30s budget.
   test.setTimeout(90_000)
 
-  await addToorDal(page)
-  await goHome(page)
+  await seedProduct(page, { name: 'Toor Dal' })
 
   // ── Purchase 10 bags @ ₹6000/quintal on credit (stock-in, no drawer impact) ──
   await page.getByTestId('open-credit-purchase').click()

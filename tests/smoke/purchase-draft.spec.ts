@@ -1,44 +1,17 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
-import type { Page } from '@playwright/test'
+import { test, expect } from './fixtures'
+import { dismissAutoPicker, goHome, openManagement, seedProduct } from './helpers'
 
 /**
  * High-value Purchase Draft path: park unfinished Purchase, other work, resume, finish.
  * Inventory must not increase while drafted; Finish commits a normal Purchase and drops the Draft.
  */
 
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function openManagement(page: Page, name: string): Promise<void> {
-  await page
-    .getByTestId('management-links')
-    .getByRole('link', { name: new RegExp(`^${name}`) })
-    .click()
-}
-
-async function seedProduct(page: Page): Promise<void> {
-  await openManagement(page, 'Product Master')
-  await page.getByTestId('add-product-btn').click()
-  await expect(page.getByTestId('product-dialog')).toBeVisible()
-  await page.getByTestId('product-name-input').fill('Urad Dal')
-  await page.getByTestId('product-group-combobox').fill('Dal')
-  const bagSize = page.getByTestId('product-bag-size-select')
-  await expect(bagSize).toBeVisible()
-  await bagSize.click()
-  await page.getByRole('option', { name: '50 kg' }).click()
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-  await goHome(page)
-}
-
 test('park Purchase Draft → other work → resume → finish; inventory waits for Finish', async ({
   page
 }) => {
   test.setTimeout(90_000)
 
-  await seedProduct(page)
+  await seedProduct(page, { name: 'Urad Dal' })
 
   // Inventory starts at 0 for this product (catalog products show with Opening Stock).
   await openManagement(page, 'Inventory')
@@ -97,7 +70,7 @@ test('park Purchase Draft → other work → resume → finish; inventory waits 
 test('Save Purchase Draft blocked without counterparty', async ({ page }) => {
   test.setTimeout(60_000)
 
-  await seedProduct(page)
+  await seedProduct(page, { name: 'Urad Dal' })
   await page.getByTestId('open-cash-purchase').click()
   await dismissAutoPicker(page)
   await expect(page.getByTestId('purchase-save-draft')).toBeVisible()

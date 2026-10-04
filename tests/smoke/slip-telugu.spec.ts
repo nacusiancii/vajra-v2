@@ -1,5 +1,5 @@
-import { test, expect, dismissAutoPicker } from './fixtures'
-import type { Page } from '@playwright/test'
+import { test, expect } from './fixtures'
+import { dismissAutoPicker, goHome, seedCustomer, seedProduct } from './helpers'
 
 /**
  * ADR-0003 / #132: customer-facing Sale Invoice and Credit Voucher show Telugu
@@ -18,52 +18,10 @@ const NO_TE_CUSTOMER = 'Lakshmi Devi'
 const NO_TE_PLACE = 'Vijayawada'
 const NO_TE_PRODUCT = 'Urad Dal'
 
-async function goHome(page: Page): Promise<void> {
-  await page.getByRole('link', { name: /^Vajra$/ }).click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
-}
-
-async function seedProduct(page: Page, name: string, nameTe?: string): Promise<void> {
-  await page.getByTestId('management-links').getByText('Product Master').click()
-  await page.getByTestId('add-product-btn').click()
-  await page.getByTestId('product-name-input').fill(name)
-  await page.getByTestId('product-group-combobox').fill('Dal')
-  await page.getByTestId('product-bag-size-select').click()
-  await page.getByRole('option', { name: '50 kg' }).click()
-  if (nameTe) {
-    await page.getByTestId('product-name-te-input').fill(nameTe)
-  }
-  await page.getByTestId('product-submit').click()
-  await expect(page.getByTestId('product-dialog')).not.toBeVisible()
-  await goHome(page)
-}
-
-async function seedCustomer(
-  page: Page,
-  opts: { name: string; place: string; phone?: string; nameTe?: string; placeTe?: string }
-): Promise<void> {
-  await page.getByTestId('management-links').getByText('Customer Master').click()
-  await page.getByTestId('add-customer-btn').click()
-  await page.getByTestId('customer-name-input').fill(opts.name)
-  await page.getByTestId('customer-place-combobox').fill(opts.place)
-  if (opts.phone) {
-    await page.getByTestId('customer-phone-input').fill(opts.phone)
-  }
-  if (opts.nameTe) {
-    await page.getByTestId('customer-name-te-input').fill(opts.nameTe)
-  }
-  if (opts.placeTe) {
-    await page.getByTestId('customer-place-te-input').fill(opts.placeTe)
-  }
-  await page.getByTestId('customer-submit').click()
-  await expect(page.getByTestId('customer-dialog')).not.toBeVisible()
-  await goHome(page)
-}
-
 test('cash sale invoice shows Telugu for customer, place, and product', async ({ page }) => {
   test.setTimeout(60_000)
 
-  await seedProduct(page, PRODUCT_EN, PRODUCT_TE)
+  await seedProduct(page, { name: PRODUCT_EN, nameTe: PRODUCT_TE })
   await seedCustomer(page, {
     name: CUSTOMER_EN,
     place: PLACE_EN,
@@ -112,7 +70,7 @@ test('credit sale invoice and voucher show Telugu where seeded', async ({ page }
   await expect(page.getByTestId('settings-saved')).toBeVisible()
   await goHome(page)
 
-  await seedProduct(page, PRODUCT_EN, PRODUCT_TE)
+  await seedProduct(page, { name: PRODUCT_EN, nameTe: PRODUCT_TE })
   await seedCustomer(page, {
     name: CUSTOMER_EN,
     place: PLACE_EN,
@@ -166,7 +124,7 @@ test('masters without Telugu still show English on invoice and voucher', async (
   await goHome(page)
 
   // No Telugu translations on product or customer.
-  await seedProduct(page, NO_TE_PRODUCT)
+  await seedProduct(page, { name: NO_TE_PRODUCT })
   await seedCustomer(page, {
     name: NO_TE_CUSTOMER,
     place: NO_TE_PLACE,
