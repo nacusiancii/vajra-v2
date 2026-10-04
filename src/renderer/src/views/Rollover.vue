@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { useQueryClient } from '@tanstack/vue-query'
 import { useRouter } from 'vue-router'
 import { Download, RefreshCcw } from '@lucide/vue'
 import { Button } from '@/components/ui/button'
@@ -28,9 +27,9 @@ import {
   useInventoryQuery,
   useBusinessDayQuery,
   useApproveRollover,
+  useExportEodReport,
   useUpdateOpenBusinessDayStartDate
 } from '@/queries/operations'
-import { exportEodReport } from '@/lib/eod-report'
 import { showToast } from '@/lib/toast'
 import { formatRupees, formatStockQty } from '@/lib/format'
 import { userFacingError } from '@/lib/utils'
@@ -43,7 +42,6 @@ import {
 } from '@domain/business-day'
 
 const router = useRouter()
-const queryClient = useQueryClient()
 const { data: day } = useBusinessDayQuery()
 const { data: transactions } = useTransactionsQuery()
 const { data: inventory } = useInventoryQuery()
@@ -51,6 +49,7 @@ const { data: drafts } = useDraftsQuery()
 const { data: dayEntries, isLoading: dayEntriesLoading } = useDayEntriesQuery()
 const approveRollover = useApproveRollover()
 const updateOpenStartDate = useUpdateOpenBusinessDayStartDate()
+const exportEod = useExportEodReport()
 
 const confirmOpen = ref(false)
 const exporting = ref(false)
@@ -106,9 +105,12 @@ async function exportReport(): Promise<void> {
   if (!day.value || exporting.value) return
   exporting.value = true
   try {
-    const result = await exportEodReport(day.value, txns.value, inv.value)
+    const result = await exportEod.mutateAsync({
+      day: day.value,
+      txns: txns.value,
+      inventory: inv.value
+    })
     if (result.ok) {
-      await queryClient.invalidateQueries({ queryKey: ['businessDay'] })
       const parts = result.path.split(/[/\\]/).filter(Boolean)
       const label =
         parts.length >= 2 ? `${parts[parts.length - 2]}/${parts[parts.length - 1]}` : result.path

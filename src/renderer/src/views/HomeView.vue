@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { useQueryClient } from '@tanstack/vue-query'
 import { RouterLink, useRouter } from 'vue-router'
 import {
   Banknote,
@@ -28,8 +27,7 @@ import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { useClearDraft, useDraftsQuery, useTransactionsQuery } from '@/queries/transactions'
 import { useDayEntriesQuery } from '@/queries/journals'
-import { useBusinessDayQuery, useInventoryQuery } from '@/queries/operations'
-import { exportEodReport } from '@/lib/eod-report'
+import { useBusinessDayQuery, useExportEodReport, useInventoryQuery } from '@/queries/operations'
 import { formatRupees } from '@/lib/format'
 import { showToast } from '@/lib/toast'
 import { txnCounterparty, txnEditPath } from '@/lib/txn-edit'
@@ -38,7 +36,6 @@ import { displayJournalSerial, type Journal } from '@domain/journal'
 import type { Draft } from '@domain/draft'
 
 const router = useRouter()
-const queryClient = useQueryClient()
 const { data: transactions } = useTransactionsQuery()
 const { data: dayEntries } = useDayEntriesQuery()
 const { data: day } = useBusinessDayQuery()
@@ -46,6 +43,7 @@ const { data: inventory } = useInventoryQuery()
 /** Sale + Purchase Drafts share one pool; list both on Home (ADR-0010). */
 const { data: allDrafts } = useDraftsQuery()
 const clearDraft = useClearDraft()
+const exportEod = useExportEodReport()
 /** Live tips only — voided txns and journals stay on the full day-list, not Recent. */
 const recent = computed(() =>
   (dayEntries.value ?? [])
@@ -61,9 +59,12 @@ async function exportDayReport(): Promise<void> {
   if (!day.value || exporting.value) return
   exporting.value = true
   try {
-    const result = await exportEodReport(day.value, transactions.value ?? [], inventory.value ?? [])
+    const result = await exportEod.mutateAsync({
+      day: day.value,
+      txns: transactions.value ?? [],
+      inventory: inventory.value ?? []
+    })
     if (result.ok) {
-      await queryClient.invalidateQueries({ queryKey: ['businessDay'] })
       const parts = result.path.split(/[/\\]/).filter(Boolean)
       const label =
         parts.length >= 2 ? `${parts[parts.length - 2]}/${parts[parts.length - 1]}` : result.path

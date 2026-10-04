@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import NumericField from '@/components/NumericField.vue'
 import JournalNameField, { type JournalNameValue } from '@/components/journal/JournalNameField.vue'
-import { useCreateJournal, useEditJournal } from '@/queries/journals'
+import { fetchJournal, useCreateJournal, useEditJournal } from '@/queries/journals'
 import { userFacingError } from '@/lib/utils'
 import { CreateJournalSchema } from '@domain/journal'
 
@@ -78,7 +78,7 @@ watch(
     if (id == null) return
     refused.value = false
     error.value = null
-    const journal = await window.api.getJournal(id)
+    const journal = await fetchJournal(id)
     if (!journal || journal.voided) {
       refused.value = true
       error.value = 'This Journal cannot be edited.'

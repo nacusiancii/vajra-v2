@@ -23,6 +23,14 @@ const KEYS = {
   dayEntries: ['dayEntries'] as const
 }
 
+/**
+ * One-shot read for edit prefill. Not cached: a Txn is immutable once written
+ * (ADR-0007 edits void and append), so the form wants the row as-is, once.
+ */
+export function fetchTransaction(id: string): Promise<Txn | null> {
+  return window.api.getTransaction(id)
+}
+
 export function useTransactionsQuery(): UseQueryReturnType<Txn[], Error> {
   return useQuery({
     queryKey: KEYS.transactions,
@@ -153,6 +161,11 @@ export function useEditMoneyTxn(): UseMutationReturnType<
 
 function invalidateDrafts(qc: ReturnType<typeof useQueryClient>): void {
   void qc.invalidateQueries({ queryKey: KEYS.drafts })
+}
+
+/** One-shot read for resuming a Draft into the cart. */
+export function fetchDraft(id: number): Promise<Draft | null> {
+  return window.api.getDraft(id)
 }
 
 export function useDraftsQuery(type?: DraftType): UseQueryReturnType<Draft[], Error> {
