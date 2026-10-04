@@ -66,6 +66,7 @@ locally (4 in CI) — override with `PLAYWRIGHT_WORKERS=<n>` or
 - `pnpm test:report` — EOD XLSX report builder tests (CI job `report`; no Electron)
 - `pnpm test:smoke` — build + Playwright smoke (visible Electron windows; agents should not run smoke locally)
 - `pnpm test:smoke:headless` — same, under Xvfb (no window flash)
+- `pnpm screenshot <route>...` — build + boot headless + write `screenshots/<slug>.png` for an agent to look at
 - `pnpm verify:static` — lint ∥ typecheck ∥ unit (no Electron)
 - `pnpm verify` / `pnpm verify:headless` — static then smoke
 - `pnpm fix` — lint:fix → format (no verify)

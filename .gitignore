@@ -39,6 +39,9 @@ scripts/grokflows/
 .grok-review-*-brief.md
 .grok-run.jsonl
 
+# Screenshot harness output (pnpm screenshot <route>, #106)
+screenshots/
+
 # Test artifacts
 test-results/
 playwright-report/
