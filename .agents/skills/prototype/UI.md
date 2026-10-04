@@ -45,7 +45,13 @@ This works whether the user is here to push back or not.
 
 ### 1a. Screenshot the "before"
 
-Grab a real screenshot of the page as it looks today, before touching anything — it's the only honest baseline for judging whether a variant is actually better. This project's Electron/Playwright smoke harness (`tests/smoke/fixtures.ts`, run headlessly like `test:smoke:headless` does) already boots the app and hands back a `page` — `page.screenshot()` works on it with no new plumbing. There's no dedicated tool for this yet, so improvise a throwaway spec that gets you a PNG; see the note at the end of this file before you start.
+Grab a real screenshot of the page as it looks today, before touching anything — it's the only honest baseline for judging whether a variant is actually better:
+
+```bash
+pnpm screenshot /settings        # → screenshots/settings.png
+```
+
+Read the PNG back before drafting. See [Screenshots](#screenshots) below for the details.
 
 ### 2. Generate radically different variants
 
@@ -97,7 +103,14 @@ Put the switcher in a single shared component so both sub-shapes can reuse it. L
 
 ### 5. Hand it over
 
-Screenshot each variant the same way you got the "before" shot, then surface the URL (and the `?variant=` keys) alongside them. A picture beats a paragraph when the user isn't at the keyboard right now. The interesting feedback is usually **"I want the header from B with the sidebar from C"** — that's the actual design they want.
+Screenshot each variant with the same command, one build for all of them:
+
+```bash
+pnpm screenshot '/settings?variant=A' '/settings?variant=B' '/settings?variant=C'
+# → screenshots/settings-variant-a.png, settings-variant-b.png, settings-variant-c.png
+```
+
+Look at every PNG yourself first — a variant that renders broken is not a variant. Then surface the route, the `?variant=` keys, and the screenshot paths. A picture beats a paragraph when the user isn't at the keyboard right now. The interesting feedback is usually **"I want the header from B with the sidebar from C"** — that's the actual design they want.
 
 ### 6. Capture the answer and clean up
 
@@ -115,6 +128,17 @@ Don't leave variant components or the switcher lying around. They rot fast and c
 - **Wiring variants to real mutations.** Read-only prototypes are fine. If a variant needs to mutate, point it at a stub — the question is "what should this look like", not "does the backend work".
 - **Promoting the prototype directly to production.** The variant code was written under prototype constraints (no tests, minimal error handling). Rewrite it properly when you fold it in.
 
-## Screenshots: no tool yet, so report back
+## Screenshots
 
-There's no dedicated screenshot harness for this yet ([issue #106](https://github.com/nacusiancii/vajra-v2/issues/106) is tracking it) — until one exists, figure out your own way each time, using whatever's fastest (the Electron/Playwright smoke fixture is the obvious starting point). Read #106 first in case a good approach is already written up. Whatever you land on, comment on #106 with two things: what you actually did to get the screenshot, and one wish — what you wish this flow were like instead. That issue is a running megathread until someone (probably not you) reads it and decides what to build.
+`pnpm screenshot <route>...` is the project's screenshot harness (built for #106; full reference in the `electron-app-testing` skill). It builds the app, boots it headless on the smoke fixture, opens each hash route, and writes `screenshots/<slug>.png` (gitignored) — `Read()` the printed path to look at it.
+
+What matters for prototypes:
+
+- **Quote routes with `?`** so the shell does not glob them. `/settings?variant=B` → `settings-variant-b.png`. Same route overwrites, so re-snapping after an edit is free.
+- **Readiness.** The harness waits for a `data-testid` ending in `-page`. Sub-shape A inherits the host page's root, so nothing to do. For a sub-shape B throwaway route, give the root `data-testid="prototype-<name>-page"`, or pass `VAJRA_SCREENSHOT_WAIT=<testid>`.
+- **Dialogs and sheets** are not open on a cold route. Either make the variant render its dialog open when `?variant=` is set (prototype code may cheat like that), or set `VAJRA_SCREENSHOT_WAIT` to the dialog's testid after wiring an auto-open.
+- **State is empty.** Each boot is a fresh user data dir: no products, no customers, no transactions. For a variant that only makes sense with data, feed it a hard-coded fixture inside the variant (read-only prototypes may do this) rather than seeding through the UI. If you genuinely need seeded state, that is the one case to fall back to an opt-in smoke spec that navigates and calls `page.screenshot()`.
+- **Skip the rebuild** when only re-looking: `VAJRA_SKIP_BUILD=1 pnpm screenshot ...`. Any change to the variant needs the build.
+- The floating switcher will be in the shot. That is fine — it is meant to look like it is not part of the design.
+
+If the harness cannot get you the picture you need, say what was missing in a comment on #106 rather than inventing a one-off path.
