@@ -73,7 +73,9 @@ VAJRA_SKIP_BUILD=1 pnpm screenshot /journal   # reuse out/ when only re-looking
 - Window content is pinned to 1366x768 (shop laptop); capture is full-page so tall carts are
   not cut off. Override with `VAJRA_SCREENSHOT_VIEWPORT=WxH`.
 - Readiness: waits for the view root (`data-testid` ending in `-page`) and web fonts. For a
-  route or dialog without one, pass `VAJRA_SCREENSHOT_WAIT=<testid>`.
+  route or dialog without one, pass `VAJRA_SCREENSHOT_WAIT=<testid>`. A missing root fails in
+  a few seconds, not the full timeout, and the error says whether the route rendered nothing
+  (not in `router.ts`) or rendered without a root (lists the testids present).
 - State is a fresh, empty user data dir — exactly what the smoke fixture gives. Seeded
   states (an open cart, a slip preview) are not in scope yet; for those, write an opt-in
   smoke spec that navigates and calls `page.screenshot()` (see the #115 prototype notes in

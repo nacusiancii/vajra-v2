@@ -1,6 +1,7 @@
 import path from 'node:path'
 import fs from 'node:fs'
 import { test, expect } from '../smoke/fixtures'
+import type { Page } from '@playwright/test'
 
 /**
  * Screenshot harness (#106) — lets an agent *see* a route it just changed.
@@ -46,12 +47,24 @@ for (const route of routes) {
       window.location.hash = r
     }, route)
 
-    // Route views are lazy chunks: wait for the view root (`*-page` testid) or the
-    // caller's explicit testid, then let web fonts (Noto Telugu) finish loading.
+    // Fail fast on a bad route rather than burning the whole test timeout.
+    // vue-router resolves a lazy chunk *before* swapping RouterView, so once Home
+    // detaches the new view is mounted in the same tick (or nothing is, for an
+    // unmatched path). Give the view root a short grace after that, then explain.
+    const isHome = /^\/(\?.*)?$/.test(route)
+    if (!isHome) {
+      await expect(page.getByTestId('home-page'), `leaving Home for ${route}`).toHaveCount(0, {
+        timeout: 15_000
+      })
+    }
     const target = waitForTestId
       ? page.getByTestId(waitForTestId)
       : page.locator('[data-testid$="-page"]').first()
-    await expect(target).toBeVisible()
+    try {
+      await expect(target).toBeVisible({ timeout: 3_000 })
+    } catch {
+      throw new Error(await explainMissingViewRoot(page, route))
+    }
     await page.evaluate(() => document.fonts.ready)
 
     fs.mkdirSync(outDir, { recursive: true })
@@ -59,6 +72,34 @@ for (const route of routes) {
     await page.screenshot({ path: file, fullPage: true })
     process.stdout.write(`screenshot: ${file}\n`)
   })
+}
+
+/** Build the failure message for a route whose view root never showed up. */
+async function explainMissingViewRoot(page: Page, route: string): Promise<string> {
+  const { hash, text, testIds } = await page.evaluate(() => ({
+    hash: window.location.hash,
+    // App.vue mounts RouterView inside <main>; an unmatched path leaves it empty.
+    text: document.querySelector('main')?.innerText.trim() ?? '',
+    testIds: Array.from(document.querySelectorAll('[data-testid]'), (el) =>
+      el.getAttribute('data-testid')
+    )
+  }))
+  const wanted = waitForTestId
+    ? `data-testid="${waitForTestId}" (VAJRA_SCREENSHOT_WAIT)`
+    : 'a data-testid ending in "-page"'
+  const lines = [`screenshot ${route}: ${wanted} did not appear within 3s (hash is "${hash}").`]
+  if (!text) {
+    lines.push(
+      'Nothing rendered: the route probably does not exist. Check src/renderer/src/router.ts.'
+    )
+  } else {
+    lines.push(
+      'The route rendered but has no view root. Add data-testid="<name>-page" to its root,',
+      'or pass VAJRA_SCREENSHOT_WAIT=<testid> for one of the testids present:',
+      `  ${[...new Set(testIds)].slice(0, 20).join(', ') || '(none)'}`
+    )
+  }
+  return lines.join('\n')
 }
 
 function slugify(route: string): string {
