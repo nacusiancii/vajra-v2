@@ -31,7 +31,14 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useProductsQuery } from '@/queries/products'
 import { useCustomersQuery } from '@/queries/customers'
 import { useSettingsQuery, useBusinessDayQuery } from '@/queries/operations'
-import { useClearDraft, useCreateSale, useEditSale, useSaveSaleDraft } from '@/queries/transactions'
+import {
+  fetchDraft,
+  fetchTransaction,
+  useClearDraft,
+  useCreateSale,
+  useEditSale,
+  useSaveSaleDraft
+} from '@/queries/transactions'
 import {
   computeLoadingCharge,
   grandTotal,
@@ -494,7 +501,7 @@ watch(
   [editId, customers],
   async () => {
     if (!editId.value || lines.value.length > 0) return
-    const txn = await window.api.getTransaction(editId.value)
+    const txn = await fetchTransaction(editId.value)
     if (!txn || txn.type !== 'SA') return
     mode.value = txn.saleMode ?? 'cash'
     counterpartyMode.value = txn.customerId != null ? 'customer' : 'walkin'
@@ -525,7 +532,7 @@ watch(
   resumeDraftQuery,
   async (id) => {
     if (editId.value || id == null || Number.isNaN(id) || draftHydratedId.value === id) return
-    const draft = await window.api.getDraft(id)
+    const draft = await fetchDraft(id)
     if (!draft || draft.type !== 'SA') {
       error.value = 'Draft not found'
       return

@@ -9,7 +9,11 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/comp
 import EntityCombobox, { type ComboboxOption } from '@/components/EntityCombobox.vue'
 import NumericField from '@/components/NumericField.vue'
 import { useProductsQuery } from '@/queries/products'
-import { useCreateStockTransfer, useEditStockTransfer } from '@/queries/transactions'
+import {
+  fetchTransaction,
+  useCreateStockTransfer,
+  useEditStockTransfer
+} from '@/queries/transactions'
 import {
   lineMassGrams,
   suggestedTransferTargetQty,
@@ -164,7 +168,7 @@ watch(
   editId,
   async () => {
     if (!editId.value) return
-    const txn = await window.api.getTransaction(editId.value)
+    const txn = await fetchTransaction(editId.value)
     if (!txn || txn.type !== 'ST') return
     // Preserve saved target qty: mark dirty before source write so the watcher cannot overwrite.
     markTargetQtyManual()

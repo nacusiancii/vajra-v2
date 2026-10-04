@@ -11,6 +11,11 @@ const KEYS = {
   dayEntries: ['dayEntries'] as const
 }
 
+/** One-shot read for edit prefill. */
+export function fetchJournal(id: number): Promise<Journal | null> {
+  return window.api.getJournal(id)
+}
+
 export function useDayEntriesQuery(): UseQueryReturnType<DayEntry[], Error> {
   return useQuery({
     queryKey: KEYS.dayEntries,

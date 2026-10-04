@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import NumericField from '@/components/NumericField.vue'
-import { useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
+import { fetchTransaction, useCreateMoneyTxn, useEditMoneyTxn } from '@/queries/transactions'
 import { MoneyTxnSchema } from '@domain/transaction-rules'
 import { moneyFace, moneyRealized } from '@domain/transaction'
 import { formatRupees } from '@/lib/format'
@@ -181,7 +181,7 @@ watch(
   [editId, type],
   async () => {
     if (!editId.value) return
-    const txn = await window.api.getTransaction(editId.value)
+    const txn = await fetchTransaction(editId.value)
     if (!txn || txn.type !== type.value) return
     customerId.value = txn.customerId
     label.value = txn.label ?? ''

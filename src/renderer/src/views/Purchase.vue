@@ -26,6 +26,8 @@ import CustomerSelect from '@/components/customer/CustomerSelect.vue'
 import { useProductsQuery } from '@/queries/products'
 import { useSettingsQuery } from '@/queries/operations'
 import {
+  fetchDraft,
+  fetchTransaction,
   useClearDraft,
   useCreatePurchase,
   useEditPurchase,
@@ -301,7 +303,7 @@ watch(
   editId,
   async () => {
     if (!editId.value || lines.value.length > 0) return
-    const txn = await window.api.getTransaction(editId.value)
+    const txn = await fetchTransaction(editId.value)
     if (!txn || txn.type !== 'PU') return
     mode.value = txn.saleMode ?? 'cash'
     counterpartyMode.value =
@@ -330,7 +332,7 @@ watch(
   resumeDraftQuery,
   async (id) => {
     if (editId.value || id == null || Number.isNaN(id) || draftHydratedId.value === id) return
-    const draft = await window.api.getDraft(id)
+    const draft = await fetchDraft(id)
     if (!draft || draft.type !== 'PU') {
       error.value = 'Draft not found'
       return
