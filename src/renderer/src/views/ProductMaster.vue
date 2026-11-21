@@ -142,8 +142,8 @@ function handleDelete(id: number): void {
           <DropdownMenuCheckboxItem
             v-for="group in groupNames"
             :key="group"
-            :checked="store.groupFilter.includes(group)"
-            @update:checked="(checked: boolean) => store.toggleGroupFilter(group, checked)"
+            :model-value="store.groupFilter.includes(group)"
+            @update:model-value="(checked) => store.toggleGroupFilter(group, checked === true)"
           >
             {{ group }}
           </DropdownMenuCheckboxItem>

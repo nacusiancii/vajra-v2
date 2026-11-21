@@ -126,8 +126,8 @@ function handleDelete(id: number): void {
           <DropdownMenuCheckboxItem
             v-for="place in placeNames"
             :key="place"
-            :checked="store.placeFilter.includes(place)"
-            @update:checked="(checked: boolean) => store.togglePlaceFilter(place, checked)"
+            :model-value="store.placeFilter.includes(place)"
+            @update:model-value="(checked) => store.togglePlaceFilter(place, checked === true)"
           >
             {{ place }}
           </DropdownMenuCheckboxItem>

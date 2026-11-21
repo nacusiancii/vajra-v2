@@ -317,9 +317,9 @@ describe('buildEodReportXlsx', () => {
 
     const txnSerials: string[] = []
     for (let r = 2; r <= (txnSheet.rowCount || 20); r++) {
-      const v = txnSheet.getCell(r, 1).value
-      if (v == null || v === '') break
-      txnSerials.push(String(v))
+      const v = txnSheet.getCell(r, 1).text
+      if (!v) break
+      txnSerials.push(v)
     }
     // Live: SA C-1, SA R-2, PU C-1, RE 1, PA 1, IN 1, EX 1
     expect(txnSerials).toEqual(['C-1', 'R-2', 'C-1', '1', '1', '1', '1'])
@@ -329,7 +329,7 @@ describe('buildEodReportXlsx', () => {
     expect(auditSheet.getCell(2, 1).value).toBe('RE-2-23052026')
     expect(auditSheet.getCell(2, 4).value).toBe('RE-2.1-23052026')
     expect(auditSheet.getCell(3, 1).value).toBe('SA-C-3-23052026')
-    expect(String(auditSheet.getCell(3, 2).value)).toContain('C-3')
+    expect(auditSheet.getCell(3, 2).text).toContain('C-3')
     expect(auditSheet.getCell(3, 3).value).toBe(999) // 99_900 paise
     expect(auditSheet.getCell(3, 4).value).toBe('SA-C-3.1-23052026')
   })
@@ -350,10 +350,10 @@ describe('buildEodReportXlsx', () => {
     const types: string[] = []
     const parties: string[] = []
     for (let r = 2; r <= (ws.rowCount || 20); r++) {
-      const type = ws.getCell(r, 3).value
-      if (type == null || type === '') break
-      types.push(String(type))
-      parties.push(String(ws.getCell(r, 4).value))
+      const type = ws.getCell(r, 3).text
+      if (!type) break
+      types.push(type)
+      parties.push(ws.getCell(r, 4).text)
     }
 
     expect(types).toEqual(['Receipt', 'Payment', 'Income', 'Expense'])
@@ -415,8 +415,8 @@ describe('buildEodReportXlsx', () => {
     }
     const rows: Row[] = []
     for (let r = 2; r <= (ws.rowCount || 20); r++) {
-      const orderId = ws.getCell(r, 2).value
-      if (orderId == null || orderId === '') break
+      const orderId = ws.getCell(r, 2).text
+      if (!orderId) break
       const qtyVal = ws.getCell(r, 8).value
       const bagVal = ws.getCell(r, 9).value
       const rateVal = ws.getCell(r, 10).value
@@ -424,11 +424,11 @@ describe('buildEodReportXlsx', () => {
       const loadVal = ws.getCell(r, 12).value
       const totalVal = ws.getCell(r, 13).value
       rows.push({
-        orderId: String(orderId),
+        orderId,
         lineId: ws.getCell(r, 3).value as string | number,
-        kind: String(ws.getCell(r, 4).value),
-        type: String(ws.getCell(r, 5).value),
-        product: String(ws.getCell(r, 7).value ?? ''),
+        kind: ws.getCell(r, 4).text,
+        type: ws.getCell(r, 5).text,
+        product: ws.getCell(r, 7).text,
         qty: typeof qtyVal === 'number' ? qtyVal : null,
         bagSize: typeof bagVal === 'number' || typeof bagVal === 'string' ? bagVal : null,
         rate: typeof rateVal === 'number' ? rateVal : null,
