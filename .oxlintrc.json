@@ -1,0 +1,177 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "vue"],
+  "ignorePatterns": ["**/node_modules", "**/dist", "**/out", "archive/**"],
+  "categories": {
+    "correctness": "error"
+  },
+  "rules": {
+    "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/consistent-type-imports": [
+      "error",
+      { "prefer": "type-imports", "fixStyle": "inline-type-imports" }
+    ],
+    "typescript/no-explicit-any": "error",
+    "typescript/explicit-function-return-type": [
+      "error",
+      {
+        "allowExpressions": true,
+        "allowTypedFunctionExpressions": true,
+        "allowHigherOrderFunctions": true,
+        "allowIIFEs": true
+      }
+    ],
+    "typescript/no-require-imports": "error",
+    "typescript/ban-ts-comment": ["error", { "ts-ignore": "allow-with-description" }],
+    "typescript/no-namespace": "error",
+    "typescript/no-empty-object-type": "error",
+    "typescript/no-unnecessary-type-constraint": "error",
+    "typescript/no-unsafe-function-type": "error",
+    "no-case-declarations": "error",
+    "no-empty-function": "error",
+    "no-fallthrough": "error",
+    "no-prototype-builtins": "error",
+    "no-var": "error",
+    "prefer-const": "error",
+    "vue/no-multiple-slot-args": "error",
+    "vue/no-required-prop-with-default": "error",
+    "vue/prop-name-casing": "error",
+    "no-console": ["warn", { "allow": ["warn", "error"] }],
+    "eqeqeq": ["error", "always", { "null": "ignore" }]
+  },
+  "overrides": [
+    {
+      "files": ["scripts/**/*.{js,mjs,ts}"],
+      "rules": {
+        "no-console": "off"
+      }
+    },
+    {
+      "files": ["tests/**/*.{ts,mts}"],
+      "rules": {
+        "typescript/no-require-imports": "off"
+      }
+    },
+    {
+      "files": ["src/domain/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "electron",
+                "message": "Electron belongs to src/main and src/preload only."
+              },
+              { "name": "better-sqlite3", "message": "SQLite belongs to src/main only." }
+            ],
+            "patterns": [
+              {
+                "group": ["**/main/**"],
+                "message": "Do not import src/main from here — it crosses an architecture seam."
+              },
+              {
+                "group": ["**/preload/**"],
+                "message": "Do not import src/preload from here — it crosses an architecture seam."
+              },
+              {
+                "group": ["**/renderer/**", "@/*", "@renderer/*"],
+                "message": "Do not import src/renderer from here — it crosses an architecture seam."
+              },
+              {
+                "group": ["**/shared/**", "@shared/*"],
+                "message": "src/domain is the innermost ring; src/shared depends on it, not the reverse."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/shared/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              {
+                "name": "electron",
+                "message": "Electron belongs to src/main and src/preload only."
+              },
+              { "name": "better-sqlite3", "message": "SQLite belongs to src/main only." }
+            ],
+            "patterns": [
+              {
+                "group": ["**/main/**"],
+                "message": "Do not import src/main from here — it crosses an architecture seam."
+              },
+              {
+                "group": ["**/preload/**"],
+                "message": "Do not import src/preload from here — it crosses an architecture seam."
+              },
+              {
+                "group": ["**/renderer/**", "@/*", "@renderer/*"],
+                "message": "Do not import src/renderer from here — it crosses an architecture seam."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/main/**/*.ts", "src/preload/**/*.ts"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "patterns": [
+              {
+                "group": ["**/renderer/**", "@/*", "@renderer/*"],
+                "message": "Do not import src/renderer from here — it crosses an architecture seam."
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/renderer/**/*.{ts,vue}"],
+      "rules": {
+        "no-restricted-imports": [
+          "error",
+          {
+            "paths": [
+              { "name": "electron", "message": "The renderer reaches main only via window.api." },
+              { "name": "better-sqlite3", "message": "SQLite lives in the main process." }
+            ],
+            "patterns": [
+              {
+                "group": ["**/main/**"],
+                "message": "Do not import src/main from here — it crosses an architecture seam."
+              },
+              {
+                "group": ["**/preload/**"],
+                "message": "Do not import src/preload from here — it crosses an architecture seam."
+              }
+            ]
+          }
+        ],
+        "no-restricted-properties": [
+          "error",
+          {
+            "object": "window",
+            "property": "api",
+            "message": "Call window.api only from src/renderer/src/queries/ so query keys and cache invalidation stay in one place."
+          }
+        ]
+      }
+    },
+    {
+      "files": ["src/renderer/src/queries/**/*.{ts,vue}"],
+      "rules": {
+        "no-restricted-properties": "off"
+      }
+    }
+  ]
+}

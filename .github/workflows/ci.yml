@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # Lint (type-aware ESLint), typecheck, unit — no Electron / no build.
+  # Lint (type-aware Oxlint), typecheck, unit — no Electron / no build.
   static:
     runs-on: ubuntu-latest
     steps:
@@ -44,18 +44,6 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
-
-      # Type-aware ESLint is ~2 min cold on CI; restore per-file cache so
-      # unchanged files skip re-analysis. Coarse key is intentional — eslint's
-      # own cache file invalidates entries when source content changes.
-      - name: Cache ESLint
-        uses: actions/cache@v4
-        with:
-          path: .eslintcache
-          # v2: content-strategy cache (v1 used mtime and was always cold after checkout)
-          key: eslint-${{ runner.os }}-v2-${{ hashFiles('pnpm-lock.yaml', 'eslint.config.mjs') }}
-          restore-keys: |
-            eslint-${{ runner.os }}-v2-
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

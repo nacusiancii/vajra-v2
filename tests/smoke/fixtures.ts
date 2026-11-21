@@ -23,7 +23,7 @@ type Fixtures = {
 }
 
 export const test = base.extend<Fixtures>({
-  // eslint-disable-next-line no-empty-pattern
+  // oxlint-disable-next-line no-empty-pattern
   electronApp: async ({}, use) => {
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'vajra-test-'))
     // Injectable EOD export folder (silent main write) — keeps CI off ~/Documents.
