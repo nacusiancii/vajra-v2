@@ -1,5 +1,6 @@
 import fs from 'node:fs'
 import type { Page } from '@playwright/test'
+import jsQR from 'jsqr'
 import { test, expect } from './fixtures'
 import { goHome, seedCustomer, seedProduct } from './helpers'
 
@@ -91,6 +92,10 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   await expect(page.getByTestId('voucher-words')).toHaveText('Six Thousand Rupees only')
   await expect(page.getByTestId('voucher-interest')).toContainText('రూ. 2-00')
   await expect(page.getByTestId('voucher-qr')).toBeVisible()
+  // The QR scans to the shop's UPI ID with no amount (CONTEXT.md, Credit Voucher).
+  expect(await decodeVoucherQr(page)).toBe(
+    'upi://pay?pa=svtraders@ybl&pn=Sri%20Venkateswara%20Traders&cu=INR'
+  )
 
   // Back is collapsible on the finish panel — expand and check lines.
   await page.getByTestId('voucher-show-back').click()
@@ -136,4 +141,30 @@ async function pdfPageCount(page: Page, nth: number): Promise<number> {
   const pdf = fs.readFileSync(pdfPath, 'latin1')
   expect(pdf.startsWith('%PDF')).toBe(true)
   return pdf.match(/\/Type\s*\/Page\b/g)?.length ?? 0
+}
+
+/**
+ * Decode the voucher QR as drawn: read the SVG's module squares (`Mx yh1v1h-1z`),
+ * paint them 8 px each into an RGBA buffer, and scan it with jsQR. Decoding the
+ * drawn path, not a screenshot, keeps it independent of preview zoom.
+ */
+async function decodeVoucherQr(page: Page): Promise<string | null> {
+  const svg = page.getByTestId('voucher-qr').first()
+  const viewBox = (await svg.getAttribute('viewBox')) ?? ''
+  const d = (await svg.locator('path').getAttribute('d')) ?? ''
+  const [, , w] = viewBox.split(' ').map(Number) // "-2 -2 size+4 size+4"
+  const px = 8
+  const side = w * px
+  const rgba = new Uint8ClampedArray(side * side * 4).fill(255)
+  for (const [, x, y] of d.matchAll(/M(\d+) (\d+)/g)) {
+    const ox = (Number(x) + 2) * px
+    const oy = (Number(y) + 2) * px
+    for (let dy = 0; dy < px; dy++) {
+      for (let dx = 0; dx < px; dx++) {
+        const i = ((oy + dy) * side + ox + dx) * 4
+        rgba[i] = rgba[i + 1] = rgba[i + 2] = 0
+      }
+    }
+  }
+  return jsQR(rgba, side, side)?.data ?? null
 }

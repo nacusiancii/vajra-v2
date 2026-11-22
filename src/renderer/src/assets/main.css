@@ -7,10 +7,16 @@
 /*
  * Printing (ADR-0012): only `.print-root` reaches the paper / PDF. A component
  * mounts it (teleported to <body>) just for the print call, one child per page.
- * Paper is 10 cm wide × 21 cm tall, upright.
+ * Quotation paper is 10 cm wide × 21 cm tall, upright; the Credit Voucher is the
+ * same paper turned landscape (its sheet sets `page: voucher`).
  */
 @page {
   size: 100mm 210mm;
+  margin: 0;
+}
+
+@page voucher {
+  size: 210mm 100mm;
   margin: 0;
 }
 

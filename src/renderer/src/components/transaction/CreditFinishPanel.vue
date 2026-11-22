@@ -175,10 +175,7 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
         </DialogDescription>
       </DialogHeader>
 
-      <div
-        v-if="txn"
-        class="mt-4 grid min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-[1fr_minmax(16rem,20rem)]"
-      >
+      <div v-if="txn" class="mt-4 grid min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-2">
         <!-- Left: print queue + Sale Invoice -->
         <div class="space-y-3">
           <div class="rounded-lg border bg-muted/20 p-3" data-testid="credit-finish-print-queue">

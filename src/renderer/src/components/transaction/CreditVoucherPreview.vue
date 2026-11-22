@@ -56,7 +56,7 @@ const sheetProps = computed(() => ({
 <template>
   <div class="space-y-4" data-testid="voucher-preview">
     <div class="overflow-auto rounded-md border">
-      <CreditVoucherSheet side="front" class="mx-auto" v-bind="sheetProps" />
+      <CreditVoucherSheet side="front" class="voucher-zoom" v-bind="sheetProps" />
     </div>
 
     <button
@@ -81,8 +81,15 @@ const sheetProps = computed(() => ({
         </button>
       </div>
       <div class="overflow-auto rounded-md border">
-        <CreditVoucherSheet side="back" class="mx-auto" v-bind="sheetProps" />
+        <CreditVoucherSheet side="back" class="voucher-zoom" v-bind="sheetProps" />
       </div>
     </div>
   </div>
 </template>
+
+<style scoped>
+/* Landscape sheet is 210 mm wide; show it at half size beside the Quotation. */
+.voucher-zoom {
+  zoom: 0.5;
+}
+</style>

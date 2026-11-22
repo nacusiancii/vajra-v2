@@ -17,9 +17,13 @@ export interface VoucherLine {
 }
 
 /**
- * One side of the Credit Voucher as it lands on paper: a 10 cm × 21 cm upright
- * sheet (ADR-0012). Front = tear-off stub + the voucher the customer signs,
- * modelled on the shop's pre-printed credit pad. Back = the chosen products.
+ * One side of the Credit Voucher as it lands on paper: a 21 cm × 10 cm landscape
+ * sheet (ADR-0012), modelled on the shop's pre-printed credit pad.
+ *
+ * Front: tear-off stub on the left, perforation, the voucher the customer signs.
+ * Back: the chosen products behind the voucher only. The sheet turns over
+ * sideways (duplex "flip on short edge"), so the back of the stub is on the
+ * right — that strip stays blank and the perforation is drawn there too.
  * The same component is the on-screen preview and the PDF page.
  */
 const props = defineProps<{
@@ -83,67 +87,67 @@ function formula(line: VoucherLine): string {
 <template>
   <div
     v-if="side === 'front'"
-    class="voucher-sheet flex flex-col bg-white p-[6mm] text-[11px] leading-snug text-black"
+    class="voucher-sheet flex bg-white text-[10px] leading-snug text-black"
     data-testid="voucher-front"
   >
     <!-- Tear-off stub: stays with the shop's book -->
-    <div class="space-y-1" data-testid="voucher-stub">
-      <div class="flex justify-between">
-        <span
-          >No <span class="font-semibold tabular-nums">{{ transactionId ?? '—' }}</span></span
-        >
-        <span>తేది {{ displayDate }}</span>
-      </div>
+    <div class="voucher-stub space-y-1.5 p-[5mm]" data-testid="voucher-stub">
+      <p>
+        No <span class="font-semibold tabular-nums">{{ transactionId ?? '—' }}</span>
+      </p>
       <p>వ్రాసి యిచ్చినవారు: {{ customerName }}</p>
       <p>గ్రామం: {{ place.trim() || '—' }}</p>
+      <p>తేది: {{ displayDate }}</p>
       <p>
         మొత్తం: <span class="font-semibold tabular-nums">{{ formatRupees(total) }}</span>
       </p>
-      <p>చెల్లించిన తేది: ....................</p>
+      <p>చెల్లించిన తేది: ..............</p>
     </div>
 
-    <div class="my-3 border-t border-dashed border-black text-center text-[9px]">
-      <span class="relative -top-2 bg-white px-1">✂</span>
-    </div>
+    <div class="voucher-perforation" />
 
     <!-- The voucher the customer signs -->
-    <div class="flex flex-1 flex-col space-y-1">
-      <div class="flex justify-between">
+    <div class="flex min-w-0 flex-1 flex-col gap-1 p-[5mm]">
+      <div class="flex items-baseline justify-between gap-2">
         <span
           >No
           <span class="font-semibold tabular-nums" data-testid="voucher-number">{{
             transactionId ?? '—'
           }}</span></span
         >
+        <span class="text-sm font-bold">చేవుత్తరము</span>
         <span
           >తేది <span data-testid="voucher-date">{{ displayDate }}</span></span
         >
       </div>
-      <div class="text-center">
-        <p class="text-sm font-bold" data-testid="voucher-company">
-          {{ companyName.trim() || '—' }}
-        </p>
-        <p class="font-semibold">క్రెడిట్ వోచర్ · Credit Voucher</p>
-      </div>
+      <p>
+        వ్రాయించుకున్నవారు:
+        <span class="font-semibold" data-testid="voucher-company">{{
+          companyName.trim() || '—'
+        }}</span>
+      </p>
       <p>
         వ్రాసి యిచ్చినవారు:
         <span class="font-semibold" data-testid="voucher-customer">{{ customerName }}</span>
       </p>
-      <p>
-        గ్రామం: <span data-testid="voucher-place">{{ place.trim() || '—' }}</span>
-      </p>
-      <p>
-        Mobile:
-        <span class="tabular-nums" data-testid="voucher-phone">{{ phone.trim() || '—' }}</span>
+      <p class="flex gap-6">
+        <span
+          >గ్రామం: <span data-testid="voucher-place">{{ place.trim() || '—' }}</span></span
+        >
+        <span
+          >Mobile:
+          <span class="tabular-nums" data-testid="voucher-phone">{{
+            phone.trim() || '—'
+          }}</span></span
+        >
       </p>
       <p>
         రూ.
         <span class="text-sm font-bold tabular-nums" data-testid="voucher-amount">{{
           formatRupees(total)
         }}</span>
-      </p>
-      <p>
-        అక్షరముల: <span class="font-semibold" data-testid="voucher-words">{{ amountWords }}</span>
+        &nbsp; అక్షరముల:
+        <span class="font-semibold" data-testid="voucher-words">{{ amountWords }}</span>
       </p>
       <p data-testid="voucher-interest">
         ఈ రోజు నా / మా వ్యాపార అవసరార్థం పై మొత్తం అప్పుగా తీసుకున్నాను / తీసుకున్నాము. ఇందుకు వడ్డీ
@@ -151,10 +155,10 @@ function formula(line: VoucherLine): string {
         వ్రాయించగలవారము.
       </p>
 
-      <div class="mt-auto flex items-end justify-between gap-2 pt-2">
+      <div class="mt-auto flex items-end justify-between gap-2">
         <svg
           v-if="qr"
-          class="size-[24mm] shrink-0"
+          class="size-[22mm] shrink-0"
           :viewBox="`-2 -2 ${qr.size + 4} ${qr.size + 4}`"
           shape-rendering="crispEdges"
           data-testid="voucher-qr"
@@ -164,7 +168,7 @@ function formula(line: VoucherLine): string {
         </svg>
         <span v-else />
         <p class="text-right">
-          ......................................<br />
+          ..............................................<br />
           సంతకం
         </p>
       </div>
@@ -173,46 +177,67 @@ function formula(line: VoucherLine): string {
 
   <div
     v-else
-    class="voucher-sheet bg-white p-[6mm] text-[11px] leading-snug text-black"
+    class="voucher-sheet flex bg-white text-[10px] leading-snug text-black"
     data-testid="voucher-back"
   >
-    <p class="text-center font-semibold">
-      {{ transactionId ?? '—' }} · {{ customerName }} · {{ displayDate }}
-    </p>
-    <div class="my-2 border-t border-black" />
-    <div
-      v-for="(line, idx) in lines"
-      :key="idx"
-      class="border-b border-dashed border-black/40 py-1 last:border-0"
-      data-testid="voucher-line"
-    >
-      <p class="font-medium">{{ line.productName }}</p>
-      <p class="flex justify-between gap-2 tabular-nums">
-        <span>{{ formula(line) }}</span>
-        <span class="font-medium">= {{ formatRupees(line.lineTotal) }}</span>
+    <!-- Behind the voucher: the chosen products -->
+    <div class="min-w-0 flex-1 p-[5mm]">
+      <p class="text-center font-semibold">
+        {{ transactionId ?? '—' }} · {{ customerName }} · {{ displayDate }}
       </p>
+      <div class="my-1.5 border-t border-black" />
+      <div
+        v-for="(line, idx) in lines"
+        :key="idx"
+        class="flex justify-between gap-2 border-b border-dashed border-black/40 py-0.5 last:border-0"
+        data-testid="voucher-line"
+      >
+        <span class="min-w-0 truncate font-medium">{{ line.productName }}</span>
+        <span class="shrink-0 tabular-nums"
+          >{{ formula(line) }} = {{ formatRupees(line.lineTotal) }}</span
+        >
+      </div>
+      <div class="my-1.5 border-t border-black" />
+      <div v-if="loadingCharges" class="flex justify-between" data-testid="voucher-loading">
+        <span>Loading</span><span class="tabular-nums">{{ formatRupees(loadingCharges) }}</span>
+      </div>
+      <div v-if="additionalCharges" class="flex justify-between" data-testid="voucher-additional">
+        <span>Additional</span
+        ><span class="tabular-nums">{{ formatRupees(additionalCharges) }}</span>
+      </div>
+      <div v-if="discountAmount" class="flex justify-between" data-testid="voucher-discount">
+        <span>Discount</span><span class="tabular-nums">−{{ formatRupees(discountAmount) }}</span>
+      </div>
+      <div class="flex justify-between text-sm font-bold" data-testid="voucher-total">
+        <span>Total</span><span class="tabular-nums">{{ formatRupees(total) }}</span>
+      </div>
     </div>
-    <div class="my-2 border-t border-black" />
-    <div v-if="loadingCharges" class="flex justify-between" data-testid="voucher-loading">
-      <span>Loading</span><span class="tabular-nums">{{ formatRupees(loadingCharges) }}</span>
-    </div>
-    <div v-if="additionalCharges" class="flex justify-between" data-testid="voucher-additional">
-      <span>Additional</span><span class="tabular-nums">{{ formatRupees(additionalCharges) }}</span>
-    </div>
-    <div v-if="discountAmount" class="flex justify-between" data-testid="voucher-discount">
-      <span>Discount</span><span class="tabular-nums">−{{ formatRupees(discountAmount) }}</span>
-    </div>
-    <div class="flex justify-between text-sm font-bold" data-testid="voucher-total">
-      <span>Total</span><span class="tabular-nums">{{ formatRupees(total) }}</span>
-    </div>
+
+    <div class="voucher-perforation" />
+
+    <!-- Back of the stub: left blank so it tears off clean -->
+    <div class="voucher-stub" data-testid="voucher-back-stub" />
   </div>
 </template>
 
 <style scoped>
-/* Paper size: 10 cm wide × 21 cm tall, upright (ADR-0012). */
+/* Paper size: 21 cm wide × 10 cm tall, landscape (ADR-0012). */
 .voucher-sheet {
-  width: 100mm;
-  min-height: 210mm;
+  width: 210mm;
+  height: 100mm;
   box-sizing: border-box;
+  overflow: hidden;
+  page: voucher;
+}
+
+/* Stub strip: same width on both sides so the perforations line up. */
+.voucher-stub {
+  width: 55mm;
+  flex-shrink: 0;
+}
+
+.voucher-perforation {
+  flex-shrink: 0;
+  border-left: 1px dashed black;
 }
 </style>
