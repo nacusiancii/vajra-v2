@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { computed, watch } from 'vue'
-import { FileDown, Printer } from '@lucide/vue'
+import { computed, ref, watch } from 'vue'
+import { Printer } from '@lucide/vue'
 import {
   Dialog,
   DialogContent,
@@ -54,29 +54,45 @@ const props = withDefaults(
   }
 )
 
-defineEmits<{ 'update:open': [value: boolean]; done: [] }>()
-
 /** Business + customer when opted in; business only when the cashier opts out. */
 const copyCount = computed(() => (props.printCustomerCopy ? 2 : 1))
 const copyLabel = computed(() =>
   props.printCustomerCopy ? '2 copies (business + customer)' : '1 copy (business only)'
 )
 
+const emit = defineEmits<{ 'update:open': [value: boolean]; done: [] }>()
+
 const pdf = usePrintToPdf<'quotation'>()
 const { printing, results: pdfResults } = pdf
+/** Set after a failed save: the next Done continues without the PDF. */
+const saveFailed = ref(false)
 
 watch(
   () => props.open,
   (open) => {
-    if (open) pdfResults.value = []
+    if (open) {
+      pdfResults.value = []
+      saveFailed.value = false
+    }
   }
 )
 
-/** One PDF page per copy, saved to the prints folder and opened (ADR-0012). */
-function savePdf(): void {
-  if (!props.txn) return
-  void pdf.save([{ kind: 'quotation', filename: `${props.txn.id}_quotation.pdf` }])
+/** Done = print (ADR-0012): one PDF page per copy. Printerless Mode skips saving. */
+async function onDone(): Promise<void> {
+  if (!props.txn || props.printerless || saveFailed.value) {
+    emit('done')
+    return
+  }
+  const ok = await pdf.saveAll([{ kind: 'quotation', filename: `${props.txn.id}_quotation.pdf` }])
+  if (ok) emit('done')
+  else saveFailed.value = true
 }
+
+const doneLabel = computed(() => {
+  if (props.printerless) return 'Done'
+  if (saveFailed.value) return 'Continue without PDF'
+  return printing.value ? 'Saving…' : 'Print & finish'
+})
 </script>
 
 <template>
@@ -84,15 +100,13 @@ function savePdf(): void {
     <DialogContent class="sm:max-w-md" data-testid="slip-preview">
       <DialogHeader>
         <DialogTitle>
-          {{ printerless ? 'Write a manual copy' : 'Quotation preview' }}
+          {{ printerless ? 'Write a manual copy' : 'Cash Sale ready' }}
         </DialogTitle>
         <DialogDescription>
-          {{
-            printerless
-              ? 'No printer yet — save a PDF, or copy these details by hand.'
-              : 'This is what will print.'
-          }}
-          <span class="mt-1 block" data-testid="slip-copy-count">{{ copyLabel }}</span>
+          <span v-if="printerless" class="block"
+            >Printerless Mode — copy these details by hand.</span
+          >
+          <span class="block" data-testid="slip-copy-count">{{ copyLabel }}</span>
         </DialogDescription>
       </DialogHeader>
 
@@ -111,28 +125,18 @@ function savePdf(): void {
       </div>
 
       <p
-        v-for="(r, i) in pdfResults"
+        v-for="(r, i) in pdfResults.filter((x) => !x.ok)"
         :key="i"
-        class="break-all text-sm"
-        :class="r.ok ? 'text-muted-foreground' : 'text-destructive'"
-        data-testid="slip-pdf-result"
+        class="break-all text-sm text-destructive"
+        data-testid="slip-pdf-error"
       >
-        {{ r.ok ? `Saved ${r.path}` : `Could not save PDF: ${r.error}` }}
+        Could not save PDF: {{ r.ok ? '' : r.error }}
       </p>
 
       <DialogFooter>
-        <Button
-          variant="outline"
-          :disabled="printing !== null"
-          data-testid="slip-save-pdf"
-          @click="savePdf"
-        >
-          <FileDown class="mr-2 size-4" />
-          Save PDF
-        </Button>
-        <Button data-testid="slip-done" @click="$emit('done')">
+        <Button :disabled="printing !== null" data-testid="slip-done" @click="onDone">
           <Printer class="mr-2 size-4" />
-          Done
+          {{ doneLabel }}
         </Button>
       </DialogFooter>
     </DialogContent>

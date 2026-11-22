@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import path from 'node:path'
 import { test, expect } from './fixtures'
 import { dismissAutoPicker, goHome, seedCustomer, seedProduct } from './helpers'
 
@@ -19,7 +20,10 @@ const NO_TE_CUSTOMER = 'Lakshmi Devi'
 const NO_TE_PLACE = 'Vijayawada'
 const NO_TE_PRODUCT = 'Urad Dal'
 
-test('cash sale invoice shows Telugu for customer, place, and product', async ({ page }) => {
+test('cash sale invoice shows Telugu for customer, place, and product', async ({
+  page,
+  electronApp
+}) => {
   test.setTimeout(60_000)
 
   // The shop name heads the Quotation on cash sales too.
@@ -66,19 +70,17 @@ test('cash sale invoice shows Telugu for customer, place, and product', async ({
   await expect(page.getByTestId('slip-customer')).not.toHaveText(CUSTOMER_EN)
   await expect(page.getByTestId('slip-place')).not.toHaveText(PLACE_EN)
 
-  // ADR-0012: Save PDF writes one 10 × 21 cm upright page per copy (two by default).
-  await page.getByTestId('slip-save-pdf').click()
-  const result = page.getByTestId('slip-pdf-result')
-  await expect(result).toContainText('Saved')
-  const pdfPath = ((await result.textContent()) ?? '').replace(/^\s*Saved\s*/, '').trim()
-  const pdf = fs.readFileSync(pdfPath, 'latin1')
+  // ADR-0012: Print & finish saves one 10 × 21 cm upright page per copy (two by default).
+  const txnId = await page.getByTestId('sale-number').innerText()
+  await page.getByTestId('slip-done').click()
+  await expect(page.getByTestId('home-page')).toBeVisible()
+  await expect(page.getByTestId('toast')).toContainText('Saved PDF to')
+  const printDir = (await electronApp.evaluate(() => process.env.VAJRA_PRINT_DIR)) as string
+  const pdf = fs.readFileSync(path.join(printDir, `${txnId}_quotation.pdf`), 'latin1')
   expect(pdf.startsWith('%PDF')).toBe(true)
   expect(pdf.match(/\/Type\s*\/Page\b/g)).toHaveLength(2)
   // 100 mm × 210 mm ≈ 283 × 595 pt; Chromium rounds to whole pixels (282.96 × 594.96).
   expect(pdf).toMatch(/\/MediaBox\s*\[\s*0\s+0\s+28[23]\.\d+\s+59[45]\.\d+\s*\]/)
-
-  await page.getByTestId('slip-done').click()
-  await expect(page.getByTestId('home-page')).toBeVisible()
 })
 
 test('credit sale invoice and voucher show Telugu where seeded', async ({ page }) => {
@@ -111,12 +113,6 @@ test('credit sale invoice and voucher show Telugu where seeded', async ({ page }
 
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('credit-finish-panel')).toBeVisible()
-
-  await expect(page.getByTestId('sale-invoice')).toBeVisible()
-  await expect(page.getByTestId('slip-customer')).toHaveText(CUSTOMER_TE)
-  await expect(page.getByTestId('slip-place')).toHaveText(PLACE_TE)
-  await expect(page.getByTestId('slip-line-product')).toContainText(PRODUCT_TE)
-  await expect(page.getByTestId('slip-phone')).toHaveText('9876543210')
 
   await expect(page.getByTestId('voucher-front')).toBeVisible()
   await expect(page.getByTestId('voucher-customer')).toHaveText(CUSTOMER_TE)
@@ -165,12 +161,6 @@ test('masters without Telugu still show English on invoice and voucher', async (
   await expect(page.getByTestId('credit-finish-panel')).toBeVisible()
 
   // English fallback — never blank / dashed gap for missing Telugu.
-  await expect(page.getByTestId('slip-customer')).toHaveText(NO_TE_CUSTOMER)
-  await expect(page.getByTestId('slip-place')).toHaveText(NO_TE_PLACE)
-  await expect(page.getByTestId('slip-line-product')).toContainText(NO_TE_PRODUCT)
-  await expect(page.getByTestId('slip-customer')).not.toHaveText('')
-  await expect(page.getByTestId('slip-place')).not.toHaveText('—')
-
   await expect(page.getByTestId('voucher-customer')).toHaveText(NO_TE_CUSTOMER)
   await expect(page.getByTestId('voucher-place')).toHaveText(NO_TE_PLACE)
 

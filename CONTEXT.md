@@ -164,7 +164,7 @@ The non-voided transaction that supersedes a voided one. A chain may grow arbitr
 A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Quotation / Credit Voucher details on screen — including the transaction ID — so the cashier can write a manual copy by hand. Distinct from the per-transaction _"printer not responding — continue without slip?"_ prompt that handles a single transient print failure without changing the mode.
 
 **Print to PDF**:
-Until the shop's printer arrives, "printing" saves PDFs — the Quotation (one page per copy) and, on a Credit Sale, the Credit Voucher as its own two-page file (front, back) — in the prints folder and opens it, so the shopkeeper prints or shares it from there (ADR-0012). Like the End of Day Report, the PDF is a file outside Vajra's owned data.
+Until the shop's printer arrives, "printing" saves PDFs to Documents/VajraPrints when the cashier presses **Print & finish** on the finish screen: the Quotation (one page per copy) and, on a Credit Sale, the Credit Voucher as its own two-page file (front, back). Whether a Credit Sale also prints its Quotation, and how many copies, defaults from Settings and can be changed on the finish screen. Like the End of Day Report, the PDFs are files outside Vajra's owned data (ADR-0012).
 
 ### Identifiers
 

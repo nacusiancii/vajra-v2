@@ -1,18 +1,16 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { FileDown, Printer } from '@lucide/vue'
+import { Printer } from '@lucide/vue'
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  DialogDescription
+  DialogFooter
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
-import { formatRupees } from '@/lib/format'
 import type { Txn } from '@domain/transaction'
 import { usePrintToPdf } from '@/lib/print-to-pdf'
 import CreditVoucherPreview, { type VoucherLine } from './CreditVoucherPreview.vue'
@@ -76,6 +74,8 @@ const showVoucherBack = ref(false)
 
 const pdf = usePrintToPdf<'voucher' | 'quotation'>()
 const { printing, results: pdfResults } = pdf
+/** Set after a failed save: the next Done continues without the PDFs. */
+const saveFailed = ref(false)
 
 watch(
   () => props.open,
@@ -83,30 +83,42 @@ watch(
     if (open) {
       showVoucherBack.value = false
       pdfResults.value = []
+      saveFailed.value = false
     }
   }
 )
 
 /**
- * Two PDFs, two print jobs (ADR-0012): the voucher as one duplex sheet (front,
- * back), then the Quotation copies when ticked — so a Quotation never lands on
- * the voucher's back.
+ * Done = print (ADR-0012: save PDFs). Two jobs: the voucher as one duplex sheet
+ * (front, back), then the Quotation copies when ticked — so a Quotation never
+ * lands on the voucher's back. Printerless Mode skips saving.
  */
-function savePdf(): void {
+async function onDone(): Promise<void> {
   const t = props.txn
-  if (!t) return
+  if (!t || props.printerless || saveFailed.value) {
+    emit('done')
+    return
+  }
   const jobs: { kind: 'voucher' | 'quotation'; filename: string }[] = [
     { kind: 'voucher', filename: `${t.id}_voucher.pdf` }
   ]
   if (props.printInvoice) jobs.push({ kind: 'quotation', filename: `${t.id}_quotation.pdf` })
-  void pdf.save(jobs)
+  if (await pdf.saveAll(jobs)) emit('done')
+  else saveFailed.value = true
 }
 
 const quotationCopies = computed(() => (props.printTwoCopies ? 2 : 1))
 
-const invoiceCopyLabel = computed(() => {
-  if (!props.printInvoice) return 'Not printing'
-  return props.printTwoCopies ? '2× print' : '1× print'
+/** What Done will print, in one line. */
+const printSummary = computed(() => {
+  if (!props.printInvoice) return 'Prints: voucher only'
+  return `Prints: voucher + Quotation (${props.printTwoCopies ? '2 copies' : '1 copy'})`
+})
+
+const doneLabel = computed(() => {
+  if (props.printerless) return 'Done'
+  if (saveFailed.value) return 'Continue without PDF'
+  return printing.value ? 'Saving…' : 'Print & finish'
 })
 
 function lineProductName(productId: number, englishName: string): string {
@@ -143,174 +155,88 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
 <template>
   <Dialog :open="open" @update:open="$emit('update:open', $event)">
     <DialogContent
-      class="flex max-h-[90vh] w-full flex-col gap-0 overflow-hidden sm:max-w-4xl"
+      class="flex max-h-[92vh] w-full flex-col gap-0 overflow-hidden sm:max-w-[60rem]"
       data-testid="credit-finish-panel"
     >
-      <DialogHeader class="shrink-0 space-y-2 text-left">
+      <DialogHeader class="shrink-0 text-left">
         <div class="flex flex-wrap items-center gap-2">
           <DialogTitle class="text-xl">Credit Sale ready</DialogTitle>
           <Badge
             v-if="txn"
-            variant="secondary"
-            class="font-mono tabular-nums"
+            variant="outline"
+            class="border-amber-400 font-mono tabular-nums text-amber-800 dark:text-amber-200"
             data-testid="credit-finish-sale-id"
           >
             {{ txn.id }}
           </Badge>
-          <Badge
-            v-if="txn"
-            variant="outline"
-            class="border-amber-400 font-mono tabular-nums text-amber-800 dark:text-amber-200"
-            data-testid="credit-finish-voucher-id"
-          >
-            {{ txn.id }}
-          </Badge>
         </div>
-        <DialogDescription>
-          Credit Voucher is the signed, locked paper that always prints. Sale Invoice is optional
-          helper paper — the cashier may skip invoice copies entirely.
-          <span v-if="printerless" class="mt-1 block">
-            Printerless Mode is on — copy these details by hand.
-          </span>
-        </DialogDescription>
       </DialogHeader>
 
-      <div v-if="txn" class="mt-4 grid min-h-0 flex-1 gap-4 overflow-y-auto lg:grid-cols-2">
-        <!-- Left: print queue + Sale Invoice -->
-        <div class="space-y-3">
-          <div class="rounded-lg border bg-muted/20 p-3" data-testid="credit-finish-print-queue">
-            <p
-              class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
-            >
-              Print queue
-            </p>
-            <div class="flex flex-wrap items-center gap-4">
-              <label class="flex cursor-pointer items-center gap-2">
-                <Checkbox
-                  :model-value="printInvoice"
-                  data-testid="credit-finish-print-invoice"
-                  @update:model-value="setPrintInvoice"
-                />
-                <span class="text-sm font-medium">Print invoice</span>
-              </label>
-              <label
-                class="flex items-center gap-2"
-                :class="printInvoice ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
-              >
-                <Checkbox
-                  :model-value="printTwoCopies"
-                  :disabled="!printInvoice"
-                  data-testid="credit-finish-two-copies"
-                  @update:model-value="setPrintTwoCopies"
-                />
-                <span class="text-sm font-medium">Two copies</span>
-                <span
-                  class="rounded-full border bg-background px-2 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground"
-                  data-testid="credit-finish-2x-tag"
-                >
-                  2×
-                </span>
-              </label>
-            </div>
-          </div>
-
-          <div
-            class="relative overflow-auto rounded-md border transition-opacity"
-            :class="printInvoice ? '' : 'opacity-40'"
-            data-testid="sale-invoice"
-          >
-            <div
-              class="absolute right-3 top-3 rounded-full border bg-background px-2 py-0.5 text-[10px] font-semibold tabular-nums text-muted-foreground"
-              data-testid="slip-copy-count"
-            >
-              {{ invoiceCopyLabel }}
-            </div>
-            <div
-              v-if="!printInvoice"
-              class="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
-            >
-              <span
-                class="rounded-full border border-dashed bg-background/90 px-3 py-1 text-sm font-medium text-muted-foreground"
-                data-testid="credit-finish-invoice-not-printing"
-              >
-                Not printing
-              </span>
-            </div>
-
-            <QuotationSheet
-              :txn="txn"
-              :company-name="companyName"
-              :date="date"
-              :customer-name="customerName"
-              :place="place"
-              :phone="phone"
-              :product-face-names="productFaceNames"
-            />
-          </div>
-        </div>
-
-        <!-- Right: Credit Voucher always prints -->
-        <div
-          class="rounded-lg border-2 border-amber-400 bg-amber-50/40 p-3 dark:bg-amber-950/30"
-          data-testid="credit-finish-voucher-column"
-        >
-          <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p class="text-sm font-semibold">Credit Voucher</p>
-              <p class="text-xs text-muted-foreground tabular-nums">
-                {{ txn.id }} · {{ formatRupees(txn.total) }}
-              </p>
-            </div>
-            <span
-              class="rounded-full border border-amber-300 bg-background px-2 py-0.5 text-[10px] font-semibold text-amber-800 dark:text-amber-200"
-              data-testid="credit-finish-voucher-will-print"
-            >
-              will print
-            </span>
-          </div>
-          <CreditVoucherPreview
-            v-model:show-back="showVoucherBack"
-            collapsible-back
-            :transaction-id="txn.id"
-            :company-name="companyName"
-            :date="date"
-            :customer-name="customerName"
-            :place="place"
-            :phone="phone"
-            :lines="voucherLines"
-            :loading-charges="txn.loadingCharges"
-            :additional-charges="txn.additionalCharges"
-            :discount-amount="txn.discountAmount"
-            :total="txn.total"
-            :upi-id="upiId"
-            :interest-paise-per100="interestPaisePer100"
-          />
-        </div>
+      <!-- The Credit Voucher is the paper that matters: show it at full size. -->
+      <div v-if="txn" class="mt-4 min-h-0 flex-1 overflow-y-auto">
+        <CreditVoucherPreview
+          v-model:show-back="showVoucherBack"
+          collapsible-back
+          :transaction-id="txn.id"
+          :company-name="companyName"
+          :date="date"
+          :customer-name="customerName"
+          :place="place"
+          :phone="phone"
+          :lines="voucherLines"
+          :loading-charges="txn.loadingCharges"
+          :additional-charges="txn.additionalCharges"
+          :discount-amount="txn.discountAmount"
+          :total="txn.total"
+          :upi-id="upiId"
+          :interest-paise-per100="interestPaisePer100"
+        />
       </div>
 
       <p
-        v-for="(r, i) in pdfResults"
+        v-for="(r, i) in pdfResults.filter((x) => !x.ok)"
         :key="i"
-        class="mt-3 break-all text-sm"
-        :class="r.ok ? 'text-muted-foreground' : 'text-destructive'"
-        data-testid="credit-finish-pdf-result"
+        class="mt-3 break-all text-sm text-destructive"
+        data-testid="credit-finish-pdf-error"
       >
-        {{ r.ok ? `Saved ${r.path}` : `Could not save PDF: ${r.error}` }}
+        Could not save PDF: {{ r.ok ? '' : r.error }}
       </p>
 
-      <DialogFooter class="mt-4 shrink-0">
-        <Button
-          variant="outline"
-          :disabled="printing !== null"
-          data-testid="credit-finish-save-pdf"
-          @click="savePdf"
+      <DialogFooter class="mt-4 shrink-0 items-center gap-3 sm:justify-between">
+        <!-- Print queue: the voucher always prints; the Quotation is the cashier's choice. -->
+        <div
+          v-if="!printerless"
+          class="flex flex-wrap items-center gap-x-5 gap-y-2"
+          data-testid="credit-finish-print-queue"
         >
-          <FileDown class="mr-2 size-4" />
-          Save PDF
-        </Button>
-        <Button data-testid="credit-finish-done" @click="$emit('done')">
+          <label class="flex cursor-pointer items-center gap-2">
+            <Checkbox
+              :model-value="printInvoice"
+              data-testid="credit-finish-print-invoice"
+              @update:model-value="setPrintInvoice"
+            />
+            <span class="text-sm font-medium">Print Quotation</span>
+          </label>
+          <label
+            class="flex items-center gap-2"
+            :class="printInvoice ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+          >
+            <Checkbox
+              :model-value="printTwoCopies"
+              :disabled="!printInvoice"
+              data-testid="credit-finish-two-copies"
+              @update:model-value="setPrintTwoCopies"
+            />
+            <span class="text-sm font-medium">Two copies</span>
+          </label>
+          <span class="text-xs text-muted-foreground" data-testid="slip-copy-count">
+            {{ printSummary }}
+          </span>
+        </div>
+        <span v-else />
+        <Button :disabled="printing !== null" data-testid="credit-finish-done" @click="onDone">
           <Printer class="mr-2 size-4" />
-          Done
+          {{ doneLabel }}
         </Button>
       </DialogFooter>
     </DialogContent>
