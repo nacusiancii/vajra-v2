@@ -22,6 +22,13 @@ const NO_TE_PRODUCT = 'Urad Dal'
 test('cash sale invoice shows Telugu for customer, place, and product', async ({ page }) => {
   test.setTimeout(60_000)
 
+  // The shop name heads the Quotation on cash sales too.
+  await page.getByRole('link', { name: /Settings/ }).click()
+  await page.getByTestId('company-name-input').fill('Sri Venkateswara Traders')
+  await page.getByTestId('settings-save').click()
+  await expect(page.getByTestId('settings-saved')).toBeVisible()
+  await goHome(page)
+
   await seedProduct(page, { name: PRODUCT_EN, nameTe: PRODUCT_TE })
   await seedCustomer(page, {
     name: CUSTOMER_EN,
@@ -52,6 +59,7 @@ test('cash sale invoice shows Telugu for customer, place, and product', async ({
   await expect(page.getByTestId('slip-preview')).toBeVisible()
   await expect(page.getByTestId('sale-invoice')).toBeVisible()
 
+  await expect(page.getByTestId('slip-company')).toHaveText('Sri Venkateswara Traders')
   await expect(page.getByTestId('slip-customer')).toHaveText(CUSTOMER_TE)
   await expect(page.getByTestId('slip-place')).toHaveText(PLACE_TE)
   await expect(page.getByTestId('slip-line-product')).toContainText(PRODUCT_TE)
