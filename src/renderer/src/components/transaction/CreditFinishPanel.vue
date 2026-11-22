@@ -11,12 +11,11 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
-import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
-import { formatBagKg, formatKgFromG, formatQty, formatRupees } from '@/lib/format'
-import { lineMassGrams } from '@domain/transaction-rules'
+import { formatRupees } from '@/lib/format'
 import type { Txn } from '@domain/transaction'
 import CreditVoucherPreview, { type VoucherLine } from './CreditVoucherPreview.vue'
+import QuotationSheet from './QuotationSheet.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -73,11 +72,6 @@ watch(
     if (open) showVoucherBack.value = false
   }
 )
-
-const invoiceCopyCount = computed(() => {
-  if (!props.printInvoice) return 0
-  return props.printTwoCopies ? 2 : 1
-})
 
 const invoiceCopyLabel = computed(() => {
   if (!props.printInvoice) return 'Not printing'
@@ -193,7 +187,7 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
           </div>
 
           <div
-            class="relative rounded-md border bg-card p-4 text-sm transition-opacity"
+            class="relative overflow-auto rounded-md border transition-opacity"
             :class="printInvoice ? '' : 'opacity-40'"
             data-testid="sale-invoice"
           >
@@ -215,91 +209,15 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
               </span>
             </div>
 
-            <div class="text-center">
-              <p class="font-semibold">అమ్మకం రసీదు</p>
-              <p class="text-xs uppercase tracking-widest text-muted-foreground">Sale Invoice</p>
-            </div>
-            <div class="mt-2 flex items-center justify-between">
-              <span class="text-muted-foreground">Transaction ID</span>
-              <span class="text-lg font-bold tabular-nums" data-testid="sale-number">{{
-                txn.id
-              }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">Customer</span>
-              <span data-testid="slip-customer">{{ customerName }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">Place</span>
-              <span data-testid="slip-place">{{ place.trim() || '—' }}</span>
-            </div>
-            <div class="flex items-center justify-between">
-              <span class="text-muted-foreground">Phone</span>
-              <span class="tabular-nums" data-testid="slip-phone">{{ phone.trim() || '—' }}</span>
-            </div>
-            <div
-              class="flex items-center justify-between text-muted-foreground"
-              data-testid="slip-copies"
-            >
-              <span>Copies</span>
-              <span class="tabular-nums">{{ invoiceCopyCount }}</span>
-            </div>
-            <Separator class="my-2" />
-            <div v-for="line in txn.lines" :key="line.id" class="flex justify-between gap-2 py-0.5">
-              <span class="truncate" data-testid="slip-line-product">
-                {{ lineProductName(line.productId, line.productName) }}
-                <span
-                  v-if="line.isLoose"
-                  class="text-muted-foreground"
-                  data-testid="slip-line-loose"
-                >
-                  ({{ formatQty(line.qty) }} kg × {{ formatRupees(line.perKgRate ?? 0) }}/kg)
-                </span>
-                <span v-else-if="line.bagSizeG" class="text-muted-foreground">
-                  ({{ formatQty(line.qty) }} × {{ formatBagKg(line.bagSizeG) }} =
-                  {{
-                    formatKgFromG(
-                      lineMassGrams({ isLoose: false, qty: line.qty, bagSizeG: line.bagSizeG })
-                    )
-                  }})
-                </span>
-                <span v-else class="text-muted-foreground">× {{ formatQty(line.qty) }}</span>
-              </span>
-              <span class="tabular-nums">{{ formatRupees(line.lineTotal) }}</span>
-            </div>
-            <Separator class="my-2" />
-            <div
-              v-if="txn.loadingCharges"
-              class="flex justify-between text-muted-foreground"
-              data-testid="slip-loading"
-            >
-              <span>Loading</span>
-              <span class="tabular-nums">{{ formatRupees(txn.loadingCharges) }}</span>
-            </div>
-            <div v-if="txn.additionalCharges" class="flex justify-between text-muted-foreground">
-              <span>Additional</span>
-              <span class="tabular-nums">{{ formatRupees(txn.additionalCharges) }}</span>
-            </div>
-            <div
-              v-if="txn.discountAmount"
-              class="flex justify-between text-muted-foreground"
-              data-testid="slip-discount"
-            >
-              <span>Discount</span>
-              <span class="tabular-nums">−{{ formatRupees(txn.discountAmount) }}</span>
-            </div>
-            <div class="flex justify-between font-semibold">
-              <span>Total</span>
-              <span class="tabular-nums">{{ formatRupees(txn.total) }}</span>
-            </div>
-            <div class="mt-1 flex justify-between text-muted-foreground">
-              <span>Pairs with Credit Voucher</span>
-              <span class="tabular-nums" data-testid="slip-voucher-id">{{ txn.id }}</span>
-            </div>
-            <div v-if="txn.remarks" class="mt-2 border-t pt-2" data-testid="slip-remarks">
-              <p class="text-muted-foreground">Remarks</p>
-              <p class="whitespace-pre-wrap">{{ txn.remarks }}</p>
-            </div>
+            <QuotationSheet
+              :txn="txn"
+              :company-name="companyName"
+              :date="date"
+              :customer-name="customerName"
+              :place="place"
+              :phone="phone"
+              :product-face-names="productFaceNames"
+            />
           </div>
         </div>
 

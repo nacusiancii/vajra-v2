@@ -1,3 +1,4 @@
+import fs from 'node:fs'
 import { test, expect } from './fixtures'
 import { dismissAutoPicker, goHome, seedCustomer, seedProduct } from './helpers'
 
@@ -56,6 +57,17 @@ test('cash sale invoice shows Telugu for customer, place, and product', async ({
   await expect(page.getByTestId('slip-line-product')).toContainText(PRODUCT_TE)
   await expect(page.getByTestId('slip-customer')).not.toHaveText(CUSTOMER_EN)
   await expect(page.getByTestId('slip-place')).not.toHaveText(PLACE_EN)
+
+  // ADR-0012: Save PDF writes one 10 × 21 cm upright page per copy (two by default).
+  await page.getByTestId('slip-save-pdf').click()
+  const result = page.getByTestId('slip-pdf-result')
+  await expect(result).toContainText('Saved')
+  const pdfPath = ((await result.textContent()) ?? '').replace(/^\s*Saved\s*/, '').trim()
+  const pdf = fs.readFileSync(pdfPath, 'latin1')
+  expect(pdf.startsWith('%PDF')).toBe(true)
+  expect(pdf.match(/\/Type\s*\/Page\b/g)).toHaveLength(2)
+  // 100 mm × 210 mm ≈ 283 × 595 pt; Chromium rounds to whole pixels (282.96 × 594.96).
+  expect(pdf).toMatch(/\/MediaBox\s*\[\s*0\s+0\s+28[23]\.\d+\s+59[45]\.\d+\s*\]/)
 
   await page.getByTestId('slip-done').click()
   await expect(page.getByTestId('home-page')).toBeVisible()

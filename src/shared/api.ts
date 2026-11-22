@@ -42,6 +42,9 @@ export interface ExportEodReportInput {
 /** Result of writing the End of Day Report to disk (main process). */
 export type EodExportResult = { ok: true; path: string } | { ok: false; error: string }
 
+/** Result of saving the current print sheet(s) as a PDF (main process, ADR-0012). */
+export type SavePdfResult = { ok: true; path: string } | { ok: false; error: string }
+
 export interface VajraApi {
   // ── Customers ──────────────────────────────────────────────
   listCustomers(): Promise<Customer[]>
@@ -117,6 +120,13 @@ export interface VajraApi {
   // ── End of Day Report (silent main-process write) ──────────
   /** Write a built `.xlsx` buffer under the export folder (no save dialog). */
   exportEodReport(input: ExportEodReportInput): Promise<EodExportResult>
+
+  // ── Printing (PDF for now — ADR-0012) ──────────────────────
+  /**
+   * Save the window's print layout (`.print-root`) as a PDF in the prints folder
+   * and open it. `filename` is a basename such as `SA-C-3-22112026_quotation.pdf`.
+   */
+  savePdf(filename: string): Promise<SavePdfResult>
 }
 
 /**
@@ -172,5 +182,7 @@ export const IPC = {
   getSettings: 'settings:get',
   updateSettings: 'settings:update',
 
-  exportEodReport: 'eod:exportReport'
+  exportEodReport: 'eod:exportReport',
+
+  savePdf: 'print:savePdf'
 } as const

@@ -33,7 +33,10 @@ export const test = base.extend<Fixtures>({
       ...process.env,
       ELECTRON_DISABLE_SANDBOX: '1',
       VAJRA_USER_DATA: userDataDir,
-      VAJRA_EOD_EXPORT_DIR: eodExportDir
+      VAJRA_EOD_EXPORT_DIR: eodExportDir,
+      // Printed PDFs land in the temp dir and no viewer pops up (ADR-0012).
+      VAJRA_PRINT_DIR: path.join(userDataDir, 'VajraPrints'),
+      VAJRA_PRINT_NO_OPEN: '1'
     } as Record<string, string>
     // Electron-hosted terminals (VS Code, agent harnesses) export this; inheriting
     // it makes the app boot as plain Node and every launch fails.

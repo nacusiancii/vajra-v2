@@ -816,6 +816,8 @@ watch(
         :open="slipOpen"
         :txn="finished"
         :printerless="settings?.printerlessMode ?? true"
+        :company-name="settings?.companyName ?? ''"
+        :date="businessDay?.startDate ?? ''"
         :customer-name="finishedInvoiceCustomer"
         :place="finishedInvoicePlace"
         :phone="finishedInvoicePhone"

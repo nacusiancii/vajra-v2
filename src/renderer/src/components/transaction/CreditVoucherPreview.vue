@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed } from 'vue'
 import { Separator } from '@/components/ui/separator'
-import { formatQty, formatRupees } from '@/lib/format'
+import { formatQty, formatRupees, formatSlipDate } from '@/lib/format'
 
 export interface VoucherLine {
   productName: string
@@ -44,12 +44,7 @@ const props = withDefaults(
 
 const showBack = defineModel<boolean>('showBack', { default: false })
 
-/** Format YYYY-MM-DD → DD/MM/YYYY for the voucher face. */
-const displayDate = computed(() => {
-  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(props.date)
-  if (!m) return props.date || '—'
-  return `${m[3]}/${m[2]}/${m[1]}`
-})
+const displayDate = computed(() => formatSlipDate(props.date))
 
 /**
  * Bag lines: qty bags × (bag kg / 100) × Quintal Rate.

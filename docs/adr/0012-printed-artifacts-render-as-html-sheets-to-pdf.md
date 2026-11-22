@@ -1,0 +1,18 @@
+### Printed artifacts render as HTML sheets; PDF until the printer arrives
+
+Status: accepted.
+
+The Quotation and the Credit Voucher are drawn as Vue components sized to the real paper — a **10 cm × 21 cm upright sheet** — and printed by Chromium from the app window. The same component is the on-screen preview and the printed page, so the screen and the paper cannot disagree. A CSS `@page` rule sets the paper size; only a `.print-root` element mounted for the print call reaches the page, one child per page (one page per copy).
+
+The shop's printer is a normal office printer, not a thermal roll: the Credit Voucher is proof of credit and has to last. We assume it prints both sides (duplex), so the voucher's back is just page 2 and the cashier is never asked to flip the sheet.
+
+Until that printer is bought, **printing means saving a PDF**: the main process calls `printToPDF`, writes the file to `~/Documents/VajraPrints` (overridable with `VAJRA_PRINT_DIR`), and opens it in the system viewer. Like the End of Day Report (ADR-0001), the PDF lives outside Vajra's owned data; Vajra never reads it back.
+
+We chose HTML over a printer command language (ESC/POS, raw text) because the papers are layout-heavy (a pre-printed-pad lookalike, Telugu, a QR code, a two-sided voucher), Electron already ships a renderer with good Telugu shaping, and PDF works with no printer at all. Switching to a real printer later is a different sink for the same page, not a rewrite.
+
+#### Consequences
+
+- Telugu is shaped by Chromium with the bundled Noto Sans Telugu font, not by the printer (amends ADR-0003).
+- **Departs from ADR-0008 for now:** ADR-0008 commits a Sale only after the printer driver acknowledges the job. A PDF has no driver, so today the Sale commits at finish and the PDF is saved afterwards from the preview. When the printer arrives, the silent-print path (`webContents.print` to the printer chosen in Settings) should restore ADR-0008's commit-after-acknowledgement order and its "printer not responding" prompt.
+- Printerless Mode stays locked on until that printer path exists; the preview offers "Save PDF" alongside the hand-copy view.
+- Paper size lives in one CSS rule. If the bought printer needs a different size, that rule and the sheet components change, nothing else.

@@ -53,7 +53,8 @@ const api: VajraApi = {
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   updateSettings: (settings) => ipcRenderer.invoke(IPC.updateSettings, settings),
 
-  exportEodReport: (input) => ipcRenderer.invoke(IPC.exportEodReport, input)
+  exportEodReport: (input) => ipcRenderer.invoke(IPC.exportEodReport, input),
+  savePdf: (filename) => ipcRenderer.invoke(IPC.savePdf, filename)
 }
 
 if (process.contextIsolated) {

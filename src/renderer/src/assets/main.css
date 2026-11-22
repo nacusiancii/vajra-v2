@@ -3,3 +3,36 @@
 #app {
   min-height: 100vh;
 }
+
+/*
+ * Printing (ADR-0012): only `.print-root` reaches the paper / PDF. A component
+ * mounts it (teleported to <body>) just for the print call, one child per page.
+ * Paper is 10 cm wide × 21 cm tall, upright.
+ */
+@page {
+  size: 100mm 210mm;
+  margin: 0;
+}
+
+.print-root {
+  display: none;
+}
+
+@media print {
+  html,
+  body {
+    background: white !important;
+  }
+  body > :not(.print-root) {
+    display: none !important;
+  }
+  .print-root {
+    display: block;
+  }
+  .print-root > * {
+    break-after: page;
+  }
+  .print-root > :last-child {
+    break-after: auto;
+  }
+}

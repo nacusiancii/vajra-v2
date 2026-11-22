@@ -89,7 +89,7 @@ _Avoid_: Other charges, expenses, sundry.
 ### Sales and payment
 
 **Sale**:
-A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods, and the Sale total (after any **Discount**) lands in **Credit Sales Total** for the day book. A new Sale starts from one of the first screen's entry points — **Cash Sale** or **Credit Sale** — so the mode is already chosen when the cart opens (the separate pick-Cash-or-Credit gate is deprecated), and the cashier may still toggle the mode any time during the cart. Every Sale produces a Sale Invoice on finish; a Credit Sale additionally produces a Credit Voucher. An optional cart-level **Discount** (display name exactly "Discount") may reduce the Sale total on both Cash and Credit Sales — a simple rupee amount off the total, not a percent and not Settlement Discount.
+A single counter transaction. Always either fully Cash or fully Credit — never partial. Cash mode collects cash and/or UPI at finish. Credit mode collects nothing today; a Credit Voucher is signed by the customer in exchange for goods, and the Sale total (after any **Discount**) lands in **Credit Sales Total** for the day book. A new Sale starts from one of the first screen's entry points — **Cash Sale** or **Credit Sale** — so the mode is already chosen when the cart opens (the separate pick-Cash-or-Credit gate is deprecated), and the cashier may still toggle the mode any time during the cart. Every Sale produces a Quotation on finish; a Credit Sale additionally produces a Credit Voucher. An optional cart-level **Discount** (display name exactly "Discount") may reduce the Sale total on both Cash and Credit Sales — a simple rupee amount off the total, not a percent and not Settlement Discount.
 _Avoid_: Bill, transaction (as a synonym for Sale).
 
 **Discount** (on Sale):
@@ -100,16 +100,16 @@ _Avoid_: Less (on Sale), Settlement Discount (on Sale), face value (for Sale Dis
 An unfinished Sale or Purchase the cashier has explicitly parked mid-entry so they can leave the cart, do other work, and resume later. Only Sales and Purchases are draftable. Only an explicit Save creates a Draft; resuming a Draft replaces any open unfinished cart without saving it. Saving requires a counterparty — a Customer Master entry, or Walk-in mode where that Sale or Purchase allows walk-ins (walk-in name and place are optional; blank fields store as **"Walk in"**). A Draft does not affect Inventory, does not receive a transaction ID, and is discarded at Rollover. Clearing a Draft is free deletion, not a Void.
 _Avoid_: held cart, parked bill, incomplete transaction, temporary sale.
 
-**Sale Invoice**:
-The paper artifact produced when a Sale finishes. **Two copies by default** (business + customer); the cashier may opt out of the extra copy during the Sale. Carries the line items, totals (including any Discount), payment captured (cash and UPI on Cash Sales), **place** and **phone** when known, optional **remarks**, Customer details where available, and the Sale's **transaction ID** (the only identifier — see ADR-0009). Reprintable from the cashier UI until the next transaction starts; not reprintable thereafter.
-_Avoid_: Bill, slip, receipt (collides with the Receipt entity).
+**Quotation**:
+The paper artifact produced when a Sale finishes — the shopkeeper's own word, printed as the title "QUOTATION". A 10 cm × 21 cm upright sheet (ADR-0012). **Two copies by default** (business + customer); the cashier may opt out of the extra copy during the Sale. Carries the line items, totals (including any Discount), payment captured (cash and UPI on Cash Sales), **place** and **phone** when known, optional **remarks**, Customer details where available, and the Sale's **transaction ID** (the only identifier — see ADR-0009). Bag lines print as `bags × quintals per bag × Quintal Rate` (e.g. `10 × 0.25 × ₹4,000`); Loose lines as `kg × price/kg`. Reprintable from the cashier UI until the next transaction starts; not reprintable thereafter.
+_Avoid_: Sale Invoice (former glossary name — code identifiers may still say invoice), Bill, slip, receipt (collides with the Receipt entity).
 
 **Credit Voucher**:
-The paper artifact a Credit Sale produces _in addition to_ the Sale Invoice, in lieu of cash. Prints the **same transaction ID** as that Credit Sale's invoice (one sequence, one source of truth — not a second voucher-only number). The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Collecting the signature is the shopkeeper's paper-side responsibility — Vajra does not ask for a signed-voucher confirmation at finish. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
+The paper artifact a Credit Sale produces _in addition to_ the Quotation, in lieu of cash. Prints the **same transaction ID** as that Credit Sale's Quotation (one sequence, one source of truth — not a second voucher-only number). The customer signs the voucher; the **shopkeeper keeps it** (it joins the shop's paper credit book). Printed once and never reprinted — the signature is what makes it valid, so a reprint is meaningless. Collecting the signature is the shopkeeper's paper-side responsibility — Vajra does not ask for a signed-voucher confirmation at finish. A Credit Sale also requires a phone number on the chosen Customer — if the Customer Master entry has none, the cashier is forced to add it before finishing.
 
-Two-sided layout:
+The voucher must last — it is the shop's proof of credit — so it prints on durable paper from a normal printer, never thermal (ADR-0012). Two-sided, printed in one pass on a duplex printer:
 
-- **Front** — Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), transaction ID, Customer name, total Amount (after Discount), and the signature line.
+- **Front** — modelled on the shop's pre-printed credit pad. A tear-off **stub** (transaction ID, customer name, place, date, amount, and a blank "paid on" date) and the voucher proper: Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), transaction ID, Customer name, total Amount (after Discount) in figures **and in words**, the **interest clause** (default ₹2 per ₹100 per month, set in Settings), a UPI QR code for the shop, and the signature line.
 - **Back** — Chosen Products as line items: bag lines in the form `quantity × ratio × price = line total` (bags × bag-kg/100 × Quintal Rate); Loose lines as `kg × price/kg = line total`; plus Loading Charges, Additional Charges, and Discount as their own lines when present, then the Total.
   _Avoid_: IOU, credit note, due slip; separate Voucher Number.
 
@@ -161,7 +161,10 @@ The non-voided transaction that supersedes a voided one. A chain may grow arbitr
 ### Printing
 
 **Printerless Mode**:
-A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Sale Invoice / Credit Voucher details on screen — including the transaction ID — so the cashier can write a manual copy by hand. Distinct from the per-transaction _"printer not responding — continue without slip?"_ prompt that handles a single transient print failure without changing the mode.
+A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Quotation / Credit Voucher details on screen — including the transaction ID — so the cashier can write a manual copy by hand. Distinct from the per-transaction _"printer not responding — continue without slip?"_ prompt that handles a single transient print failure without changing the mode.
+
+**Print to PDF**:
+Until the shop's printer arrives, "printing" a Quotation saves it as a PDF (one page per copy) in the prints folder and opens it, so the shopkeeper prints or shares it from there (ADR-0012). Like the End of Day Report, the PDF is a file outside Vajra's owned data.
 
 ### Identifiers
 
@@ -186,6 +189,8 @@ _Avoid_: treating Journal as a transactional type; Party as a glossary synonym f
 **"Payment"**: The entity (cash/UPI out to a Customer) collides with the everyday meaning of "payment captured at the finish of a Cash Sale." When unambiguous in context, use Payment for the entity; for the cash/UPI a customer hands over during Sale finish, say _cash collected_ and _UPI collected_, not "payment."
 
 **"Credit Sales Total" / "Credit Purchases Total"**: These are totals of today's credit-mode transactions only (Credit Sales after Discount) — they exclude cash Sales/Purchases, and they are never the same figure as Receipts (cash collected) or Payments (cash paid out). A Credit Sale's total lands in Credit Sales Total the day it's made; the cash that eventually settles it lands in Receipts, possibly on a different day entirely — the two numbers are unrelated in any given day's drawer.
+
+**Credit Voucher QR amount** (open): a QR with the amount filled in would show the principal only, but interest accrues until the customer pays. Undecided whether the voucher's QR carries no amount (customer enters it at repayment) or the principal.
 
 **"Discount" vs "Settlement Discount"**: On a Sale the label is **Discount** (simple total reduction). On a Receipt or Payment the concept is **Settlement Discount** (write-off with face/realized semantics). Do not mix the terms.
 
