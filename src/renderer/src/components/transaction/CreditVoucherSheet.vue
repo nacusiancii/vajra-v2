@@ -141,21 +141,22 @@ function formula(line: VoucherLine): string {
           }}</span></span
         >
       </p>
-      <p>
-        రూ.
-        <span class="text-sm font-bold tabular-nums" data-testid="voucher-amount">{{
+      <!-- The pad's printed sentence, word for word; amount and words sit inside it. -->
+      <p class="leading-relaxed" data-testid="voucher-interest">
+        ఈ రోజు నా / మా వ్యాపార అభివృద్ధి నిమిత్తం నీ తావున అప్పుగా తీసుకున్న రొఖ్ఖం రూ.
+        <span class="font-bold tabular-nums" data-testid="voucher-amount">{{
           formatRupees(total)
         }}</span>
-        &nbsp; అక్షరముల:
+        అక్షరముల
         <span class="font-semibold" data-testid="voucher-words">{{ amountWords }}</span>
-      </p>
-      <p data-testid="voucher-interest">
-        ఈ రోజు నా / మా వ్యాపార అవసరార్థం పై మొత్తం అప్పుగా తీసుకున్నాను / తీసుకున్నాము. ఇందుకు వడ్డీ
-        నెల 1కి రూ. 100కి రూ. {{ interestText }} లు చొప్పున ఇచ్చే షరతుపై మీ ఖాతాకు జమ
-        వ్రాయించగలవారము.
+        ఇచ్చినారు గనుక నాకు / మాకు ముట్టినవి. ఇందుకు వడ్డీ నెల 1కి రూ. 100కి రూ.
+        {{ interestText }} లు చొప్పున యిచ్చే పద్ధతిలో మీ ఖాతాకు జమ వ్రాయించగల వారము.
       </p>
 
       <div class="mt-auto flex items-end justify-between gap-2">
+        <p class="text-sm">
+          రూ. <span class="font-bold tabular-nums">{{ formatRupees(total) }}</span>
+        </p>
         <svg
           v-if="qr"
           class="size-[22mm] shrink-0"
