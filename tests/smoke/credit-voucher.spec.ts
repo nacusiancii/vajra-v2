@@ -1,3 +1,5 @@
+import fs from 'node:fs'
+import type { Page } from '@playwright/test'
 import { test, expect } from './fixtures'
 import { goHome, seedCustomer, seedProduct } from './helpers'
 
@@ -13,6 +15,7 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   // Company Name appears on the voucher front.
   await page.getByRole('link', { name: /Settings/ }).click()
   await page.getByTestId('company-name-input').fill('Sri Venkateswara Traders')
+  await page.getByTestId('upi-id-input').fill('svtraders@ybl')
   await page.getByTestId('settings-save').click()
   await expect(page.getByTestId('settings-saved')).toBeVisible()
   await goHome(page)
@@ -85,6 +88,9 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   await expect(page.getByTestId('voucher-customer')).toHaveText('Ravi Kumar')
   await expect(page.getByTestId('voucher-date')).not.toHaveText('—')
   await expect(page.getByTestId('voucher-amount')).toContainText('6,000')
+  await expect(page.getByTestId('voucher-words')).toHaveText('Six Thousand Rupees only')
+  await expect(page.getByTestId('voucher-interest')).toContainText('రూ. 2-00')
+  await expect(page.getByTestId('voucher-qr')).toBeVisible()
 
   // Back is collapsible on the finish panel — expand and check lines.
   await page.getByTestId('voucher-show-back').click()
@@ -94,6 +100,16 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   await expect(line).toContainText('Toor Dal')
   await expect(line).toContainText('2 × 0.5 ×')
   await expect(page.getByTestId('voucher-total')).toContainText('6,000')
+
+  // ADR-0012: Save PDF writes the voucher as one duplex sheet (front + back) and
+  // the Quotation (Print on, one copy) as its own file.
+  await page.getByTestId('credit-finish-save-pdf').click()
+  const results = page.getByTestId('credit-finish-pdf-result')
+  await expect(results).toHaveCount(2)
+  await expect(results.nth(0)).toContainText(`${txnId}_voucher.pdf`)
+  await expect(results.nth(1)).toContainText(`${txnId}_quotation.pdf`)
+  expect(await pdfPageCount(page, 0)).toBe(2)
+  expect(await pdfPageCount(page, 1)).toBe(1)
 
   // Toggle two copies → 2×; uncheck print → not printing (voucher still will print).
   await page.getByTestId('credit-finish-two-copies').click()
@@ -112,3 +128,12 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
     .click()
   await expect(page.getByTestId('txn-row')).toHaveCount(1)
 })
+
+/** Page count of the PDF named in the nth "Saved …" line on the credit finish panel. */
+async function pdfPageCount(page: Page, nth: number): Promise<number> {
+  const text = await page.getByTestId('credit-finish-pdf-result').nth(nth).textContent()
+  const pdfPath = (text ?? '').replace(/^\s*Saved\s*/, '').trim()
+  const pdf = fs.readFileSync(pdfPath, 'latin1')
+  expect(pdf.startsWith('%PDF')).toBe(true)
+  return pdf.match(/\/Type\s*\/Page\b/g)?.length ?? 0
+}

@@ -32,6 +32,10 @@ export interface AppSettings {
   printerlessMode: boolean
   /** Shop / company name printed on the Credit Voucher front side. */
   companyName: string
+  /** Shop UPI ID for the Credit Voucher QR (no QR when blank). */
+  upiId: string
+  /** Credit Voucher interest clause: paise per ₹100 per month (default ₹2). */
+  voucherInterestPaisePer100: number
   /** The Bag Types the shop uses for pricing-by-weight (grams). */
   bagTypes: BagSizeG[]
   /**
@@ -59,6 +63,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   // Locked on until thermal print lands (#22 / #28).
   printerlessMode: true,
   companyName: '',
+  upiId: '',
+  voucherInterestPaisePer100: 200,
   bagTypes: [...BAG_SIZES_G],
   loadingCharge: {
     ...DEFAULT_LOADING_CHARGE,

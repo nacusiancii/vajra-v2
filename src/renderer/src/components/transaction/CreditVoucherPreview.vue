@@ -1,23 +1,15 @@
 <script setup lang="ts">
 import { computed } from 'vue'
-import { Separator } from '@/components/ui/separator'
-import { formatQty, formatRupees, formatSlipDate } from '@/lib/format'
+import CreditVoucherSheet, { type VoucherLine } from './CreditVoucherSheet.vue'
 
-export interface VoucherLine {
-  productName: string
-  isLoose: boolean
-  qty: number
-  bagSizeG: number | null
-  quintalRate: number | null
-  perKgRate: number | null
-  lineTotal: number
-}
+export type { VoucherLine }
 
+/**
+ * On-screen Credit Voucher: the same sheets that print (ADR-0012), front first,
+ * back behind a toggle on the finish panel.
+ */
 const props = withDefaults(
   defineProps<{
-    /**
-     * Full transaction ID shared with the Sale Invoice (ADR-0009).
-     */
     transactionId: string | null
     companyName: string
     /** Business Day date as YYYY-MM-DD. */
@@ -26,119 +18,45 @@ const props = withDefaults(
     place: string
     /** Customer mobile (required for Credit Sales). */
     phone: string
-    amount: number
     lines: VoucherLine[]
     loadingCharges: number
     additionalCharges: number
     /** Sale Discount in paise (0 when none). */
     discountAmount: number
     total: number
-    /**
-     * When true, only the front face is shown and the back is behind a collapsible
-     * control (finish-panel layout). When false, front + back are both expanded.
-     */
+    upiId?: string
+    interestPaisePer100?: number
+    /** When true, the back is behind a toggle (finish-panel layout). */
     collapsibleBack?: boolean
   }>(),
-  { collapsibleBack: false }
+  { upiId: '', interestPaisePer100: 200, collapsibleBack: false }
 )
 
 const showBack = defineModel<boolean>('showBack', { default: false })
 
-const displayDate = computed(() => formatSlipDate(props.date))
-
-/**
- * Bag lines: qty bags × (bag kg / 100) × Quintal Rate.
- * Loose lines: kg × 1 × price/kg.
- */
-const breakdowns = computed(() =>
-  props.lines.map((line) => {
-    const qty = formatQty(line.qty)
-    if (line.isLoose) {
-      return {
-        productName: line.productName,
-        qty,
-        ratio: '1',
-        price: formatRupees(line.perKgRate ?? 0),
-        total: formatRupees(line.lineTotal),
-        formula: `${qty} kg × ${formatRupees(line.perKgRate ?? 0)}/kg`
-      }
-    }
-    if (line.bagSizeG) {
-      return {
-        productName: line.productName,
-        qty,
-        // bag grams / quintal grams = bag kg / 100
-        ratio: formatQty(line.bagSizeG / 100_000),
-        price: formatRupees(line.quintalRate ?? 0),
-        total: formatRupees(line.lineTotal),
-        formula: null as string | null
-      }
-    }
-    return {
-      productName: line.productName,
-      qty,
-      ratio: '1',
-      price: formatRupees(0),
-      total: formatRupees(line.lineTotal),
-      formula: null as string | null
-    }
-  })
-)
-
 const backVisible = computed(() => !props.collapsibleBack || showBack.value)
+
+const sheetProps = computed(() => ({
+  transactionId: props.transactionId,
+  companyName: props.companyName,
+  date: props.date,
+  customerName: props.customerName,
+  place: props.place,
+  phone: props.phone,
+  lines: props.lines,
+  loadingCharges: props.loadingCharges,
+  additionalCharges: props.additionalCharges,
+  discountAmount: props.discountAmount,
+  total: props.total,
+  upiId: props.upiId,
+  interestPaisePer100: props.interestPaisePer100
+}))
 </script>
 
 <template>
   <div class="space-y-4" data-testid="voucher-preview">
-    <!-- Front side: identity + amount for signature -->
-    <div
-      class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4 text-sm dark:bg-amber-950"
-      data-testid="voucher-front"
-    >
-      <p
-        class="mb-2 text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
-      >
-        Front
-      </p>
-      <div class="text-center">
-        <p class="text-base font-semibold" data-testid="voucher-company">
-          {{ companyName.trim() || '—' }}
-        </p>
-        <p class="mt-1 font-semibold">క్రెడిట్ వోచర్</p>
-        <p class="text-xs uppercase tracking-widest text-muted-foreground">Credit Voucher</p>
-      </div>
-      <Separator class="my-2" />
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Transaction ID</span>
-        <span class="text-lg font-bold tabular-nums" data-testid="voucher-number">
-          {{ transactionId ?? '—' }}
-        </span>
-      </div>
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Date</span>
-        <span data-testid="voucher-date">{{ displayDate }}</span>
-      </div>
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Customer</span>
-        <span data-testid="voucher-customer">{{ customerName }}</span>
-      </div>
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Place</span>
-        <span data-testid="voucher-place">{{ place.trim() || '—' }}</span>
-      </div>
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Mobile</span>
-        <span class="tabular-nums" data-testid="voucher-phone">{{ phone.trim() || '—' }}</span>
-      </div>
-      <div class="flex items-center justify-between">
-        <span class="text-muted-foreground">Amount</span>
-        <span class="font-semibold tabular-nums" data-testid="voucher-amount">{{
-          formatRupees(amount)
-        }}</span>
-      </div>
-      <p class="mt-3 border-t pt-3 text-xs text-muted-foreground">
-        Customer signature: ____________________
-      </p>
+    <div class="overflow-auto rounded-md border">
+      <CreditVoucherSheet side="front" class="mx-auto" v-bind="sheetProps" />
     </div>
 
     <button
@@ -151,69 +69,19 @@ const backVisible = computed(() => !props.collapsibleBack || showBack.value)
       Show voucher back (lines)
     </button>
 
-    <!-- Back side: chosen products + charges -->
-    <div
-      v-if="backVisible"
-      class="rounded-md border-2 border-dashed border-amber-400 bg-amber-50 p-4 text-sm dark:bg-amber-950"
-      data-testid="voucher-back"
-    >
-      <div class="mb-2 flex items-center justify-between gap-2">
-        <p
-          class="text-center text-[10px] font-semibold uppercase tracking-widest text-muted-foreground"
-        >
-          Back
-        </p>
+    <div v-if="backVisible" class="space-y-1">
+      <div v-if="collapsibleBack" class="flex justify-end">
         <button
-          v-if="collapsibleBack"
           type="button"
           class="text-xs text-muted-foreground underline-offset-2 hover:underline"
           data-testid="voucher-hide-back"
           @click="showBack = false"
         >
-          Hide
+          Hide back
         </button>
       </div>
-      <div class="text-center">
-        <p class="font-semibold">Chosen Products</p>
-        <p class="text-xs text-muted-foreground">bags: qty × ratio × price; loose: kg × price/kg</p>
-      </div>
-      <Separator class="my-2" />
-
-      <div
-        v-for="(line, idx) in breakdowns"
-        :key="idx"
-        class="space-y-0.5 border-b border-dashed border-amber-300/60 py-1.5 last:border-0 dark:border-amber-800/60"
-        data-testid="voucher-line"
-      >
-        <p class="truncate font-medium">{{ line.productName }}</p>
-        <p class="flex flex-wrap justify-between gap-x-2 tabular-nums text-muted-foreground">
-          <span v-if="line.formula">{{ line.formula }}</span>
-          <span v-else>{{ line.qty }} × {{ line.ratio }} × {{ line.price }}</span>
-          <span class="font-medium text-foreground">= {{ line.total }}</span>
-        </p>
-      </div>
-
-      <Separator class="my-2" />
-
-      <div v-if="loadingCharges" class="flex justify-between py-0.5" data-testid="voucher-loading">
-        <span class="text-muted-foreground">Loading Charges</span>
-        <span class="tabular-nums">{{ formatRupees(loadingCharges) }}</span>
-      </div>
-      <div
-        v-if="additionalCharges"
-        class="flex justify-between py-0.5"
-        data-testid="voucher-additional"
-      >
-        <span class="text-muted-foreground">Additional Charges</span>
-        <span class="tabular-nums">{{ formatRupees(additionalCharges) }}</span>
-      </div>
-      <div v-if="discountAmount" class="flex justify-between py-0.5" data-testid="voucher-discount">
-        <span class="text-muted-foreground">Discount</span>
-        <span class="tabular-nums">−{{ formatRupees(discountAmount) }}</span>
-      </div>
-      <div class="flex justify-between font-semibold" data-testid="voucher-total">
-        <span>Total</span>
-        <span class="tabular-nums">{{ formatRupees(total) }}</span>
+      <div class="overflow-auto rounded-md border">
+        <CreditVoucherSheet side="back" class="mx-auto" v-bind="sheetProps" />
       </div>
     </div>
   </div>

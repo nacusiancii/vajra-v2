@@ -109,7 +109,7 @@ The paper artifact a Credit Sale produces _in addition to_ the Quotation, in lie
 
 The voucher must last — it is the shop's proof of credit — so it prints on durable paper from a normal printer, never thermal (ADR-0012). Two-sided, printed in one pass on a duplex printer:
 
-- **Front** — modelled on the shop's pre-printed credit pad. A tear-off **stub** (transaction ID, customer name, place, date, amount, and a blank "paid on" date) and the voucher proper: Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), transaction ID, Customer name, total Amount (after Discount) in figures **and in words**, the **interest clause** (default ₹2 per ₹100 per month, set in Settings), a UPI QR code for the shop, and the signature line.
+- **Front** — modelled on the shop's pre-printed credit pad. A tear-off **stub** (transaction ID, customer name, place, date, amount, and a blank "paid on" date) and the voucher proper: Company Name (from Settings), Date (Business Day), Place (Customer's place), Mobile (Customer's phone), transaction ID, Customer name, total Amount (after Discount) in figures **and in words**, the **interest clause** (default ₹2 per ₹100 per month, set in Settings), a UPI QR code built from the shop's UPI ID in Settings — **with no amount**, because interest accrues until repayment and the customer enters what is owed when paying — and the signature line.
 - **Back** — Chosen Products as line items: bag lines in the form `quantity × ratio × price = line total` (bags × bag-kg/100 × Quintal Rate); Loose lines as `kg × price/kg = line total`; plus Loading Charges, Additional Charges, and Discount as their own lines when present, then the Total.
   _Avoid_: IOU, credit note, due slip; separate Voucher Number.
 
@@ -164,7 +164,7 @@ The non-voided transaction that supersedes a voided one. A chain may grow arbitr
 A settings-level toggle that lets Vajra operate without a printer. When on, finishing a Sale (or any other action that would print) commits the transaction without attempting a print and instead displays the would-be Quotation / Credit Voucher details on screen — including the transaction ID — so the cashier can write a manual copy by hand. Distinct from the per-transaction _"printer not responding — continue without slip?"_ prompt that handles a single transient print failure without changing the mode.
 
 **Print to PDF**:
-Until the shop's printer arrives, "printing" a Quotation saves it as a PDF (one page per copy) in the prints folder and opens it, so the shopkeeper prints or shares it from there (ADR-0012). Like the End of Day Report, the PDF is a file outside Vajra's owned data.
+Until the shop's printer arrives, "printing" saves PDFs — the Quotation (one page per copy) and, on a Credit Sale, the Credit Voucher as its own two-page file (front, back) — in the prints folder and opens it, so the shopkeeper prints or shares it from there (ADR-0012). Like the End of Day Report, the PDF is a file outside Vajra's owned data.
 
 ### Identifiers
 
@@ -189,8 +189,6 @@ _Avoid_: treating Journal as a transactional type; Party as a glossary synonym f
 **"Payment"**: The entity (cash/UPI out to a Customer) collides with the everyday meaning of "payment captured at the finish of a Cash Sale." When unambiguous in context, use Payment for the entity; for the cash/UPI a customer hands over during Sale finish, say _cash collected_ and _UPI collected_, not "payment."
 
 **"Credit Sales Total" / "Credit Purchases Total"**: These are totals of today's credit-mode transactions only (Credit Sales after Discount) — they exclude cash Sales/Purchases, and they are never the same figure as Receipts (cash collected) or Payments (cash paid out). A Credit Sale's total lands in Credit Sales Total the day it's made; the cash that eventually settles it lands in Receipts, possibly on a different day entirely — the two numbers are unrelated in any given day's drawer.
-
-**Credit Voucher QR amount** (open): a QR with the amount filled in would show the principal only, but interest accrues until the customer pays. Undecided whether the voucher's QR carries no amount (customer enters it at repayment) or the principal.
 
 **"Discount" vs "Settlement Discount"**: On a Sale the label is **Discount** (simple total reduction). On a Receipt or Payment the concept is **Settlement Discount** (write-off with face/realized semantics). Do not mix the terms.
 

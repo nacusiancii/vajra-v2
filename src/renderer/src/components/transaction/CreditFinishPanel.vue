@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import { Printer } from '@lucide/vue'
+import { FileDown, Printer } from '@lucide/vue'
 import {
   Dialog,
   DialogContent,
@@ -14,7 +14,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
 import { formatRupees } from '@/lib/format'
 import type { Txn } from '@domain/transaction'
+import { usePrintToPdf } from '@/lib/print-to-pdf'
 import CreditVoucherPreview, { type VoucherLine } from './CreditVoucherPreview.vue'
+import CreditVoucherSheet from './CreditVoucherSheet.vue'
 import QuotationSheet from './QuotationSheet.vue'
 
 const props = withDefaults(
@@ -46,6 +48,10 @@ const props = withDefaults(
      * Second invoice copy (business + customer). Default off on Credit finish (design #132).
      */
     printTwoCopies?: boolean
+    /** Shop UPI ID for the voucher QR (Settings); no QR when blank. */
+    upiId?: string
+    /** Voucher interest clause: paise per ₹100 per month (Settings). */
+    interestPaisePer100?: number
   }>(),
   {
     customerName: '',
@@ -53,7 +59,9 @@ const props = withDefaults(
     phone: '',
     productFaceNames: () => ({}),
     printInvoice: true,
-    printTwoCopies: false
+    printTwoCopies: false,
+    upiId: '',
+    interestPaisePer100: 200
   }
 )
 
@@ -66,12 +74,35 @@ const emit = defineEmits<{
 
 const showVoucherBack = ref(false)
 
+const pdf = usePrintToPdf<'voucher' | 'quotation'>()
+const { printing, results: pdfResults } = pdf
+
 watch(
   () => props.open,
   (open) => {
-    if (open) showVoucherBack.value = false
+    if (open) {
+      showVoucherBack.value = false
+      pdfResults.value = []
+    }
   }
 )
+
+/**
+ * Two PDFs, two print jobs (ADR-0012): the voucher as one duplex sheet (front,
+ * back), then the Quotation copies when ticked — so a Quotation never lands on
+ * the voucher's back.
+ */
+function savePdf(): void {
+  const t = props.txn
+  if (!t) return
+  const jobs: { kind: 'voucher' | 'quotation'; filename: string }[] = [
+    { kind: 'voucher', filename: `${t.id}_voucher.pdf` }
+  ]
+  if (props.printInvoice) jobs.push({ kind: 'quotation', filename: `${t.id}_quotation.pdf` })
+  void pdf.save(jobs)
+}
+
+const quotationCopies = computed(() => (props.printTwoCopies ? 2 : 1))
 
 const invoiceCopyLabel = computed(() => {
   if (!props.printInvoice) return 'Not printing'
@@ -249,17 +280,37 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
             :customer-name="customerName"
             :place="place"
             :phone="phone"
-            :amount="txn.total"
             :lines="voucherLines"
             :loading-charges="txn.loadingCharges"
             :additional-charges="txn.additionalCharges"
             :discount-amount="txn.discountAmount"
             :total="txn.total"
+            :upi-id="upiId"
+            :interest-paise-per100="interestPaisePer100"
           />
         </div>
       </div>
 
+      <p
+        v-for="(r, i) in pdfResults"
+        :key="i"
+        class="mt-3 break-all text-sm"
+        :class="r.ok ? 'text-muted-foreground' : 'text-destructive'"
+        data-testid="credit-finish-pdf-result"
+      >
+        {{ r.ok ? `Saved ${r.path}` : `Could not save PDF: ${r.error}` }}
+      </p>
+
       <DialogFooter class="mt-4 shrink-0">
+        <Button
+          variant="outline"
+          :disabled="printing !== null"
+          data-testid="credit-finish-save-pdf"
+          @click="savePdf"
+        >
+          <FileDown class="mr-2 size-4" />
+          Save PDF
+        </Button>
         <Button data-testid="credit-finish-done" @click="$emit('done')">
           <Printer class="mr-2 size-4" />
           Done
@@ -267,4 +318,43 @@ function setPrintTwoCopies(v: boolean | 'indeterminate'): void {
       </DialogFooter>
     </DialogContent>
   </Dialog>
+
+  <!-- Print layouts: mounted one job at a time; main.css shows only this on paper. -->
+  <Teleport v-if="printing === 'voucher' && txn" to="body">
+    <div class="print-root">
+      <CreditVoucherSheet
+        v-for="side in ['front', 'back'] as const"
+        :key="side"
+        :side="side"
+        :transaction-id="txn.id"
+        :company-name="companyName"
+        :date="date"
+        :customer-name="customerName"
+        :place="place"
+        :phone="phone"
+        :lines="voucherLines"
+        :loading-charges="txn.loadingCharges"
+        :additional-charges="txn.additionalCharges"
+        :discount-amount="txn.discountAmount"
+        :total="txn.total"
+        :upi-id="upiId"
+        :interest-paise-per100="interestPaisePer100"
+      />
+    </div>
+  </Teleport>
+  <Teleport v-if="printing === 'quotation' && txn" to="body">
+    <div class="print-root">
+      <QuotationSheet
+        v-for="n in quotationCopies"
+        :key="n"
+        :txn="txn"
+        :company-name="companyName"
+        :date="date"
+        :customer-name="customerName"
+        :place="place"
+        :phone="phone"
+        :product-face-names="productFaceNames"
+      />
+    </div>
+  </Teleport>
 </template>

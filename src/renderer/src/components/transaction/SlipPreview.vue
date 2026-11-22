@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, nextTick, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 import { FileDown, Printer } from '@lucide/vue'
 import {
   Dialog,
@@ -11,8 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import type { Txn } from '@domain/transaction'
-import type { SavePdfResult } from '@shared/api'
-import { useSavePdf } from '@/queries/operations'
+import { usePrintToPdf } from '@/lib/print-to-pdf'
 import QuotationSheet from './QuotationSheet.vue'
 
 const props = withDefaults(
@@ -63,28 +62,20 @@ const copyLabel = computed(() =>
   props.printCustomerCopy ? '2 copies (business + customer)' : '1 copy (business only)'
 )
 
-/** True only while the print layout is mounted for the PDF call. */
-const printing = ref(false)
-const pdfResult = ref<SavePdfResult | null>(null)
-const savePdfMutation = useSavePdf()
+const pdf = usePrintToPdf<'quotation'>()
+const { printing, results: pdfResults } = pdf
 
 watch(
   () => props.open,
   (open) => {
-    if (open) pdfResult.value = null
+    if (open) pdfResults.value = []
   }
 )
 
 /** One PDF page per copy, saved to the prints folder and opened (ADR-0012). */
-async function savePdf(): Promise<void> {
-  if (!props.txn || printing.value) return
-  printing.value = true
-  try {
-    await nextTick()
-    pdfResult.value = await savePdfMutation.mutateAsync(`${props.txn.id}_quotation.pdf`)
-  } finally {
-    printing.value = false
-  }
+function savePdf(): void {
+  if (!props.txn) return
+  void pdf.save([{ kind: 'quotation', filename: `${props.txn.id}_quotation.pdf` }])
 }
 </script>
 
@@ -120,16 +111,22 @@ async function savePdf(): Promise<void> {
       </div>
 
       <p
-        v-if="pdfResult"
+        v-for="(r, i) in pdfResults"
+        :key="i"
         class="break-all text-sm"
-        :class="pdfResult.ok ? 'text-muted-foreground' : 'text-destructive'"
+        :class="r.ok ? 'text-muted-foreground' : 'text-destructive'"
         data-testid="slip-pdf-result"
       >
-        {{ pdfResult.ok ? `Saved ${pdfResult.path}` : `Could not save PDF: ${pdfResult.error}` }}
+        {{ r.ok ? `Saved ${r.path}` : `Could not save PDF: ${r.error}` }}
       </p>
 
       <DialogFooter>
-        <Button variant="outline" :disabled="printing" data-testid="slip-save-pdf" @click="savePdf">
+        <Button
+          variant="outline"
+          :disabled="printing !== null"
+          data-testid="slip-save-pdf"
+          @click="savePdf"
+        >
           <FileDown class="mr-2 size-4" />
           Save PDF
         </Button>
@@ -142,7 +139,7 @@ async function savePdf(): Promise<void> {
   </Dialog>
 
   <!-- Print layout: mounted only during savePdf; main.css shows only this on paper. -->
-  <Teleport v-if="printing && txn" to="body">
+  <Teleport v-if="printing === 'quotation' && txn" to="body">
     <div class="print-root">
       <QuotationSheet
         v-for="n in copyCount"

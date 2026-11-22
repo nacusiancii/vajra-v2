@@ -840,6 +840,8 @@ watch(
         :product-face-names="finishedProductFaceNames"
         :print-invoice="creditPrintInvoice"
         :print-two-copies="creditPrintTwoCopies"
+        :upi-id="settings?.upiId ?? ''"
+        :interest-paise-per100="settings?.voucherInterestPaisePer100 ?? 200"
         @update:open="(v) => (creditFinishOpen = v)"
         @update:print-invoice="(v) => (creditPrintInvoice = v)"
         @update:print-two-copies="(v) => (creditPrintTwoCopies = v)"

@@ -143,6 +143,35 @@ function save(): void {
           Appears on the front of every Credit Voucher the customer signs.
         </p>
       </div>
+      <div class="grid gap-2">
+        <Label for="upi-id">UPI ID</Label>
+        <Input
+          id="upi-id"
+          :model-value="draft.upiId"
+          placeholder="e.g. shopname@ybl"
+          data-testid="upi-id-input"
+          @update:model-value="draft.upiId = String($event).trim()"
+        />
+        <p class="text-sm text-muted-foreground">
+          Printed as a QR on the Credit Voucher (no amount — the customer enters it when paying).
+          Leave blank for no QR.
+        </p>
+      </div>
+      <div class="grid gap-2">
+        <Label for="voucher-interest">Voucher interest (₹ per ₹100 per month)</Label>
+        <NumericField
+          id="voucher-interest"
+          mode="money"
+          class="w-32"
+          :model-value="draft.voucherInterestPaisePer100"
+          :allow-empty="false"
+          test-id="voucher-interest-input"
+          @update:model-value="draft.voucherInterestPaisePer100 = Math.max(0, $event ?? 0)"
+        />
+        <p class="text-sm text-muted-foreground">
+          Printed in the Credit Voucher's interest clause.
+        </p>
+      </div>
     </section>
 
     <section class="space-y-2">
