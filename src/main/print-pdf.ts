@@ -6,14 +6,15 @@
  * Page size comes from the CSS `@page` rule (10 cm × 21 cm upright), so the
  * renderer owns the layout and this file only moves bytes.
  *
- * Folder: ~/Documents/VajraPrints, or VAJRA_PRINT_DIR for tests. Set
+ * Folder: VajraPrints in the user's Documents folder (app.getPath('documents'),
+ * so OneDrive-redirected or localised Documents folders work), or
+ * VAJRA_PRINT_DIR for tests. Set
  * VAJRA_PRINT_NO_OPEN=1 to skip opening the viewer (smoke tests).
  */
 
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
-import { shell, type WebContents } from 'electron'
+import { app, shell, type WebContents } from 'electron'
 import type { SavePdfResult } from '../shared/api'
 
 /** Basename made of ID-safe characters, ending in .pdf. */
@@ -22,7 +23,7 @@ const PDF_FILENAME_RE = /^[A-Za-z0-9._-]+\.pdf$/
 export function resolvePrintDir(): string {
   const override = process.env.VAJRA_PRINT_DIR?.trim()
   if (override) return path.resolve(override)
-  return path.join(os.homedir(), 'Documents', 'VajraPrints')
+  return path.join(app.getPath('documents'), 'VajraPrints')
 }
 
 export async function savePdf(contents: WebContents, filename: string): Promise<SavePdfResult> {

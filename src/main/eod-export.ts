@@ -1,31 +1,28 @@
 /**
  * Silent End of Day Report write (main process).
  *
- * Default folder: ~/Documents/VajraExports. Override for tests/CI with
- * VAJRA_EOD_EXPORT_DIR. Creates the directory if missing. No save dialog.
+ * Default folder: VajraExports in the user's Documents folder, as the OS knows
+ * it (app.getPath('documents'): OneDrive-redirected Documents on Windows, the
+ * XDG Documents dir on Linux). Override for tests/CI with VAJRA_EOD_EXPORT_DIR.
+ * Creates the directory if missing. No save dialog.
  */
 
 import fs from 'node:fs'
-import os from 'node:os'
 import path from 'node:path'
+import { app } from 'electron'
 import type { EodExportResult } from '../shared/api'
 import { EOD_REPORT_FILENAME_RE } from '../shared/eod-filename'
 
 export type { EodExportResult }
 
-/** Default export directory under the user's Documents folder. */
-export function defaultEodExportDir(home: string = os.homedir()): string {
-  return path.join(home, 'Documents', 'VajraExports')
-}
-
 /**
- * Resolve the export directory: env override first, else default under home.
+ * Resolve the export directory: env override first, else Documents/VajraExports.
  * `VAJRA_EOD_EXPORT_DIR` is absolute (or relative to cwd) for injectable tests.
  */
 export function resolveEodExportDir(): string {
   const override = process.env.VAJRA_EOD_EXPORT_DIR?.trim()
   if (override) return path.resolve(override)
-  return defaultEodExportDir()
+  return path.join(app.getPath('documents'), 'VajraExports')
 }
 
 /**

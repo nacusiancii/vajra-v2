@@ -2,15 +2,7 @@ import { describe, expect, it } from 'vitest'
 import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import { defaultEodExportDir, writeEodReportFile } from '../../../src/main/eod-export'
-
-describe('defaultEodExportDir', () => {
-  it('is Documents/VajraExports under home', () => {
-    expect(defaultEodExportDir('/home/shop')).toBe(
-      path.join('/home/shop', 'Documents', 'VajraExports')
-    )
-  })
-})
+import { writeEodReportFile } from '../../../src/main/eod-export'
 
 describe('writeEodReportFile', () => {
   it('creates the folder and writes a real .xlsx basename under an injected dir', () => {
