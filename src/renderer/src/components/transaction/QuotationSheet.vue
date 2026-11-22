@@ -43,7 +43,7 @@ function lineProductName(productId: number, englishName: string): string {
       <span>
         S.No <span class="font-semibold tabular-nums" data-testid="sale-number">{{ txn.id }}</span>
       </span>
-      <span class="shrink-0 tabular-nums">Dt. {{ formatSlipDate(date) }}</span>
+      <span class="shrink-0 tabular-nums">తేది {{ formatSlipDate(date) }}</span>
     </div>
     <div class="my-2 text-center">
       <p v-if="companyName.trim()" class="text-base font-bold" data-testid="slip-company">
@@ -60,7 +60,7 @@ function lineProductName(productId: number, englishName: string): string {
       <span class="text-right" data-testid="slip-place">{{ place.trim() || '—' }}</span>
     </div>
     <div class="flex justify-between gap-2">
-      <span>Ph.No</span>
+      <span>ఫోన్ నం.</span>
       <span class="tabular-nums" data-testid="slip-phone">{{ phone.trim() || '—' }}</span>
     </div>
 

@@ -106,43 +106,46 @@ function formula(line: VoucherLine): string {
 
     <div class="voucher-perforation" />
 
-    <!-- The voucher the customer signs -->
-    <div class="flex min-w-0 flex-1 flex-col gap-1 p-[5mm]">
-      <div class="flex items-baseline justify-between gap-2">
-        <span
-          >No
-          <span class="font-semibold tabular-nums" data-testid="voucher-number">{{
-            transactionId ?? '—'
-          }}</span></span
-        >
-        <span class="text-sm font-bold">చేవుత్తరము</span>
-        <span
-          >తేది <span data-testid="voucher-date">{{ displayDate }}</span></span
-        >
+    <!-- The voucher the customer signs: three blocks spread over the height -->
+    <div class="flex min-w-0 flex-1 flex-col justify-between p-[5mm] text-[11px]">
+      <div class="space-y-1">
+        <div class="flex items-baseline justify-between gap-2">
+          <span
+            >No
+            <span class="font-semibold tabular-nums" data-testid="voucher-number">{{
+              transactionId ?? '—'
+            }}</span></span
+          >
+          <span class="text-base font-bold">చేవుత్తరము</span>
+          <span
+            >తేది <span data-testid="voucher-date">{{ displayDate }}</span></span
+          >
+        </div>
+        <p>
+          వ్రాయించుకున్నవారు:
+          <span class="font-semibold" data-testid="voucher-company">{{
+            companyName.trim() || '—'
+          }}</span>
+        </p>
+        <p>
+          వ్రాసి యిచ్చినవారు:
+          <span class="font-semibold" data-testid="voucher-customer">{{ customerName }}</span>
+        </p>
+        <p class="flex gap-8">
+          <span
+            >గ్రామం: <span data-testid="voucher-place">{{ place.trim() || '—' }}</span></span
+          >
+          <span
+            >ఫోన్ నం.:
+            <span class="tabular-nums" data-testid="voucher-phone">{{
+              phone.trim() || '—'
+            }}</span></span
+          >
+        </p>
       </div>
-      <p>
-        వ్రాయించుకున్నవారు:
-        <span class="font-semibold" data-testid="voucher-company">{{
-          companyName.trim() || '—'
-        }}</span>
-      </p>
-      <p>
-        వ్రాసి యిచ్చినవారు:
-        <span class="font-semibold" data-testid="voucher-customer">{{ customerName }}</span>
-      </p>
-      <p class="flex gap-6">
-        <span
-          >గ్రామం: <span data-testid="voucher-place">{{ place.trim() || '—' }}</span></span
-        >
-        <span
-          >Mobile:
-          <span class="tabular-nums" data-testid="voucher-phone">{{
-            phone.trim() || '—'
-          }}</span></span
-        >
-      </p>
+
       <!-- The pad's printed sentence, word for word; amount and words sit inside it. -->
-      <p class="leading-relaxed" data-testid="voucher-interest">
+      <p class="text-[12px] leading-[1.8]" data-testid="voucher-interest">
         ఈ రోజు నా / మా వ్యాపార అభివృద్ధి నిమిత్తం నీ తావున అప్పుగా తీసుకున్న రొఖ్ఖం రూ.
         <span class="font-bold tabular-nums" data-testid="voucher-amount">{{
           formatRupees(total)
@@ -153,21 +156,28 @@ function formula(line: VoucherLine): string {
         {{ interestText }} లు చొప్పున యిచ్చే పద్ధతిలో మీ ఖాతాకు జమ వ్రాయించగల వారము.
       </p>
 
-      <div class="mt-auto flex items-end justify-between gap-2">
+      <div class="flex items-end justify-between gap-3">
         <p class="text-sm">
           రూ. <span class="font-bold tabular-nums">{{ formatRupees(total) }}</span>
         </p>
-        <svg
-          v-if="qr"
-          class="size-[22mm] shrink-0"
-          :viewBox="`-2 -2 ${qr.size + 4} ${qr.size + 4}`"
-          shape-rendering="crispEdges"
-          data-testid="voucher-qr"
-        >
-          <rect x="-2" y="-2" :width="qr.size + 4" :height="qr.size + 4" fill="white" />
-          <path :d="qr.d" fill="black" />
-        </svg>
-        <span v-else />
+        <!-- QR says what it is: a UPI payment to the shop, nothing else. -->
+        <div v-if="qr" class="flex items-center gap-2">
+          <svg
+            class="size-[20mm] shrink-0"
+            :viewBox="`-2 -2 ${qr.size + 4} ${qr.size + 4}`"
+            shape-rendering="crispEdges"
+            data-testid="voucher-qr"
+          >
+            <rect x="-2" y="-2" :width="qr.size + 4" :height="qr.size + 4" fill="white" />
+            <path :d="qr.d" fill="black" />
+          </svg>
+          <div class="text-[10px] leading-snug" data-testid="voucher-qr-caption">
+            <p class="font-semibold">చెల్లించుటకు స్కాన్ చేయండి</p>
+            <p>Scan to pay by UPI</p>
+            <p>PhonePe · Google Pay · Paytm</p>
+            <p class="font-semibold">{{ upiId.trim() }}</p>
+          </div>
+        </div>
         <p class="text-right">
           ..............................................<br />
           సంతకం

@@ -92,6 +92,7 @@ test('credit sale finish shows invoice and voucher together', async ({ page }) =
   await expect(page.getByTestId('voucher-words')).toHaveText('Six Thousand Rupees only')
   await expect(page.getByTestId('voucher-interest')).toContainText('రూ. 2-00')
   await expect(page.getByTestId('voucher-qr')).toBeVisible()
+  await expect(page.getByTestId('voucher-qr-caption')).toContainText('svtraders@ybl')
   // The QR scans to the shop's UPI ID with no amount (CONTEXT.md, Credit Voucher).
   expect(await decodeVoucherQr(page)).toBe(
     'upi://pay?pa=svtraders@ybl&pn=Sri%20Venkateswara%20Traders&cu=INR'
