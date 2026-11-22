@@ -107,7 +107,6 @@ function save(): void {
   const sorted = [...draft.value.loadingCharge.breakpoints].sort((a, b) => a.upToKg - b.upToKg)
   draft.value.loadingCharge.breakpoints = sorted
   const payload = JSON.parse(JSON.stringify(draft.value)) as AppSettings
-  payload.printerlessMode = true
   updateSettings.mutate(payload, {
     onSuccess: () => {
       saved.value = true
@@ -135,29 +134,94 @@ function save(): void {
         <Input
           id="company-name"
           :model-value="draft.companyName"
-          placeholder="Printed on the Credit Voucher"
+          placeholder="Shop name"
           data-testid="company-name-input"
           @update:model-value="draft.companyName = String($event)"
         />
         <p class="text-sm text-muted-foreground">
-          Appears on the front of every Credit Voucher the customer signs.
+          Heads every Quotation and appears on the Credit Voucher the customer signs.
+        </p>
+      </div>
+      <div class="grid gap-2">
+        <Label for="upi-id">UPI ID</Label>
+        <Input
+          id="upi-id"
+          :model-value="draft.upiId"
+          placeholder="e.g. shopname@ybl"
+          data-testid="upi-id-input"
+          @update:model-value="draft.upiId = String($event).trim()"
+        />
+        <p class="text-sm text-muted-foreground">
+          Printed as a QR on the Credit Voucher (no amount — the customer enters it when paying).
+          Leave blank for no QR.
+        </p>
+      </div>
+      <div class="grid gap-2">
+        <Label for="voucher-interest">Voucher interest (₹ per ₹100 per month)</Label>
+        <NumericField
+          id="voucher-interest"
+          mode="money"
+          class="w-32"
+          :model-value="draft.voucherInterestPaisePer100"
+          :allow-empty="false"
+          test-id="voucher-interest-input"
+          @update:model-value="draft.voucherInterestPaisePer100 = Math.max(0, $event ?? 0)"
+        />
+        <p class="text-sm text-muted-foreground">
+          Printed in the Credit Voucher's interest clause.
         </p>
       </div>
     </section>
 
     <section class="space-y-2">
       <h2 class="font-semibold">Printing</h2>
-      <label
-        class="flex cursor-not-allowed items-center gap-3 rounded-md border p-3 text-sm opacity-80"
-      >
-        <Checkbox :model-value="true" disabled data-testid="printerless-toggle" />
+      <p class="text-sm text-muted-foreground">
+        Finishing a Sale saves its papers as PDFs in Documents/VajraPrints.
+      </p>
+      <label class="flex cursor-pointer items-center gap-3 rounded-md border p-3 text-sm">
+        <Checkbox
+          :model-value="draft.printerless"
+          data-testid="printerless-toggle"
+          @update:model-value="draft.printerless = $event === true"
+        />
         <span>
           <span class="font-medium">Printerless Mode</span>
           <span class="block text-muted-foreground">
-            Always on — no printer mode is available yet. Slips show on screen for hand-copying.
+            Show the papers on screen to copy by hand instead of saving PDFs.
           </span>
         </span>
       </label>
+      <div class="space-y-2 rounded-md border p-3 text-sm">
+        <p class="font-medium">Credit Sale — Quotation default</p>
+        <p class="text-muted-foreground">
+          The Credit Voucher always prints. The cashier can still change these on the finish screen.
+        </p>
+        <label class="flex cursor-pointer items-center gap-3">
+          <Checkbox
+            :model-value="draft.creditPrintQuotation"
+            data-testid="credit-print-quotation-default"
+            @update:model-value="
+              (v) => {
+                draft!.creditPrintQuotation = v === true
+                if (v !== true) draft!.creditQuotationTwoCopies = false
+              }
+            "
+          />
+          <span>Print Quotation</span>
+        </label>
+        <label
+          class="flex items-center gap-3"
+          :class="draft.creditPrintQuotation ? 'cursor-pointer' : 'cursor-not-allowed opacity-50'"
+        >
+          <Checkbox
+            :model-value="draft.creditQuotationTwoCopies"
+            :disabled="!draft.creditPrintQuotation"
+            data-testid="credit-two-copies-default"
+            @update:model-value="draft.creditQuotationTwoCopies = $event === true"
+          />
+          <span>Two copies (business + customer)</span>
+        </label>
+      </div>
     </section>
 
     <section class="space-y-2">

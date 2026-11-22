@@ -7,7 +7,7 @@ import {
 } from '@tanstack/vue-query'
 import type { BusinessDay, InventoryRow, Txn } from '@domain/transaction'
 import type { AppSettings } from '@domain/settings'
-import type { EodExportResult } from '@shared/api'
+import type { EodExportResult, SavePdfResult } from '@shared/api'
 import { eodReportFilename } from '@shared/eod-filename'
 import { buildEodReportXlsx } from '@shared/eod-xlsx'
 
@@ -119,4 +119,12 @@ export function useUpdateSettings(): UseMutationReturnType<
     mutationFn: (settings: AppSettings) => window.api.updateSettings(settings),
     onSuccess: () => void qc.invalidateQueries({ queryKey: KEYS.settings })
   })
+}
+
+/**
+ * Save the window's print layout as a PDF and open it (ADR-0012). The caller
+ * mounts `.print-root` before calling and unmounts it after. Nothing to invalidate.
+ */
+export function useSavePdf(): UseMutationReturnType<SavePdfResult, Error, string, unknown> {
+  return useMutation({ mutationFn: (filename: string) => window.api.savePdf(filename) })
 }

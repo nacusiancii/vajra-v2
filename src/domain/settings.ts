@@ -28,10 +28,22 @@ export interface LoadingChargeRules {
  * Money rates are **paise**; Bag Types are **grams**.
  */
 export interface AppSettings {
-  /** When on, finishing a Sale shows the would-be slip on screen instead of printing. */
-  printerlessMode: boolean
+  /**
+   * Printerless Mode (ADR-0008): finishing a Sale shows the would-be papers on screen
+   * for hand-copying instead of printing (today: saving PDFs, ADR-0012). Off by default.
+   * Renamed from `printerlessMode`, which the old lock forced on in every saved row.
+   */
+  printerless: boolean
+  /** Credit Sale finish panel default: print the Quotation alongside the voucher. */
+  creditPrintQuotation: boolean
+  /** Credit Sale finish panel default: two Quotation copies (business + customer). */
+  creditQuotationTwoCopies: boolean
   /** Shop / company name printed on the Credit Voucher front side. */
   companyName: string
+  /** Shop UPI ID for the Credit Voucher QR (no QR when blank). */
+  upiId: string
+  /** Credit Voucher interest clause: paise per ₹100 per month (default ₹2). */
+  voucherInterestPaisePer100: number
   /** The Bag Types the shop uses for pricing-by-weight (grams). */
   bagTypes: BagSizeG[]
   /**
@@ -56,9 +68,12 @@ export const DEFAULT_LOADING_CHARGE: LoadingChargeRules = {
 }
 
 export const DEFAULT_SETTINGS: AppSettings = {
-  // Locked on until thermal print lands (#22 / #28).
-  printerlessMode: true,
+  printerless: false,
+  creditPrintQuotation: true,
+  creditQuotationTwoCopies: false,
   companyName: '',
+  upiId: '',
+  voucherInterestPaisePer100: 200,
   bagTypes: [...BAG_SIZES_G],
   loadingCharge: {
     ...DEFAULT_LOADING_CHARGE,

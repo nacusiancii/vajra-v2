@@ -11,14 +11,14 @@ export class SettingsRepo {
   constructor(private db: Database) {}
 
   get(): AppSettings {
-    return lockPrinterless(this.read())
+    return this.read()
   }
 
   update(settings: AppSettings): AppSettings {
-    const next = lockPrinterless({
+    const next: AppSettings = {
       ...settings,
       loadingCharge: normalizeLoadingCharge(settings.loadingCharge)
-    })
+    }
     this.db
       .prepare(
         `INSERT INTO setting (key, value) VALUES (?, ?)
@@ -34,7 +34,14 @@ export class SettingsRepo {
       | undefined
     if (!row) return { ...DEFAULT_SETTINGS }
     try {
-      return { ...DEFAULT_SETTINGS, ...(JSON.parse(row.value) as Partial<AppSettings>) }
+      // `printerlessMode` was force-locked on (#22); drop it so the new `printerless`
+      // default (off) applies instead of a value nobody chose.
+      const { printerlessMode: _forcedOn, ...saved } = JSON.parse(
+        row.value
+      ) as Partial<AppSettings> & {
+        printerlessMode?: boolean
+      }
+      return { ...DEFAULT_SETTINGS, ...saved }
     } catch {
       return { ...DEFAULT_SETTINGS }
     }
@@ -65,12 +72,4 @@ export function normalizeLoadingCharge(rules: LoadingChargeRules): LoadingCharge
   }
   const breakpoints = [...rules.breakpoints].sort((a, b) => a.upToKg - b.upToKg)
   return { breakpoints, aboveLastPaise: rules.aboveLastPaise }
-}
-
-/**
- * Temporary: no printer driver yet (#22). Force printerless on every read/write
- * so old rows and UI saves cannot turn it off. Drop when #28 ships.
- */
-function lockPrinterless(settings: AppSettings): AppSettings {
-  return { ...settings, printerlessMode: true }
 }

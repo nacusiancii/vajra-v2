@@ -1,4 +1,5 @@
 import { ipcMain } from 'electron'
+import { savePdf } from './print-pdf'
 import { mergeDayList } from '../domain/journal'
 import { IPC, type ExportEodReportInput } from '../shared/api'
 import { getDb } from './db'
@@ -100,6 +101,9 @@ export function registerIpcHandlers(): void {
     }
     return writeEodReportFile(new Uint8Array(data), filename)
   })
+
+  // ── Printing: PDF of the sender window's print layout (ADR-0012) ──
+  ipcMain.handle(IPC.savePdf, (e, filename: string) => savePdf(e.sender, filename))
 }
 
 /** A Customer is referenced once any non-voided transaction points at it. */

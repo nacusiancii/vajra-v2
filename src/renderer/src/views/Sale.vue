@@ -115,7 +115,7 @@ const remarks = ref('')
 
 const error = ref<string | null>(null)
 const finished = ref<Txn | null>(null)
-/** Cash Sale Invoice slip after finish. */
+/** Cash Sale Quotation preview after finish. */
 const slipOpen = ref(false)
 /** Credit Sale finish panel (invoice + voucher together). */
 const creditFinishOpen = ref(false)
@@ -125,8 +125,8 @@ const creditFinishOpen = ref(false)
  */
 const printCustomerCopy = ref(true)
 /**
- * Credit finish panel: Print invoice (default on) and two copies (default off) — #132 design.
- * Voucher always prints once with the same transaction ID as the invoice.
+ * Credit finish panel: print the Quotation and how many copies. Defaults come from
+ * Settings at finish; the Credit Voucher always prints once.
  */
 const creditPrintInvoice = ref(true)
 const creditPrintTwoCopies = ref(false)
@@ -426,9 +426,10 @@ function finishWithDraftCleanup(txn: Txn): void {
   const showFinish = (): void => {
     finished.value = txn
     if (txn.saleMode === 'credit') {
-      // Credit finish defaults: Print on, two copies off (design #132).
-      creditPrintInvoice.value = true
-      creditPrintTwoCopies.value = false
+      // Credit finish defaults from Settings (Quotation on, one copy out of the box).
+      creditPrintInvoice.value = settings.value?.creditPrintQuotation ?? true
+      creditPrintTwoCopies.value =
+        creditPrintInvoice.value && (settings.value?.creditQuotationTwoCopies ?? false)
       creditFinishOpen.value = true
     } else {
       slipOpen.value = true
@@ -685,7 +686,7 @@ watch(
             <CardDescription>
               {{
                 isCredit
-                  ? 'Nothing is collected today — finish prints the Credit Voucher (and optional Sale Invoice).'
+                  ? 'Nothing is collected today — finish prints the Credit Voucher (and the Quotation if chosen).'
                   : 'The cashier types UPI; cash covers the rest of the total.'
               }}
             </CardDescription>
@@ -726,14 +727,6 @@ watch(
                   />
                 </div>
               </div>
-              <div
-                v-else
-                class="rounded-md border border-dashed border-amber-300 bg-amber-50/40 p-3 text-sm text-muted-foreground dark:bg-amber-950/20"
-                data-testid="credit-settle-hint"
-              >
-                On finish, the Credit Voucher always prints once (same transaction ID as the
-                invoice). Sale Invoice print and copy count are chosen on the finish panel.
-              </div>
 
               <!-- Cash Sale Invoice: two copies by default; opt out of the customer copy (ADR-0008) -->
               <div
@@ -751,7 +744,7 @@ watch(
                   <span class="min-w-0 flex-1 text-sm">
                     <span class="block font-medium">Customer copy</span>
                     <span class="mt-0.5 block text-xs text-muted-foreground">
-                      Two invoice printouts by default (business + customer). Uncheck for business
+                      Two Quotation copies by default (business + customer). Uncheck for business
                       copy only.
                     </span>
                   </span>
@@ -815,7 +808,9 @@ watch(
       <SlipPreview
         :open="slipOpen"
         :txn="finished"
-        :printerless="settings?.printerlessMode ?? true"
+        :printerless="settings?.printerless ?? false"
+        :company-name="settings?.companyName ?? ''"
+        :date="businessDay?.startDate ?? ''"
         :customer-name="finishedInvoiceCustomer"
         :place="finishedInvoicePlace"
         :phone="finishedInvoicePhone"
@@ -829,7 +824,7 @@ watch(
       <CreditFinishPanel
         :open="creditFinishOpen"
         :txn="finished"
-        :printerless="settings?.printerlessMode ?? true"
+        :printerless="settings?.printerless ?? false"
         :company-name="settings?.companyName ?? ''"
         :date="businessDay?.startDate ?? ''"
         :customer-name="finishedInvoiceCustomer"
@@ -838,6 +833,8 @@ watch(
         :product-face-names="finishedProductFaceNames"
         :print-invoice="creditPrintInvoice"
         :print-two-copies="creditPrintTwoCopies"
+        :upi-id="settings?.upiId ?? ''"
+        :interest-paise-per100="settings?.voucherInterestPaisePer100 ?? 200"
         @update:open="(v) => (creditFinishOpen = v)"
         @update:print-invoice="(v) => (creditPrintInvoice = v)"
         @update:print-two-copies="(v) => (creditPrintTwoCopies = v)"

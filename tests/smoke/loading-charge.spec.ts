@@ -87,7 +87,7 @@ test('loading charge: settings → sale total → slip → cash drawer', async (
 
   await page.getByTestId('sale-finish').click()
   await expect(page.getByTestId('slip-preview')).toBeVisible()
-  await expect(page.getByTestId('slip-preview')).toContainText('Write a manual copy')
+  await expect(page.getByTestId('slip-preview')).toContainText('Cash Sale ready')
   await expect(page.getByTestId('slip-loading')).toBeVisible()
   await expect(page.getByTestId('slip-loading')).toContainText('24')
   // Grand total on slip includes loading

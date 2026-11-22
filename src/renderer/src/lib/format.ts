@@ -44,3 +44,10 @@ export function formatStockQty(qtyG: number, defaultBagSizeG: number): string {
 export function formatKgFromG(massG: number): string {
   return `${formatQty(gToKg(massG))} kg`
 }
+
+/** Business Day YYYY-MM-DD → DD/MM/YYYY for printed slips; passes anything else through. */
+export function formatSlipDate(isoDate: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(isoDate)
+  if (!m) return isoDate || '—'
+  return `${m[3]}/${m[2]}/${m[1]}`
+}

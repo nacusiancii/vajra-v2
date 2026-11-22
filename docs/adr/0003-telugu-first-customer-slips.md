@@ -9,6 +9,6 @@ We chose this split because the slip serves the customer, not the operator. Cust
 #### Consequences
 
 - Every new Customer and Product entry has two name fields (English required, Telugu optional). A simple transliteration helper button is desirable for v2 but not a blocker; OS-level IME is acceptable interim.
-- Slip rendering must be tested early on the target thermal printer — Telugu conjuncts and matras are non-trivial for cheap bitmap-font printers. Printer purchase is driven by Telugu rendering quality, not the other way around. If the chosen printer fails Telugu, this ADR must be revisited before the slip layer is finalised.
+- ~~Slip rendering must be tested early on the target thermal printer.~~ **Superseded by ADR-0012:** there is no thermal printer. Slips are HTML sheets that Chromium renders with the bundled Noto Sans Telugu font, so conjuncts and matras are shaped before anything reaches the printer driver. Telugu quality no longer depends on the printer model.
 - Customer-face fields use Telugu when set and English when not — layouts show the resolved string, not a reserved blank gap for missing translations.
 - No Telugu UI mode in v2. If the shopkeeper later wants their own Telugu view of the app, that is a new ADR and a substantial UI investment.
